@@ -8,10 +8,12 @@
 import SwiftUI
 
 @main
-struct Rideshare_TrackerApp: App {
+struct RideshareTrackerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(AppPreferences())
+                .environmentObject(ShiftDataManager())
         }
     }
 }
