@@ -2,9 +2,8 @@
 //  PreferencesView.swift
 //  Rideshare Tracker
 //
-//  Created by George on 8/10/25.
+//  Created by George Knaggs with Claude AI assistance on 8/10/25.
 //
-
 
 import SwiftUI
 
@@ -15,6 +14,24 @@ struct PreferencesView: View {
     var body: some View {
         NavigationView {
             Form {
+                Section("Display Settings") {
+                    HStack {
+                        Text("Week Start Day")
+                        Spacer()
+                        Picker("", selection: $preferences.weekStartDay) {
+                            Text("Sunday").tag(1)
+                            Text("Monday").tag(2)
+                            Text("Tuesday").tag(3)
+                            Text("Wednesday").tag(4)
+                            Text("Thursday").tag(5)
+                            Text("Friday").tag(6)
+                            Text("Saturday").tag(7)
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        .fixedSize()
+                    }
+                }
+                
                 Section("Vehicle Settings") {
                     HStack {
                         Text("Gas Tank Capacity (gallons)")

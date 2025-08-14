@@ -2,9 +2,8 @@
 //  ShiftDetailView.swift
 //  Rideshare Tracker
 //
-//  Created by George on 8/10/25.
+//  Created by George Knaggs with Claude AI assistance on 8/10/25.
 //
-
 
 import SwiftUI
 
@@ -13,6 +12,7 @@ struct ShiftDetailView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
     @EnvironmentObject var preferences: AppPreferences
     @State private var showingEndShift = false
+    @State private var showingEditShift = false
     
     var body: some View {
         Form {
@@ -153,16 +153,23 @@ struct ShiftDetailView: View {
         .navigationTitle("Shift Details")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if shift.endDate == nil {
-                ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                if shift.endDate == nil {
                     Button("End Shift") {
                         showingEndShift = true
                     }
+                }
+                
+                Button("Edit") {
+                    showingEditShift = true
                 }
             }
         }
         .sheet(isPresented: $showingEndShift) {
             EndShiftView(shift: $shift)
+        }
+        .sheet(isPresented: $showingEditShift) {
+            EditShiftView(shift: $shift)
         }
         .onChange(of: shift) { updatedShift in
             dataManager.updateShift(updatedShift)
