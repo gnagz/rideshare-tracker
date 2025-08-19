@@ -18,7 +18,7 @@ struct ShiftRowView: View {
                     .font(.headline)
                 Spacer()
                 if shift.endDate != nil {
-                    Text("$\(shift.totalEarnings, specifier: "%.2f")")
+                    Text("$\(shift.totalPaymentDue, specifier: "%.2f")")
                         .font(.headline)
                         .foregroundColor(.green)
                 } else {
@@ -34,11 +34,11 @@ struct ShiftRowView: View {
             
             if shift.endDate != nil {
                 HStack {
-                    Text("\(shift.shiftMileage, specifier: "%.1f") mi")
+                    Text("\(shift.totalTrips ?? 0) trips")
+                    Text("•")
+                    Text("\(shift.shiftMileage.formattedMileage) mi")
                     Text("•")
                     Text("\(shift.shiftHours)h \(shift.shiftMinutes)m")
-                    Text("•")
-                    Text("\(shift.totalTrips ?? 0) trips")
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)

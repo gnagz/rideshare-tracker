@@ -3,6 +3,7 @@
 //  Rideshare Tracker
 //
 //  Created by George Knaggs with Claude AI assistance on 8/10/25.
+//  Updated for macOS support on 8/13/25
 //
 
 import SwiftUI
@@ -16,19 +17,107 @@ struct EndShiftView: View {
     @State private var endMileage = ""
     @State private var didRefuel = false
     @State private var refuelGallons = ""
-    @State private var refuelCost = ""
-    @State private var tankReading = 8.0
+    @State private var refuelCost: Double? = nil
+    @State private var tankReading: Double
     @State private var totalTrips = ""
-    @State private var netFare = ""
-    @State private var tips = ""
-    @State private var totalTolls = ""
-    @State private var tollsReimbursed = ""
-    @State private var parkingFees = ""
+    @State private var netFare: Double? = nil
+    @State private var tips: Double? = nil
+    @State private var totalTolls: Double? = nil
+    @State private var tollsReimbursed: Double? = nil
+    @State private var parkingFees: Double? = nil
+    @State private var odometerError = ""
+    @State private var showEndDatePicker = false
+    
+    init(shift: Binding<RideshareShift>) {
+        self._shift = shift
+        self._tankReading = State(initialValue: shift.wrappedValue.startTankReading)
+    }
+    
+    private var availableTankLevels: [(label: String, value: Double)] {
+        let allLevels = [
+            ("E", 0.0),
+            ("1/8", 1.0),
+            ("1/4", 2.0),
+            ("3/8", 3.0),
+            ("1/2", 4.0),
+            ("5/8", 5.0),
+            ("3/4", 6.0),
+            ("7/8", 7.0),
+            ("F", 8.0)
+        ]
+        return allLevels.filter { $0.1 <= shift.startTankReading }
+    }
     
     var body: some View {
+        #if os(macOS)
+        VStack(spacing: 0) {
+            // Custom Title Bar
+            HStack {
+                Button("Cancel") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+                
+                Spacer()
+                
+                Text("End Shift")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Button("Save") {
+                    endShift()
+                }
+                .disabled(endMileage.isEmpty || totalTrips.isEmpty || !odometerError.isEmpty)
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(Color(.windowBackgroundColor))
+            .overlay(
+                Rectangle()
+                    .frame(height: 1)
+                    .foregroundColor(Color(.separatorColor)),
+                alignment: .bottom
+            )
+            
+            // Content
+            mainContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(width: 700, height: 700)
+        #else
         NavigationView {
-            Form {
-                Section("Shift End Time") {
+            formContent
+        }
+        #endif
+    }
+    
+    private var mainContent: some View {
+        #if os(macOS)
+        ScrollView {
+            VStack(spacing: 20) {
+                endSectionCustom
+                earningsSectionCustom
+                expensesSectionCustom
+                
+                Spacer()
+            }
+            .padding(.horizontal, 15)
+            .padding(.vertical)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.windowBackgroundColor))
+        #else
+        formContent
+        #endif
+    }
+    
+    private var formContent: some View {
+        Form {
+                Section("Shift End") {
                     DatePicker("", selection: $endDate)
                         .datePickerStyle(.compact)
                 }
@@ -38,49 +127,62 @@ struct EndShiftView: View {
                         Text("End Odometer Reading")
                         Spacer()
                         TextField("Miles", text: $endMileage)
+                            #if os(iOS)
                             .keyboardType(.decimalPad)
+                            #endif
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 100)
+                            .frame(width: 120)
+                            .onChange(of: endMileage) { _ in
+                                validateOdometerReading()
+                            }
                     }
                     
-                    Toggle("Refueled Tank", isOn: $didRefuel)
+                    if !odometerError.isEmpty {
+                        Text(odometerError)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                    
+                    HStack {
+                        Text("Refueled Tank")
+                        Spacer()
+                        Toggle("", isOn: $didRefuel)
+                    }
                     
                     if didRefuel {
                         HStack {
                             Text("Gallons Filled")
                             Spacer()
                             TextField("Gallons", text: $refuelGallons)
+                                #if os(iOS)
                                 .keyboardType(.decimalPad)
+                                #endif
                                 .multilineTextAlignment(.trailing)
                                 .textFieldStyle(.roundedBorder)
-                                .frame(width: 80)
+                                .frame(width: 120)
                         }
                         HStack {
                             Text("Fuel Cost")
                             Spacer()
-                            TextField("$0.00", text: $refuelCost)
+                            TextField("$0.00", value: $refuelCost, format: .currency(code: "USD"))
+                                #if os(iOS)
                                 .keyboardType(.decimalPad)
+                                #endif
                                 .multilineTextAlignment(.trailing)
                                 .textFieldStyle(.roundedBorder)
-                                .frame(width: 80)
+                                .frame(width: 120)
                         }
                     } else {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Tank Level")
                                 .font(.headline)
                             Picker("Tank Reading", selection: $tankReading) {
-                                Text("E").tag(0.0)
-                                Text("1/8").tag(1.0)
-                                Text("1/4").tag(2.0)
-                                Text("3/8").tag(3.0)
-                                Text("1/2").tag(4.0)
-                                Text("5/8").tag(5.0)
-                                Text("3/4").tag(6.0)
-                                Text("7/8").tag(7.0)
-                                Text("F").tag(8.0)
+                                ForEach(availableTankLevels, id: \.value) { level in
+                                    Text(level.label).tag(level.value)
+                                }
                             }
-                            .pickerStyle(SegmentedPickerStyle())
+                            .pickerStyle(.segmented)
                         }
                     }
                 }
@@ -90,28 +192,34 @@ struct EndShiftView: View {
                         Text("Total Trips")
                         Spacer()
                         TextField("0", text: $totalTrips)
+                            #if os(iOS)
                             .keyboardType(.numberPad)
+                            #endif
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 60)
+                            .frame(width: 80)
                     }
                     HStack {
                         Text("Net Fare")
                         Spacer()
-                        TextField("$0.00", text: $netFare)
+                        TextField("$0.00", value: $netFare, format: .currency(code: "USD"))
+                            #if os(iOS)
                             .keyboardType(.decimalPad)
+                            #endif
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
+                            .frame(width: 120)
                     }
                     HStack {
                         Text("Tips")
                         Spacer()
-                        TextField("$0.00", text: $tips)
+                        TextField("$0.00", value: $tips, format: .currency(code: "USD"))
+                            #if os(iOS)
                             .keyboardType(.decimalPad)
+                            #endif
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
+                            .frame(width: 120)
                     }
                 }
                 
@@ -119,53 +227,245 @@ struct EndShiftView: View {
                     HStack {
                         Text("Total Tolls")
                         Spacer()
-                        TextField("$0.00", text: $totalTolls)
+                        TextField("$0.00", value: $totalTolls, format: .currency(code: "USD"))
+                            #if os(iOS)
                             .keyboardType(.decimalPad)
+                            #endif
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
+                            .frame(width: 120)
                     }
                     HStack {
                         Text("Tolls Reimbursed")
                         Spacer()
-                        TextField("$0.00", text: $tollsReimbursed)
+                        TextField("$0.00", value: $tollsReimbursed, format: .currency(code: "USD"))
+                            #if os(iOS)
                             .keyboardType(.decimalPad)
+                            #endif
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
+                            .frame(width: 120)
                     }
                     HStack {
                         Text("Parking Fees")
                         Spacer()
-                        TextField("$0.00", text: $parkingFees)
+                        TextField("$0.00", value: $parkingFees, format: .currency(code: "USD"))
+                            #if os(iOS)
                             .keyboardType(.decimalPad)
+                            #endif
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
+                            .frame(width: 120)
                     }
                 }
             }
             .navigationTitle("End Shift")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
+            #endif
+            .toolbar(content: {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Done") {
                         hideKeyboard()
                     }
                 }
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         presentationMode.wrappedValue.dismiss()
                     }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         endShift()
                     }
-                    .disabled(endMileage.isEmpty || totalTrips.isEmpty)
+                    .disabled(endMileage.isEmpty || totalTrips.isEmpty || !odometerError.isEmpty)
+                }
+            })
+    }
+    
+    #if os(macOS)
+    private var endSectionCustom: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Shift End")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            VStack(spacing: 15) {
+                HStack {
+                    Text("End Date & Time")
+                    Spacer()
+                    TextField("End Date & Time", value: $endDate, format: .dateTime.month(.abbreviated).day().year().hour().minute())
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 300)
+                    
+                    Button(action: { showEndDatePicker.toggle() }) {
+                        Image(systemName: "calendar")
+                    }
+                    .buttonStyle(.borderless)
+                }
+                
+                if showEndDatePicker {
+                    VStack(spacing: 10) {
+                        DatePicker("Date", selection: $endDate, displayedComponents: .date)
+                            .datePickerStyle(.compact)
+                        
+                        DatePicker("Time", selection: $endDate, displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.compact)
+                    }
+                    .frame(maxHeight: 120)
+                }
+                
+                HStack {
+                    Text("End Odometer Reading")
+                    Spacer()
+                    TextField("Miles", text: $endMileage)
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 120)
+                        .onChange(of: endMileage) { _ in
+                            validateOdometerReading()
+                        }
+                }
+                
+                if !odometerError.isEmpty {
+                    Text(odometerError)
+                        .foregroundColor(.red)
+                        .font(.caption)
+                }
+                
+                HStack {
+                    Text("Refueled Tank")
+                    Spacer()
+                    Toggle("", isOn: $didRefuel)
+                }
+                
+                if didRefuel {
+                    HStack {
+                        Text("Gallons Filled")
+                        Spacer()
+                        TextField("Gallons", text: $refuelGallons)
+                            .textFieldStyle(.roundedBorder)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 120)
+                    }
+                    HStack {
+                        Text("Fuel Cost")
+                        Spacer()
+                        TextField("$0.00", value: $refuelCost, format: .currency(code: "USD"))
+                            .textFieldStyle(.roundedBorder)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 120)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Tank Level")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Picker("Tank Reading", selection: $tankReading) {
+                            ForEach(availableTankLevels, id: \.value) { level in
+                                Text(level.label).tag(level.value)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
                 }
             }
+            .padding()
+            .background(Color(.controlBackgroundColor))
+            .cornerRadius(0)
+        }
+    }
+    
+    private var earningsSectionCustom: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Trip & Earnings Data")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            VStack(spacing: 15) {
+                HStack {
+                    Text("Total Trips")
+                    Spacer()
+                    TextField("0", text: $totalTrips)
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 80)
+                }
+                HStack {
+                    Text("Net Fare")
+                    Spacer()
+                    TextField("$0.00", value: $netFare, format: .currency(code: "USD"))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 120)
+                }
+                HStack {
+                    Text("Tips")
+                    Spacer()
+                    TextField("$0.00", value: $tips, format: .currency(code: "USD"))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 120)
+                }
+            }
+            .padding()
+            .background(Color(.controlBackgroundColor))
+            .cornerRadius(0)
+        }
+    }
+    
+    private var expensesSectionCustom: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Additional Expenses")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            VStack(spacing: 15) {
+                HStack {
+                    Text("Total Tolls")
+                    Spacer()
+                    TextField("$0.00", value: $totalTolls, format: .currency(code: "USD"))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 120)
+                }
+                HStack {
+                    Text("Tolls Reimbursed")
+                    Spacer()
+                    TextField("$0.00", value: $tollsReimbursed, format: .currency(code: "USD"))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 120)
+                }
+                HStack {
+                    Text("Parking Fees")
+                    Spacer()
+                    TextField("$0.00", value: $parkingFees, format: .currency(code: "USD"))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 120)
+                }
+            }
+            .padding()
+            .background(Color(.controlBackgroundColor))
+            .cornerRadius(0)
+        }
+    }
+    #endif
+    
+    private func validateOdometerReading() {
+        guard let endMiles = Double(endMileage), endMiles > 0 else {
+            odometerError = ""
+            return
+        }
+        
+        let startMiles = shift.startMileage
+        if endMiles <= startMiles {
+            odometerError = "End reading must be greater than start reading (\(String(format: "%.1f", startMiles)) miles)"
+        } else {
+            odometerError = ""
         }
     }
     
@@ -176,24 +476,26 @@ struct EndShiftView: View {
         
         if didRefuel {
             shift.refuelGallons = Double(refuelGallons)
-            shift.refuelCost = Double(refuelCost)
+            shift.refuelCost = refuelCost
             shift.endTankReading = 8.0 // Assume full after refuel
         } else {
             shift.endTankReading = tankReading
         }
         
         shift.totalTrips = Int(totalTrips)
-        shift.netFare = Double(netFare)
-        shift.tips = Double(tips)
-        shift.totalTolls = totalTolls.isEmpty ? nil : Double(totalTolls)
-        shift.tollsReimbursed = tollsReimbursed.isEmpty ? nil : Double(tollsReimbursed)
-        shift.parkingFees = parkingFees.isEmpty ? nil : Double(parkingFees)
+        shift.netFare = netFare
+        shift.tips = tips
+        shift.totalTolls = totalTolls
+        shift.tollsReimbursed = tollsReimbursed
+        shift.parkingFees = parkingFees
         
         dataManager.updateShift(shift)
         presentationMode.wrappedValue.dismiss()
     }
     
     private func hideKeyboard() {
+        #if os(iOS)
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
     }
 }

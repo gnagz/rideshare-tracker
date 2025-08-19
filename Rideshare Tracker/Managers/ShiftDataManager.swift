@@ -44,4 +44,16 @@ class ShiftDataManager: ObservableObject {
         shifts.removeAll { $0.id == shift.id }
         saveShifts()
     }
+    
+    func importShifts(_ importedShifts: [RideshareShift], replaceExisting: Bool) {
+        if replaceExisting {
+            shifts = importedShifts
+        } else {
+            // Add only new shifts (avoid duplicates by ID)
+            let existingIDs = Set(shifts.map { $0.id })
+            let newShifts = importedShifts.filter { !existingIDs.contains($0.id) }
+            shifts.append(contentsOf: newShifts)
+        }
+        saveShifts()
+    }
 }

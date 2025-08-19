@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct RideshareShift: Codable, Identifiable, Equatable {
+struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     var id = UUID()
     
     // Start of shift data
@@ -102,5 +102,38 @@ struct RideshareShift: Codable, Identifiable, Equatable {
     
     func grossProfit(tankCapacity: Double, gasPrice: Double) -> Double {
         return totalEarnings - totalShiftExpenses(tankCapacity: tankCapacity, gasPrice: gasPrice)
+    }
+    
+    // Tax Summary Properties
+    var totalTips: Double {
+        return tips ?? 0
+    }
+    
+    var taxableIncome: Double {
+        return totalEarnings - totalTips
+    }
+    
+    func deductibleExpenses(mileageRate: Double) -> Double {
+        let netTolls = (totalTolls ?? 0) - (tollsReimbursed ?? 0)
+        return (shiftMileage * mileageRate) + netTolls + (parkingFees ?? 0)
+    }
+    
+    // Cash Flow Summary Properties
+    var expectedPayout: Double {
+        return (netFare ?? 0) + (tips ?? 0) + (tollsReimbursed ?? 0)
+    }
+    
+    func outOfPocketCosts(tankCapacity: Double, gasPrice: Double) -> Double {
+        let gasExpense = shiftGasCost(tankCapacity: tankCapacity, gasPrice: gasPrice)
+        return gasExpense + (totalTolls ?? 0) + (parkingFees ?? 0)
+    }
+    
+    func profit(tankCapacity: Double, gasPrice: Double) -> Double {
+        return expectedPayout - outOfPocketCosts(tankCapacity: tankCapacity, gasPrice: gasPrice)
+    }
+    
+    func profitPerHour(tankCapacity: Double, gasPrice: Double) -> Double {
+        let shiftProfit = profit(tankCapacity: tankCapacity, gasPrice: gasPrice)
+        return shiftDuration > 0 ? shiftProfit / (shiftDuration / 3600.0) : 0
     }
 }
