@@ -3,7 +3,7 @@
 //  Rideshare Tracker
 //
 //  Created by George Knaggs with Claude AI assistance on 8/10/25.
-//  Updated for macOS support on 8/13/25
+//  Optimized for iOS Universal (iPhone, iPad, Mac) on 8/19/25
 //
 
 import SwiftUI
@@ -15,165 +15,8 @@ struct ContentView: View {
     @State private var showingPreferences = false
     @State private var selectedDate = Date()
     @State private var showingDatePicker = false
-    @State private var selectedShift: RideshareShift?
     
     var body: some View {
-        #if os(macOS)
-        macOSView
-        #else
-        iOSView
-        #endif
-    }
-    
-    #if os(macOS)
-    var macOSView: some View {
-        NavigationSplitView {
-            // Sidebar
-            VStack(spacing: 0) {
-                // Date Navigation Header
-                VStack(spacing: 8) {
-                    HStack {
-                        Button(action: { moveWeek(-1) }) {
-                            Image(systemName: "chevron.left")
-                                .font(.title2)
-                        }
-                        .buttonStyle(.borderless)
-                        
-                        Spacer()
-                        
-                        Button(action: { showingDatePicker.toggle() }) {
-                            Text(weekHeaderText)
-                                .font(.headline)
-                        }
-                        .buttonStyle(.borderless)
-                        
-                        Spacer()
-                        
-                        Button(action: { moveWeek(1) }) {
-                            Image(systemName: "chevron.right")
-                                .font(.title2)
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(isCurrentWeek)
-                    }
-                    .padding(.horizontal)
-                    
-                    if showingDatePicker {
-                        DatePicker("Select Week", selection: $selectedDate, displayedComponents: .date)
-                            .datePickerStyle(.graphical)
-                            .frame(height: 200)
-                            .padding(.horizontal)
-                    }
-                }
-                .padding(.vertical)
-                .background(Color(.controlBackgroundColor))
-                
-                Divider()
-                
-                // Summary Cards
-                summaryCardsView
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-                
-                Divider()
-                
-                // Shifts List
-                if currentWeekShifts.isEmpty {
-                    VStack(spacing: 20) {
-                        Image(systemName: "car.fill")
-                            .font(.system(size: 40))
-                            .foregroundColor(.blue)
-                        Text("No shifts for this week")
-                            .font(.headline)
-                        if Calendar.current.isDate(selectedDate, equalTo: Date(), toGranularity: .weekOfYear) {
-                            Button("Start New Shift") {
-                                showingStartShift = true
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                    }
-                    .padding()
-                    Spacer()
-                } else {
-                    List(selection: $selectedShift) {
-                        ForEach(currentWeekShifts.sorted(by: { $0.startDate > $1.startDate })) { shift in
-                            ShiftRowView(shift: shift)
-                                .tag(shift)
-                                .contextMenu {
-                                    Button("Delete", role: .destructive) {
-                                        dataManager.deleteShift(shift)
-                                        if selectedShift?.id == shift.id {
-                                            selectedShift = nil
-                                        }
-                                    }
-                                }
-                        }
-                        .onDelete(perform: deleteShifts)
-                    }
-                    .listStyle(SidebarListStyle())
-                }
-            }
-            .frame(minWidth: 300)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { showingStartShift = true }) {
-                        Image(systemName: "plus")
-                    }
-                }
-                
-                if selectedShift != nil {
-                    ToolbarItem(placement: .destructiveAction) {
-                        Button(action: {
-                            if let shift = selectedShift {
-                                dataManager.deleteShift(shift)
-                                selectedShift = nil
-                            }
-                        }) {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
-                        }
-                    }
-                }
-            }
-        } detail: {
-            if let selectedShift = selectedShift {
-                ShiftDetailView(shift: selectedShift)
-                    .id(selectedShift.id) // Force view refresh when selection changes
-            } else {
-                // Summary View
-                VStack(spacing: 20) {
-                    Text("Rideshare Tracker")
-                        .font(.largeTitle)
-                        .bold()
-                    
-                    if !currentWeekShifts.isEmpty {
-                        Text("Select a shift from the sidebar to view details")
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("No shifts for this week")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.textBackgroundColor))
-            }
-        }
-        .navigationTitle("Rideshare Tracker")
-        .sheet(isPresented: $showingStartShift) {
-            StartShiftView(onShiftStarted: navigateToWeekContaining)
-        }
-        .sheet(isPresented: $showingPreferences) {
-            PreferencesView()
-                .environmentObject(dataManager)
-                .environmentObject(preferences)
-        }
-    }
-    #endif
-    
-    #if os(iOS)
-    var iOSView: some View {
         NavigationView {
             VStack(spacing: 0) {
                 // Date Navigation Header
@@ -187,8 +30,18 @@ struct ContentView: View {
                         Spacer()
                         
                         Button(action: { showingDatePicker.toggle() }) {
-                            Text(weekHeaderText)
+                            Text(DateFormatter.weekRange.string(from: selectedDate))
                                 .font(.headline)
+                        }
+                        .popover(isPresented: $showingDatePicker) {
+                            DatePicker("Select Date", 
+                                     selection: $selectedDate, 
+                                     displayedComponents: .date)
+                                .datePickerStyle(GraphicalDatePickerStyle())
+                                .padding()
+                                .onChange(of: selectedDate) { _ in
+                                    showingDatePicker = false
+                                }
                         }
                         
                         Spacer()
@@ -200,35 +53,27 @@ struct ContentView: View {
                         .disabled(isCurrentWeek)
                     }
                     .padding(.horizontal)
-                    
-                    if showingDatePicker {
-                        DatePicker("Select Week", selection: $selectedDate, displayedComponents: .date)
-                            .datePickerStyle(.wheel)
-                            .labelsHidden()
-                            .frame(height: 120)
-                            .padding(.horizontal)
-                    }
+                    .padding(.top, 8)
                     
                     // Summary Cards
                     summaryCardsView
                 }
-                .padding(.vertical)
-                .background(backgroundColorForOS)
+                .background(Color(UIColor.systemGroupedBackground))
                 
-                Divider()
-                
-                // Shifts List
+                // Content Area
                 if currentWeekShifts.isEmpty {
                     VStack(spacing: 20) {
                         Image(systemName: "car.fill")
-                            .font(.system(size: 40))
+                            .font(.system(size: 60))
                             .foregroundColor(.blue)
+                        
                         Text("No shifts for this week")
-                            .font(.headline)
-                        if Calendar.current.isDate(selectedDate, equalTo: Date(), toGranularity: .weekOfYear) {
-                            Text("Tap the + button to start a shift")
-                                .foregroundColor(.secondary)
-                        }
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                        
+                        Text("Tap the + button to start a shift")
+                            .font(.body)
+                            .foregroundColor(.secondary)
                     }
                     .padding()
                     Spacer()
@@ -244,21 +89,25 @@ struct ContentView: View {
                     .listStyle(PlainListStyle())
                 }
             }
-            .navigationTitle("Rideshare Tracker")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { showingPreferences = true }) {
+                        Image(systemName: "gearshape")
+                    }
+                }
+                
+                ToolbarItem(placement: .principal) {
+                    Text("Rideshare Tracker")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingStartShift = true }) {
                         Image(systemName: "plus")
                     }
                 }
-                #if os(iOS)
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { showingPreferences = true }) {
-                        Image(systemName: "gear")
-                    }
-                }
-                #endif
             }
             .sheet(isPresented: $showingStartShift) {
                 StartShiftView(onShiftStarted: navigateToWeekContaining)
@@ -270,82 +119,58 @@ struct ContentView: View {
             }
         }
     }
-    #endif
-    
-    // Platform-specific background color
-    private var backgroundColorForOS: Color {
-        #if os(iOS)
-        return Color(UIColor.systemGroupedBackground)
-        #else
-        return Color(.controlBackgroundColor)
-        #endif
-    }
     
     private var summaryCardsView: some View {
-        HStack(spacing: 12) {
-            SummaryCard(
-                title: "Week Totals",
-                paymentDue: weekTotals.paymentDue,
-                trips: weekTotals.trips,
-                miles: weekTotals.miles,
-                hours: weekTotals.hours,
-                grossProfit: calculateGrossProfit(for: currentWeekShifts),
-                grossProfitPerHour: calculateGrossProfitPerHour(for: currentWeekShifts),
-                color: .blue
-            )
-            
-            SummaryCard(
-                title: "Month Totals",
-                paymentDue: monthTotals.paymentDue,
-                trips: monthTotals.trips,
-                miles: monthTotals.miles,
-                hours: monthTotals.hours,
-                grossProfit: calculateGrossProfit(for: dataManager.shifts.filter { Calendar.current.isDate($0.startDate, equalTo: selectedDate, toGranularity: .month) }),
-                grossProfitPerHour: calculateGrossProfitPerHour(for: dataManager.shifts.filter { Calendar.current.isDate($0.startDate, equalTo: selectedDate, toGranularity: .month) }),
-                color: .green
-            )
-            
-            SummaryCard(
-                title: "Year Totals",
-                paymentDue: yearTotals.paymentDue,
-                trips: yearTotals.trips,
-                miles: yearTotals.miles,
-                hours: yearTotals.hours,
-                grossProfit: calculateGrossProfit(for: dataManager.shifts.filter { Calendar.current.isDate($0.startDate, equalTo: selectedDate, toGranularity: .year) }),
-                grossProfitPerHour: calculateGrossProfitPerHour(for: dataManager.shifts.filter { Calendar.current.isDate($0.startDate, equalTo: selectedDate, toGranularity: .year) }),
-                color: .purple
-            )
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                let weekTotals = self.weekTotals
+                let monthTotals = self.monthTotals 
+                let yearTotals = self.yearTotals
+                
+                SummaryCard(
+                    title: "Week Totals",
+                    paymentDue: weekTotals.paymentDue,
+                    trips: weekTotals.trips,
+                    miles: weekTotals.miles,
+                    hours: weekTotals.hours,
+                    grossProfit: calculateGrossProfit(for: weekShifts),
+                    grossProfitPerHour: calculateGrossProfitPerHour(for: weekShifts),
+                    color: .blue
+                )
+                
+                SummaryCard(
+                    title: "Month Totals", 
+                    paymentDue: monthTotals.paymentDue,
+                    trips: monthTotals.trips,
+                    miles: monthTotals.miles,
+                    hours: monthTotals.hours,
+                    grossProfit: calculateGrossProfit(for: monthShifts),
+                    grossProfitPerHour: calculateGrossProfitPerHour(for: monthShifts),
+                    color: .green
+                )
+                
+                SummaryCard(
+                    title: "Year Totals",
+                    paymentDue: yearTotals.paymentDue,
+                    trips: yearTotals.trips,
+                    miles: yearTotals.miles,
+                    hours: yearTotals.hours,
+                    grossProfit: calculateGrossProfit(for: yearShifts),
+                    grossProfitPerHour: calculateGrossProfitPerHour(for: yearShifts),
+                    color: .orange
+                )
+            }
+            .padding(.horizontal)
         }
-        .padding(.horizontal)
-    }
-    
-    private var weekHeaderText: String {
-        // Get the week interval based on the user's preferred week start day
-        let weekInterval = getWeekInterval(for: selectedDate)
-        let weekStart = weekInterval.start
-        let weekEnd = Calendar.current.date(byAdding: .day, value: -1, to: weekInterval.end) ?? weekInterval.end
-        
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        
-        let startStr = formatter.string(from: weekStart)
-        let endStr = formatter.string(from: weekEnd)
-        
-        let yearFormatter = DateFormatter()
-        yearFormatter.dateFormat = "yyyy"
-        
-        return "\(startStr) - \(endStr), \(yearFormatter.string(from: weekStart))"
     }
     
     private var isCurrentWeek: Bool {
-        let currentWeekInterval = getWeekInterval(for: Date())
-        let selectedWeekInterval = getWeekInterval(for: selectedDate)
-        return currentWeekInterval.start == selectedWeekInterval.start
+        let calendar = Calendar.current
+        return calendar.isDate(selectedDate, equalTo: Date(), toGranularity: .weekOfYear)
     }
     
     private var currentWeekShifts: [RideshareShift] {
         let weekInterval = getWeekInterval(for: selectedDate)
-        
         return dataManager.shifts.filter { shift in
             weekInterval.contains(shift.startDate)
         }
@@ -353,32 +178,35 @@ struct ContentView: View {
     
     private func getWeekInterval(for date: Date) -> DateInterval {
         let calendar = Calendar.current
+        let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: date)?.start ?? date
         
-        // Get the weekday of the given date
-        let weekday = calendar.component(.weekday, from: date)
+        // Find the user's preferred week start day
+        let preferredWeekStart = preferences.weekStartDay == 1 ? 1 : 2 // 1 = Sunday, 2 = Monday
+        let currentWeekStart = calendar.component(.weekday, from: startOfWeek)
         
-        // Calculate days to subtract to get to the week start day
-        let daysFromWeekStart = (weekday - preferences.weekStartDay + 7) % 7
+        var adjustedStart = startOfWeek
+        if currentWeekStart != preferredWeekStart {
+            let dayDifference = preferredWeekStart - currentWeekStart
+            adjustedStart = calendar.date(byAdding: .day, value: dayDifference, to: startOfWeek) ?? startOfWeek
+            
+            // If the adjustment puts us in the future, go back a week
+            if adjustedStart > date {
+                adjustedStart = calendar.date(byAdding: .weekOfYear, value: -1, to: adjustedStart) ?? adjustedStart
+            }
+        }
         
-        // Get the start of the week
-        let weekStart = calendar.date(byAdding: .day, value: -daysFromWeekStart, to: date) ?? date
-        let startOfWeekStart = calendar.startOfDay(for: weekStart)
-        
-        // Get the end of the week (7 days later)
-        let weekEnd = calendar.date(byAdding: .day, value: 7, to: startOfWeekStart) ?? startOfWeekStart
-        
-        return DateInterval(start: startOfWeekStart, end: weekEnd)
+        let endOfWeek = calendar.date(byAdding: .day, value: 6, to: adjustedStart) ?? adjustedStart
+        return DateInterval(start: adjustedStart, end: endOfWeek)
     }
     
     private func moveWeek(_ direction: Int) {
-        let calendar = Calendar.current
-        if let newDate = calendar.date(byAdding: .weekOfYear, value: direction, to: selectedDate) {
+        if let newDate = Calendar.current.date(byAdding: .weekOfYear, value: direction, to: selectedDate) {
             selectedDate = newDate
         }
     }
     
     private var weekTotals: (paymentDue: Double, trips: Int, miles: Double, hours: Double) {
-        calculateTotals(for: currentWeekShifts)
+        return calculateTotals(for: currentWeekShifts)
     }
     
     private var monthTotals: (paymentDue: Double, trips: Int, miles: Double, hours: Double) {
@@ -395,6 +223,24 @@ struct ContentView: View {
             calendar.isDate(shift.startDate, equalTo: selectedDate, toGranularity: .year)
         }
         return calculateTotals(for: yearShifts)
+    }
+    
+    private var weekShifts: [RideshareShift] {
+        return currentWeekShifts
+    }
+    
+    private var monthShifts: [RideshareShift] {
+        let calendar = Calendar.current
+        return dataManager.shifts.filter { shift in
+            calendar.isDate(shift.startDate, equalTo: selectedDate, toGranularity: .month)
+        }
+    }
+    
+    private var yearShifts: [RideshareShift] {
+        let calendar = Calendar.current
+        return dataManager.shifts.filter { shift in
+            calendar.isDate(shift.startDate, equalTo: selectedDate, toGranularity: .year)
+        }
     }
     
     private func calculateTotals(for shifts: [RideshareShift]) -> (paymentDue: Double, trips: Int, miles: Double, hours: Double) {
@@ -421,7 +267,6 @@ struct ContentView: View {
     
     private func calculateGrossProfit(for shifts: [RideshareShift]) -> Double {
         let completedShifts = shifts.filter { $0.endDate != nil }
-        
         return completedShifts.reduce(0) { sum, shift in
             sum + shift.grossProfit(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
         }
@@ -429,16 +274,12 @@ struct ContentView: View {
     
     private func calculateGrossProfitPerHour(for shifts: [RideshareShift]) -> Double {
         let completedShifts = shifts.filter { $0.endDate != nil }
-        
-        let totalGrossProfit = completedShifts.reduce(0) { sum, shift in
-            sum + shift.grossProfit(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
-        }
-        
+        let totalProfit = calculateGrossProfit(for: completedShifts)
         let totalHours = completedShifts.reduce(0) { sum, shift in
             sum + (shift.shiftDuration / 3600.0)
         }
         
-        return totalHours > 0 ? totalGrossProfit / totalHours : 0
+        return totalHours > 0 ? totalProfit / totalHours : 0
     }
     
     func deleteShifts(offsets: IndexSet) {
@@ -495,16 +336,8 @@ struct SummaryCard: View {
         }
         .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(backgroundColorForCard)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
-    }
-    
-    private var backgroundColorForCard: Color {
-        #if os(macOS)
-        return Color(.controlBackgroundColor)
-        #else
-        return Color(.systemBackground)
-        #endif
     }
 }

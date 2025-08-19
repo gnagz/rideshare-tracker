@@ -13,4 +13,10 @@ extension DateFormatter {
         formatter.dateFormat = "M/d/yy h:mm a"
         return formatter
     }()
+    
+    static let weekRange: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d - MMM d, yyyy"
+        return formatter
+    }()
 }

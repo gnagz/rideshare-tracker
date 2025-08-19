@@ -3,7 +3,7 @@
 //  Rideshare Tracker
 //
 //  Created by George Knaggs with Claude AI assistance on 8/10/25.
-//  Updated for macOS support on 8/13/25
+//  Optimized for iOS Universal (iPhone, iPad, Mac) on 8/19/25
 //
 
 import SwiftUI
@@ -16,315 +16,52 @@ struct ShiftDetailView: View {
     @State private var showingEditShift = false
     
     var body: some View {
-        #if os(macOS)
-        macOSView
-        #else
-        iOSView
-        #endif
-    }
-    
-    #if os(macOS)
-    var macOSView: some View {
-        VStack(spacing: 0) {
-            // Header with action buttons
-            HStack {
-                Text("Shift Details")
-                    .font(.largeTitle)
-                    .bold()
-                
-                Spacer()
-                
-                HStack(spacing: 12) {
-                    if shift.endDate == nil {
-                        Button("End Shift") {
-                            showingEndShift = true
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                    
-                    Button("Edit") {
-                        showingEditShift = true
-                    }
-                    .buttonStyle(.bordered)
-                }
-            }
-            .padding()
+        GeometryReader { geometry in
+            let isWideScreen = geometry.size.width > 600
             
-            ScrollView(.vertical, showsIndicators: true) {
-            VStack(spacing: 20) {
-                // Header with date
-                VStack(spacing: 8) {
-                    Text(DateFormatter.shortDateTime.string(from: shift.startDate))
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-                
-                HStack(alignment: .top, spacing: 20) {
-                    // Left Column
-                    VStack(spacing: 20) {
-                        // Shift Overview
-                        GroupBox("Shift Overview") {
-                            VStack(spacing: 8) {
-                                DetailRow("Start Date & Time", DateFormatter.shortDateTime.string(from: shift.startDate))
-                                
-                                if let endDate = shift.endDate {
-                                    DetailRow("End Date & Time", DateFormatter.shortDateTime.string(from: endDate))
-                                    DetailRow("Duration", "\(shift.shiftHours)h \(shift.shiftMinutes)m")
-                                }
-                                
-                                DetailRow("Start Odometer Reading", "\(shift.startMileage.formattedMileage) mi")
-                                
-                                if shift.endDate == nil {
-                                    // Show tank level for active shifts
-                                    DetailRow("Tank Level", tankLevelText(shift.startTankReading))
-                                }
-                                
-                                if let endMileage = shift.endMileage {
-                                    DetailRow("End Odometer Reading", "\(endMileage.formattedMileage) mi")
-                                    DetailRow("Shift Mileage", "\(shift.shiftMileage.formattedMileage) mi")
-                                }
-                            }
-                            .padding()
-                        }
-                        
-                        if shift.endDate != nil {
-                            // Trip Data
-                            GroupBox("Trip Data") {
-                                VStack(spacing: 8) {
-                                    DetailRow("Total Trips", "\(shift.totalTrips ?? 0)")
-                                    DetailRow("Net Fare", String(format: "$%.2f", shift.netFare ?? 0))
-                                    DetailRow("Tips", String(format: "$%.2f", shift.tips ?? 0))
-                                    DetailRow("Total Earnings", String(format: "$%.2f", shift.totalEarnings), valueColor: .green)
-                                }
-                                .padding()
-                            }
-                        }
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Header with date
+                    VStack(spacing: 8) {
+                        Text(DateFormatter.shortDateTime.string(from: shift.startDate))
+                            .font(.title2)
+                            .foregroundColor(.secondary)
                     }
+                    .padding()
                     
-                    // Right Column
-                    VStack(spacing: 20) {
-                        if shift.endDate != nil {
-                            // Expenses
-                            GroupBox("Expenses") {
-                                VStack(spacing: 8) {
-                                    DetailRow("Gas Cost", String(format: "$%.2f", shift.shiftGasCost(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)))
-                                    DetailRow("Gas Used", String(format: "%.1f gal", shift.shiftGasUsage(tankCapacity: preferences.tankCapacity)))
-                                    DetailRow("MPG", String(format: "%.1f", shift.shiftMPG(tankCapacity: preferences.tankCapacity)))
-                                    
-                                    if let tolls = shift.totalTolls, tolls > 0 {
-                                        DetailRow("Total Tolls", String(format: "$%.2f", tolls))
-                                        DetailRow("Tolls Reimbursed", String(format: "$%.2f", shift.tollsReimbursed ?? 0))
-                                    }
-                                    if let parking = shift.parkingFees, parking > 0 {
-                                        DetailRow("Parking Fees", String(format: "$%.2f", parking))
-                                    }
+                    if isWideScreen {
+                        // Two-column layout for larger screens
+                        HStack(alignment: .top, spacing: 20) {
+                            // Left Column
+                            VStack(spacing: 20) {
+                                shiftOverviewSection
+                                if shift.endDate != nil {
+                                    tripDataSection
                                 }
-                                .padding()
                             }
                             
-                            // Tax Summary
-                            GroupBox("Tax Summary") {
-                                VStack(spacing: 8) {
-                                    DetailRow("Total Earnings", String(format: "$%.2f", shift.totalEarnings))
-                                    DetailRow("Total Tips", String(format: "$%.2f", shift.totalTips))
-                                    DetailRow("Taxable Income", String(format: "$%.2f", shift.taxableIncome))
-                                    DetailRow("Deductible Expenses", String(format: "$%.2f", shift.deductibleExpenses(mileageRate: preferences.standardMileageRate)))
+                            // Right Column
+                            VStack(spacing: 20) {
+                                if shift.endDate != nil {
+                                    expensesSection
+                                    taxSummarySection
+                                    cashFlowSummarySection
                                 }
-                                .padding()
-                            }
-                            
-                            // Cash Flow Summary
-                            GroupBox("Cash Flow Summary") {
-                                VStack(spacing: 8) {
-                                    DetailRow("Expected Payout", String(format: "$%.2f", shift.expectedPayout), valueColor: .blue)
-                                    DetailRow("Out of Pocket Costs", String(format: "$%.2f", shift.outOfPocketCosts(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)))
-                                    
-                                    let profit = shift.profit(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
-                                    let profitPerHour = shift.profitPerHour(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
-                                    
-                                    DetailRow("Profit", String(format: "$%.2f", profit), valueColor: profit >= 0 ? .green : .red)
-                                    DetailRow("Profit/hr", String(format: "$%.2f", profitPerHour), valueColor: profitPerHour >= 0 ? .green : .red)
-                                }
-                                .padding()
                             }
                         }
-                    }
-                }
-                .padding()
-            }
-        }
-        .sheet(isPresented: $showingEndShift) {
-            EndShiftView(shift: $shift)
-        }
-        .sheet(isPresented: $showingEditShift) {
-            EditShiftView(shift: $shift)
-        }
-        }
-    }
-    #endif
-    
-    #if os(iOS)
-    var iOSView: some View {
-        Form {
-            Section("Shift Overview") {
-                HStack {
-                    Text("Start Date & Time")
-                    Spacer()
-                    Text(DateFormatter.shortDateTime.string(from: shift.startDate))
-                }
-                
-                if let endDate = shift.endDate {
-                    HStack {
-                        Text("End Date & Time")
-                        Spacer()
-                        Text(DateFormatter.shortDateTime.string(from: endDate))
-                    }
-                    HStack {
-                        Text("Duration")
-                        Spacer()
-                        Text("\(shift.shiftHours)h \(shift.shiftMinutes)m")
-                    }
-                }
-                
-                HStack {
-                    Text("Start Odometer Reading")
-                    Spacer()
-                    Text("\(shift.startMileage.formattedMileage) mi")
-                }
-                
-                if shift.endDate == nil {
-                    HStack {
-                        Text("Tank Level")
-                        Spacer()
-                        Text(tankLevelText(shift.startTankReading))
-                    }
-                }
-                
-                if let endMileage = shift.endMileage {
-                    HStack {
-                        Text("End Odometer Reading")
-                        Spacer()
-                        Text("\(endMileage.formattedMileage) mi")
-                    }
-                    HStack {
-                        Text("Shift Mileage")
-                        Spacer()
-                        Text("\(shift.shiftMileage.formattedMileage) mi")
-                    }
-                }
-            }
-            
-            if shift.endDate != nil {
-                Section("Trip Data") {
-                    HStack {
-                        Text("Total Trips")
-                        Spacer()
-                        Text("\(shift.totalTrips ?? 0)")
-                    }
-                    HStack {
-                        Text("Net Fare")
-                        Spacer()
-                        Text("$\(shift.netFare ?? 0, specifier: "%.2f")")
-                    }
-                    HStack {
-                        Text("Tips")
-                        Spacer()
-                        Text("$\(shift.tips ?? 0, specifier: "%.2f")")
-                    }
-                    HStack {
-                        Text("Total Earnings")
-                        Spacer()
-                        Text("$\(shift.totalEarnings, specifier: "%.2f")")
-                            .foregroundColor(.green)
-                    }
-                }
-                
-                Section("Expenses") {
-                    HStack {
-                        Text("Gas Cost")
-                        Spacer()
-                        Text("$\(shift.shiftGasCost(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice), specifier: "%.2f")")
-                    }
-                    HStack {
-                        Text("Gas Used")
-                        Spacer()
-                        Text("\(shift.shiftGasUsage(tankCapacity: preferences.tankCapacity), specifier: "%.1f") gal")
-                    }
-                    HStack {
-                        Text("MPG")
-                        Spacer()
-                        Text("\(shift.shiftMPG(tankCapacity: preferences.tankCapacity), specifier: "%.1f")")
-                    }
-                    if let tolls = shift.totalTolls, tolls > 0 {
-                        HStack {
-                            Text("Total Tolls")
-                            Spacer()
-                            Text("$\(tolls, specifier: "%.2f")")
+                        .padding(.horizontal)
+                    } else {
+                        // Single column layout for smaller screens
+                        VStack(spacing: 20) {
+                            shiftOverviewSection
+                            if shift.endDate != nil {
+                                tripDataSection
+                                expensesSection
+                                taxSummarySection
+                                cashFlowSummarySection
+                            }
                         }
-                        HStack {
-                            Text("Tolls Reimbursed")
-                            Spacer()
-                            Text("$\(shift.tollsReimbursed ?? 0, specifier: "%.2f")")
-                        }
-                    }
-                    if let parking = shift.parkingFees, parking > 0 {
-                        HStack {
-                            Text("Parking Fees")
-                            Spacer()
-                            Text("$\(parking, specifier: "%.2f")")
-                        }
-                    }
-                }
-                
-                Section("Tax Summary") {
-                    HStack {
-                        Text("Total Earnings")
-                        Spacer()
-                        Text("$\(shift.totalEarnings, specifier: "%.2f")")
-                    }
-                    HStack {
-                        Text("Total Tips")
-                        Spacer()
-                        Text("$\(shift.totalTips, specifier: "%.2f")")
-                    }
-                    HStack {
-                        Text("Taxable Income")
-                        Spacer()
-                        Text("$\(shift.taxableIncome, specifier: "%.2f")")
-                    }
-                    HStack {
-                        Text("Deductible Expenses")
-                        Spacer()
-                        Text("$\(shift.deductibleExpenses(mileageRate: preferences.standardMileageRate), specifier: "%.2f")")
-                    }
-                }
-                
-                Section("Cash Flow Summary") {
-                    HStack {
-                        Text("Expected Payout")
-                        Spacer()
-                        Text("$\(shift.expectedPayout, specifier: "%.2f")")
-                            .foregroundColor(.blue)
-                    }
-                    HStack {
-                        Text("Out of Pocket Costs")
-                        Spacer()
-                        Text("$\(shift.outOfPocketCosts(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice), specifier: "%.2f")")
-                    }
-                    HStack {
-                        Text("Profit")
-                        Spacer()
-                        let profit = shift.profit(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
-                        Text("$\(profit, specifier: "%.2f")")
-                            .foregroundColor(profit >= 0 ? .green : .red)
-                    }
-                    HStack {
-                        Text("Profit/hr")
-                        Spacer()
-                        let profitPerHour = shift.profitPerHour(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
-                        Text("$\(profitPerHour, specifier: "%.2f")")
-                            .foregroundColor(profitPerHour >= 0 ? .green : .red)
+                        .padding(.horizontal)
                     }
                 }
             }
@@ -351,7 +88,125 @@ struct ShiftDetailView: View {
             EditShiftView(shift: $shift)
         }
     }
-    #endif
+    
+    private var shiftOverviewSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Shift Overview")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            VStack(spacing: 8) {
+                DetailRow("Start Date & Time", DateFormatter.shortDateTime.string(from: shift.startDate))
+                
+                if let endDate = shift.endDate {
+                    DetailRow("End Date & Time", DateFormatter.shortDateTime.string(from: endDate))
+                    DetailRow("Duration", "\(shift.shiftHours)h \(shift.shiftMinutes)m")
+                }
+                
+                DetailRow("Start Odometer Reading", "\(shift.startMileage.formattedMileage) mi")
+                
+                if shift.endDate == nil {
+                    DetailRow("Tank Level", tankLevelText(shift.startTankReading))
+                }
+                
+                if let endMileage = shift.endMileage {
+                    DetailRow("End Odometer Reading", "\(endMileage.formattedMileage) mi")
+                    DetailRow("Shift Mileage", "\(shift.shiftMileage.formattedMileage) mi")
+                }
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+    }
+    
+    private var tripDataSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Trip Data")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            VStack(spacing: 8) {
+                DetailRow("Total Trips", "\(shift.totalTrips ?? 0)")
+                DetailRow("Net Fare", String(format: "$%.2f", shift.netFare ?? 0))
+                DetailRow("Tips", String(format: "$%.2f", shift.tips ?? 0))
+                DetailRow("Total Earnings", String(format: "$%.2f", shift.totalEarnings), valueColor: .green)
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+    }
+    
+    private var expensesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Expenses")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            VStack(spacing: 8) {
+                DetailRow("Gas Cost", String(format: "$%.2f", shift.shiftGasCost(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)))
+                DetailRow("Gas Used", String(format: "%.1f gal", shift.shiftGasUsage(tankCapacity: preferences.tankCapacity)))
+                DetailRow("MPG", String(format: "%.1f", shift.shiftMPG(tankCapacity: preferences.tankCapacity)))
+                
+                if let tolls = shift.totalTolls, tolls > 0 {
+                    DetailRow("Total Tolls", String(format: "$%.2f", tolls))
+                    DetailRow("Tolls Reimbursed", String(format: "$%.2f", shift.tollsReimbursed ?? 0))
+                }
+                if let parking = shift.parkingFees, parking > 0 {
+                    DetailRow("Parking Fees", String(format: "$%.2f", parking))
+                }
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+    }
+    
+    private var taxSummarySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Tax Summary")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            VStack(spacing: 8) {
+                DetailRow("Total Earnings", String(format: "$%.2f", shift.totalEarnings))
+                DetailRow("Total Tips", String(format: "$%.2f", shift.totalTips))
+                DetailRow("Taxable Income", String(format: "$%.2f", shift.taxableIncome))
+                DetailRow("Deductible Expenses", String(format: "$%.2f", shift.deductibleExpenses(mileageRate: preferences.standardMileageRate)))
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+    }
+    
+    private var cashFlowSummarySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Cash Flow Summary")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            VStack(spacing: 8) {
+                DetailRow("Expected Payout", String(format: "$%.2f", shift.expectedPayout), valueColor: .blue)
+                DetailRow("Out of Pocket Costs", String(format: "$%.2f", shift.outOfPocketCosts(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)))
+                
+                let profit = shift.profit(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
+                let profitPerHour = shift.profitPerHour(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
+                
+                DetailRow("Profit", String(format: "$%.2f", profit), valueColor: profit >= 0 ? .green : .red)
+                DetailRow("Profit/hr", String(format: "$%.2f", profitPerHour), valueColor: profitPerHour >= 0 ? .green : .red)
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+    }
     
     private func tankLevelText(_ reading: Double) -> String {
         switch reading {
@@ -369,7 +224,7 @@ struct ShiftDetailView: View {
     }
 }
 
-// Helper view for macOS detail rows
+// Helper view for detail rows
 struct DetailRow: View {
     let label: String
     let value: String
@@ -384,11 +239,12 @@ struct DetailRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .foregroundColor(.primary)
             Spacer()
             Text(value)
-                .foregroundColor(valueColor ?? .primary)
+                .foregroundColor(valueColor ?? .secondary)
                 .fontWeight(valueColor != nil ? .semibold : .regular)
         }
+        .font(.body)
     }
 }
