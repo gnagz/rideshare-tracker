@@ -16,6 +16,13 @@ struct ContentView: View {
     @State private var selectedDate = Date()
     @State private var showingDatePicker = false
     
+    private func formatWeekRange(for date: Date) -> String {
+        let weekInterval = getWeekInterval(for: date)
+        let startDate = preferences.formatDate(weekInterval.start)
+        let endDate = preferences.formatDate(weekInterval.end)
+        return "\(startDate) - \(endDate)"
+    }
+    
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
@@ -30,7 +37,7 @@ struct ContentView: View {
                         Spacer()
                         
                         Button(action: { showingDatePicker.toggle() }) {
-                            Text(DateFormatter.weekRange.string(from: selectedDate))
+                            Text(formatWeekRange(for: selectedDate))
                                 .font(.headline)
                         }
                         .popover(isPresented: $showingDatePicker) {

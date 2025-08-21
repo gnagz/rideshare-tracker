@@ -10,6 +10,7 @@ import SwiftUI
 
 struct StartShiftView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
+    @EnvironmentObject var preferences: AppPreferences
     @Environment(\.presentationMode) var presentationMode
     
     var onShiftStarted: ((Date) -> Void)? = nil
@@ -180,8 +181,35 @@ struct StartShiftView: View {
         #else
         Form {
             Section("Shift Start Time") {
-                DatePicker("Date & Time", selection: $startDate, displayedComponents: [.date, .hourAndMinute])
-                    .datePickerStyle(.compact)
+                HStack {
+                    Text("Date")
+                    Spacer()
+                    Button(preferences.formatDate(startDate)) {
+                        // Date picker will be shown in overlay
+                    }
+                    .foregroundColor(.primary)
+                }
+                .background(
+                    DatePicker("", selection: $startDate, displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                        .opacity(0.011) // Nearly invisible but still functional
+                )
+                
+                HStack {
+                    Text("Time")
+                    Spacer()
+                    Button(preferences.formatTime(startDate)) {
+                        // Time picker will be shown in overlay
+                    }
+                    .foregroundColor(.primary)
+                }
+                .background(
+                    DatePicker("", selection: $startDate, displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                        .opacity(0.011) // Nearly invisible but still functional
+                )
             }
             
             Section("Vehicle Information") {

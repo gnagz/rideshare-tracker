@@ -11,10 +11,14 @@ struct ShiftRowView: View {
     let shift: RideshareShift
     @EnvironmentObject var preferences: AppPreferences
     
+    private func formatDateTime(_ date: Date) -> String {
+        return "\(preferences.formatDate(date)) \(preferences.formatTime(date))"
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(DateFormatter.shortDateTime.string(from: shift.startDate))
+                Text(formatDateTime(shift.startDate))
                     .font(.headline)
                 Spacer()
                 if shift.endDate != nil {

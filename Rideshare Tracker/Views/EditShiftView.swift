@@ -11,6 +11,7 @@ import SwiftUI
 struct EditShiftView: View {
     @Binding var shift: RideshareShift
     @EnvironmentObject var dataManager: ShiftDataManager
+    @EnvironmentObject var preferences: AppPreferences
     @Environment(\.presentationMode) var presentationMode
     
     // Start shift data
@@ -428,8 +429,35 @@ struct EditShiftView: View {
                         .frame(maxHeight: 300)
                 }
                 #else
-                DatePicker("", selection: $startDate)
-                    .datePickerStyle(.compact)
+                HStack {
+                    Text("Date")
+                    Spacer()
+                    Button(preferences.formatDate(startDate)) {
+                        // Date picker will be shown in overlay
+                    }
+                    .foregroundColor(.primary)
+                }
+                .background(
+                    DatePicker("", selection: $startDate, displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                        .opacity(0.011) // Nearly invisible but still functional
+                )
+                
+                HStack {
+                    Text("Time")
+                    Spacer()
+                    Button(preferences.formatTime(startDate)) {
+                        // Time picker will be shown in overlay
+                    }
+                    .foregroundColor(.primary)
+                }
+                .background(
+                    DatePicker("", selection: $startDate, displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                        .opacity(0.011) // Nearly invisible but still functional
+                )
                 #endif
             }
             
@@ -488,8 +516,35 @@ struct EditShiftView: View {
                         .frame(maxHeight: 300)
                 }
                 #else
-                DatePicker("", selection: $endDate)
-                    .datePickerStyle(.compact)
+                HStack {
+                    Text("Date")
+                    Spacer()
+                    Button(preferences.formatDate(endDate)) {
+                        // Date picker will be shown in overlay
+                    }
+                    .foregroundColor(.primary)
+                }
+                .background(
+                    DatePicker("", selection: $endDate, displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                        .opacity(0.011) // Nearly invisible but still functional
+                )
+                
+                HStack {
+                    Text("Time")
+                    Spacer()
+                    Button(preferences.formatTime(endDate)) {
+                        // Time picker will be shown in overlay
+                    }
+                    .foregroundColor(.primary)
+                }
+                .background(
+                    DatePicker("", selection: $endDate, displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                        .opacity(0.011) // Nearly invisible but still functional
+                )
                 #endif
             }
             

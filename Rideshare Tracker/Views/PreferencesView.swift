@@ -23,6 +23,65 @@ struct PreferencesView: View {
     @State private var backupFileURL: URL?
     @State private var pendingBackupData: BackupData?
     @State private var showingImportOptions = false
+    @State private var currentDate = Date()
+    
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+    
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+    }
+    
+    private var dateFormatExamples: [(String, String)] {
+        let formats = [
+            ("M/d/yyyy", "US Format"),
+            ("MMM d, yyyy", "Written Format"), 
+            ("d/M/yyyy", "International Format"),
+            ("yyyy-MM-dd", "ISO Format")
+        ]
+        
+        return formats.map { (format, description) in
+            let formatter = DateFormatter()
+            formatter.dateFormat = format
+            return (format, formatter.string(from: currentDate))
+        }
+    }
+    
+    private var timeFormatExamples: [(String, String)] {
+        let formats = [
+            ("h:mm a", "12-hour"),
+            ("HH:mm", "24-hour")
+        ]
+        
+        return formats.map { (format, description) in
+            let formatter = DateFormatter()
+            formatter.dateFormat = format
+            return (format, formatter.string(from: currentDate))
+        }
+    }
+    
+    private var commonTimeZones: [(String, String)] {
+        let timeZoneIdentifiers = [
+            "America/New_York",
+            "America/Chicago", 
+            "America/Denver",
+            "America/Phoenix",
+            "America/Los_Angeles",
+            "America/Anchorage",
+            "Pacific/Honolulu",
+            "UTC"
+        ]
+        
+        return timeZoneIdentifiers.compactMap { identifier in
+            guard let timeZone = TimeZone(identifier: identifier) else { return nil }
+            let formatter = DateFormatter()
+            formatter.timeZone = timeZone
+            formatter.dateFormat = "HH:mm"
+            let timeExample = formatter.string(from: currentDate)
+            return (identifier, "\(timeZone.localizedName(for: .shortStandard, locale: .current) ?? identifier) (\(timeExample))")
+        }
+    }
     
     var body: some View {
         NavigationView {
@@ -39,6 +98,42 @@ struct PreferencesView: View {
                             Text("Thursday").tag(5)
                             Text("Friday").tag(6)
                             Text("Saturday").tag(7)
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        .fixedSize()
+                    }
+                    
+                    HStack {
+                        Text("Date Format")
+                        Spacer()
+                        Picker("", selection: $preferences.dateFormat) {
+                            ForEach(dateFormatExamples, id: \.0) { format, example in
+                                Text(example).tag(format)
+                            }
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        .fixedSize()
+                    }
+                    
+                    HStack {
+                        Text("Time Format")
+                        Spacer()
+                        Picker("", selection: $preferences.timeFormat) {
+                            ForEach(timeFormatExamples, id: \.0) { format, example in
+                                Text(example).tag(format)
+                            }
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        .fixedSize()
+                    }
+                    
+                    HStack {
+                        Text("Time Zone")
+                        Spacer()
+                        Picker("", selection: $preferences.timeZoneIdentifier) {
+                            ForEach(commonTimeZones, id: \.0) { identifier, displayName in
+                                Text(displayName).tag(identifier)
+                            }
                         }
                         .pickerStyle(MenuPickerStyle())
                         .fixedSize()
@@ -92,6 +187,21 @@ struct PreferencesView: View {
                         showingImportSheet = true
                     }
                 }
+                
+                Section("App Info") {
+                    HStack {
+                        Text("Version")
+                        Spacer()
+                        Text(appVersion)
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        Text("Build")
+                        Spacer()
+                        Text(buildNumber)
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
             .navigationTitle("Preferences")
             .navigationBarTitleDisplayMode(.inline)
@@ -108,6 +218,13 @@ struct PreferencesView: View {
                         presentationMode.wrappedValue.dismiss()
                     }
                 }
+            }
+        }
+        .onAppear {
+            currentDate = Date()
+            // Update the date every minute to keep examples current
+            Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { _ in
+                currentDate = Date()
             }
         }
         .sheet(isPresented: $showingExportSheet) {

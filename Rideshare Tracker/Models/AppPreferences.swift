@@ -12,6 +12,9 @@ struct BackupPreferences: Codable {
     let gasPrice: Double
     let standardMileageRate: Double
     let weekStartDay: Int
+    let dateFormat: String
+    let timeFormat: String
+    let timeZoneIdentifier: String
 }
 
 struct BackupData: Codable {
@@ -26,6 +29,9 @@ class AppPreferences: ObservableObject {
     @Published var gasPrice: Double = 3.50
     @Published var standardMileageRate: Double = 0.70 // 2025 IRS rate
     @Published var weekStartDay: Int = 2 // Monday = 2 (Calendar.Weekday)
+    @Published var dateFormat: String = "M/d/yyyy" // Default US format
+    @Published var timeFormat: String = "h:mm a" // 12-hour format
+    @Published var timeZoneIdentifier: String = TimeZone.current.identifier // Default to device timezone
     
     init() {
         loadPreferences()
@@ -43,6 +49,10 @@ class AppPreferences: ObservableObject {
         
         weekStartDay = UserDefaults.standard.integer(forKey: "weekStartDay")
         if weekStartDay == 0 { weekStartDay = 2 } // Default to Monday
+        
+        dateFormat = UserDefaults.standard.string(forKey: "dateFormat") ?? "M/d/yyyy"
+        timeFormat = UserDefaults.standard.string(forKey: "timeFormat") ?? "h:mm a"
+        timeZoneIdentifier = UserDefaults.standard.string(forKey: "timeZoneIdentifier") ?? TimeZone.current.identifier
     }
     
     func savePreferences() {
@@ -50,6 +60,9 @@ class AppPreferences: ObservableObject {
         UserDefaults.standard.set(gasPrice, forKey: "gasPrice")
         UserDefaults.standard.set(standardMileageRate, forKey: "standardMileageRate")
         UserDefaults.standard.set(weekStartDay, forKey: "weekStartDay")
+        UserDefaults.standard.set(dateFormat, forKey: "dateFormat")
+        UserDefaults.standard.set(timeFormat, forKey: "timeFormat")
+        UserDefaults.standard.set(timeZoneIdentifier, forKey: "timeZoneIdentifier")
     }
     
     var weekStartDayName: String {
@@ -58,11 +71,36 @@ class AppPreferences: ObservableObject {
         return weekdays?[weekStartDay - 1] ?? "Monday"
     }
     
+    var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = dateFormat
+        formatter.timeZone = TimeZone(identifier: timeZoneIdentifier) ?? TimeZone.current
+        return formatter
+    }
+    
+    var timeFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = timeFormat
+        formatter.timeZone = TimeZone(identifier: timeZoneIdentifier) ?? TimeZone.current
+        return formatter
+    }
+    
+    func formatDate(_ date: Date) -> String {
+        return dateFormatter.string(from: date)
+    }
+    
+    func formatTime(_ date: Date) -> String {
+        return timeFormatter.string(from: date)
+    }
+    
     func importPreferences(_ backupPrefs: BackupPreferences) {
         tankCapacity = backupPrefs.tankCapacity
         gasPrice = backupPrefs.gasPrice
         standardMileageRate = backupPrefs.standardMileageRate
         weekStartDay = backupPrefs.weekStartDay
+        dateFormat = backupPrefs.dateFormat
+        timeFormat = backupPrefs.timeFormat
+        timeZoneIdentifier = backupPrefs.timeZoneIdentifier
         savePreferences()
     }
     
@@ -71,7 +109,10 @@ class AppPreferences: ObservableObject {
             tankCapacity: tankCapacity,
             gasPrice: gasPrice,
             standardMileageRate: standardMileageRate,
-            weekStartDay: weekStartDay
+            weekStartDay: weekStartDay,
+            dateFormat: dateFormat,
+            timeFormat: timeFormat,
+            timeZoneIdentifier: timeZoneIdentifier
         )
         
         let backupData = BackupData(

@@ -11,6 +11,7 @@ import SwiftUI
 struct EndShiftView: View {
     @Binding var shift: RideshareShift
     @EnvironmentObject var dataManager: ShiftDataManager
+    @EnvironmentObject var preferences: AppPreferences
     @Environment(\.presentationMode) var presentationMode
     
     @State private var endDate = Date()
@@ -118,8 +119,35 @@ struct EndShiftView: View {
     private var formContent: some View {
         Form {
                 Section("Shift End") {
-                    DatePicker("", selection: $endDate)
-                        .datePickerStyle(.compact)
+                    HStack {
+                        Text("Date")
+                        Spacer()
+                        Button(preferences.formatDate(endDate)) {
+                            // Date picker will be shown in overlay
+                        }
+                        .foregroundColor(.primary)
+                    }
+                    .background(
+                        DatePicker("", selection: $endDate, displayedComponents: .date)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .opacity(0.011) // Nearly invisible but still functional
+                    )
+                    
+                    HStack {
+                        Text("Time")
+                        Spacer()
+                        Button(preferences.formatTime(endDate)) {
+                            // Time picker will be shown in overlay
+                        }
+                        .foregroundColor(.primary)
+                    }
+                    .background(
+                        DatePicker("", selection: $endDate, displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .opacity(0.011) // Nearly invisible but still functional
+                    )
                 }
                 
                 Section("Vehicle Information") {

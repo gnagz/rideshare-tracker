@@ -15,6 +15,10 @@ struct ShiftDetailView: View {
     @State private var showingEndShift = false
     @State private var showingEditShift = false
     
+    private func formatDateTime(_ date: Date) -> String {
+        return "\(preferences.formatDate(date)) \(preferences.formatTime(date))"
+    }
+    
     var body: some View {
         GeometryReader { geometry in
             let isWideScreen = geometry.size.width > 600
@@ -23,7 +27,7 @@ struct ShiftDetailView: View {
                 VStack(spacing: 20) {
                     // Header with date
                     VStack(spacing: 8) {
-                        Text(DateFormatter.shortDateTime.string(from: shift.startDate))
+                        Text(formatDateTime(shift.startDate))
                             .font(.title2)
                             .foregroundColor(.secondary)
                     }
@@ -66,6 +70,7 @@ struct ShiftDetailView: View {
                 }
             }
         }
+        .background(Color(.systemGroupedBackground))
         .navigationTitle("Shift Details")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -96,10 +101,10 @@ struct ShiftDetailView: View {
                 .foregroundColor(.primary)
             
             VStack(spacing: 8) {
-                DetailRow("Start Date & Time", DateFormatter.shortDateTime.string(from: shift.startDate))
+                DetailRow("Start Date & Time", formatDateTime(shift.startDate))
                 
                 if let endDate = shift.endDate {
-                    DetailRow("End Date & Time", DateFormatter.shortDateTime.string(from: endDate))
+                    DetailRow("End Date & Time", formatDateTime(endDate))
                     DetailRow("Duration", "\(shift.shiftHours)h \(shift.shiftMinutes)m")
                 }
                 
@@ -115,9 +120,12 @@ struct ShiftDetailView: View {
                 }
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(.systemGray6))
             .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.gray, lineWidth: 1.0)
+            )
         }
     }
     
@@ -134,9 +142,12 @@ struct ShiftDetailView: View {
                 DetailRow("Total Earnings", String(format: "$%.2f", shift.totalEarnings), valueColor: .green)
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(.systemGray6))
             .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.gray, lineWidth: 1.0)
+            )
         }
     }
     
@@ -160,9 +171,12 @@ struct ShiftDetailView: View {
                 }
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(.systemGray6))
             .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.gray, lineWidth: 1.0)
+            )
         }
     }
     
@@ -179,9 +193,12 @@ struct ShiftDetailView: View {
                 DetailRow("Deductible Expenses", String(format: "$%.2f", shift.deductibleExpenses(mileageRate: preferences.standardMileageRate)))
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(.systemGray6))
             .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.gray, lineWidth: 1.0)
+            )
         }
     }
     
@@ -202,9 +219,12 @@ struct ShiftDetailView: View {
                 DetailRow("Profit/hr", String(format: "$%.2f", profitPerHour), valueColor: profitPerHour >= 0 ? .green : .red)
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(Color(.systemGray6))
             .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.gray, lineWidth: 1.0)
+            )
         }
     }
     
