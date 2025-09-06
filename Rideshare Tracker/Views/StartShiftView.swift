@@ -3,7 +3,6 @@
 //  Rideshare Tracker
 //
 //  Created by George Knaggs with Claude AI assistance on 8/10/25.
-//  Updated for macOS support on 8/13/25
 //
 
 import SwiftUI
@@ -16,51 +15,17 @@ struct StartShiftView: View {
     var onShiftStarted: ((Date) -> Void)? = nil
     
     @State private var startDate = Date()
-    @State private var startMileage = ""
+    @State private var startMileage: Double?
     @State private var tankReading = 8.0 // Default to full tank (8/8)
     @State private var showDatePicker = false
+    @State private var showTimePicker = false
+    @FocusState private var focusedField: FocusedField?
+    
+    enum FocusedField {
+        case mileage, date, time
+    }
     
     var body: some View {
-        #if os(macOS)
-        VStack(spacing: 0) {
-            // Custom Title Bar
-            HStack {
-                Button("Cancel") {
-                    presentationMode.wrappedValue.dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
-                
-                Spacer()
-                
-                Text("Start Shift")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                Button("Start") {
-                    startShift()
-                }
-                .disabled(startMileage.isEmpty)
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(Color(.windowBackgroundColor))
-            .overlay(
-                Rectangle()
-                    .frame(height: 1)
-                    .foregroundColor(Color(.separatorColor)),
-                alignment: .bottom
-            )
-            
-            // Content
-            formContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .frame(width: 600, height: 500)
-        #else
         NavigationView {
             formContent
                 .navigationTitle("Start Shift")
@@ -75,7 +40,8 @@ struct StartShiftView: View {
                         Button("Start") {
                             startShift()
                         }
-                        .disabled(startMileage.isEmpty)
+                        .disabled(startMileage == nil)
+                        .accessibilityIdentifier("confirm_start_shift_button")
                     }
                     ToolbarItemGroup(placement: .keyboard) {
                         Spacer()
@@ -85,142 +51,81 @@ struct StartShiftView: View {
                     }
                 }
         }
-        #endif
     }
     
     private var formContent: some View {
-        #if os(macOS)
-        ScrollView {
-            VStack(spacing: 20) {
-                // Shift Start Time Section
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Shift Start Time")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    VStack(spacing: 10) {
-                        HStack {
-                            Text("Start Date & Time")
-                            Spacer()
-                            TextField("Start Date & Time", value: $startDate, format: .dateTime.month(.abbreviated).day().year().hour().minute())
-                                .textFieldStyle(.roundedBorder)
-                                .multilineTextAlignment(.trailing)
-                                .frame(maxWidth: 300)
-                            
-                            Button(action: { showDatePicker.toggle() }) {
-                                Image(systemName: "calendar")
-                            }
-                            .buttonStyle(.borderless)
-                        }
-                        
-                        if showDatePicker {
-                            VStack(spacing: 10) {
-                                DatePicker("Date", selection: $startDate, displayedComponents: .date)
-                                    .datePickerStyle(.compact)
-                                
-                                DatePicker("Time", selection: $startDate, displayedComponents: .hourAndMinute)
-                                    .datePickerStyle(.compact)
-                            }
-                            .frame(maxHeight: 120)
-                        }
-                    }
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 12)
-                    .background(Color(.controlBackgroundColor))
-                    .cornerRadius(0)
-                }
-                
-                // Vehicle Information Section
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Vehicle Information")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    VStack(spacing: 15) {
-                        HStack {
-                            Text("Start Odometer Reading (miles)")
-                            Spacer()
-                            TextField("Miles", text: $startMileage)
-                                .textFieldStyle(.roundedBorder)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 120)
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Tank Level")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            
-                            Picker("Tank Reading", selection: $tankReading) {
-                                Text("E").tag(0.0)
-                                Text("1/8").tag(1.0)
-                                Text("1/4").tag(2.0)
-                                Text("3/8").tag(3.0)
-                                Text("1/2").tag(4.0)
-                                Text("5/8").tag(5.0)
-                                Text("3/4").tag(6.0)
-                                Text("7/8").tag(7.0)
-                                Text("F").tag(8.0)
-                            }
-                            .pickerStyle(.segmented)
-                        }
-                    }
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 12)
-                    .background(Color(.controlBackgroundColor))
-                    .cornerRadius(0)
-                }
-                
-                Spacer()
-            }
-            .padding(.horizontal, 15)
-            .padding(.vertical)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.windowBackgroundColor))
-        #else
         Form {
             Section("Shift Start Time") {
-                HStack {
-                    Text("Date")
-                    Spacer()
-                    Button(preferences.formatDate(startDate)) {
-                        // Date picker will be shown in overlay
+                Button(action: { 
+                    focusedField = .date
+                    showDatePicker.toggle() 
+                }) {
+                    HStack {
+                        Text("Date")
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Text(preferences.formatDate(startDate))
+                            .foregroundColor(.primary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
                     }
-                    .foregroundColor(.primary)
                 }
-                .background(
-                    DatePicker("", selection: $startDate, displayedComponents: .date)
-                        .datePickerStyle(.compact)
-                        .labelsHidden()
-                        .opacity(0.011) // Nearly invisible but still functional
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(focusedField == .date ? Color.accentColor : Color.clear, lineWidth: 2)
                 )
                 
-                HStack {
-                    Text("Time")
-                    Spacer()
-                    Button(preferences.formatTime(startDate)) {
-                        // Time picker will be shown in overlay
-                    }
-                    .foregroundColor(.primary)
-                }
-                .background(
-                    DatePicker("", selection: $startDate, displayedComponents: .hourAndMinute)
-                        .datePickerStyle(.compact)
+                if showDatePicker {
+                    DatePicker("", selection: $startDate, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
                         .labelsHidden()
-                        .opacity(0.011) // Nearly invisible but still functional
+                }
+                
+                Button(action: { 
+                    focusedField = .time
+                    showTimePicker.toggle() 
+                }) {
+                    HStack {
+                        Text("Time")
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Text(preferences.formatTime(startDate))
+                            .foregroundColor(.primary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                    }
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(focusedField == .time ? Color.accentColor : Color.clear, lineWidth: 2)
                 )
+                
+                if showTimePicker {
+                    DatePicker("", selection: $startDate, displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.wheel)
+                        .labelsHidden()
+                }
             }
             
             Section("Vehicle Information") {
                 HStack {
                     Text("Start Odometer Reading (miles)")
                     Spacer()
-                    TextField("Miles", text: $startMileage)
+                    TextField("Miles", value: $startMileage, format: .number)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 120)
+                        .focused($focusedField, equals: .mileage)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(focusedField == .mileage ? Color.accentColor : Color.clear, lineWidth: 2)
+                        )
+                        .accessibilityIdentifier("start_mileage_input")
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
@@ -242,11 +147,10 @@ struct StartShiftView: View {
                 }
             }
         }
-        #endif
     }
     
     private func startShift() {
-        guard let mileage = Double(startMileage) else { return }
+        guard let mileage = startMileage else { return }
         
         let shift = RideshareShift(
             startDate: startDate,
@@ -261,8 +165,7 @@ struct StartShiftView: View {
     }
     
     private func hideKeyboard() {
-        #if os(iOS)
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        #endif
     }
 }
+

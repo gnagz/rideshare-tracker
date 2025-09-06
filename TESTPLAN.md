@@ -1,11 +1,11 @@
 # Rideshare Tracker - Test Plan
 
 ## Overview
-This test plan validates the functionality and user experience of the Rideshare Tracker app across both iOS and macOS platforms following the recent cross-platform updates.
+This test plan validates the functionality and user experience of the Rideshare Tracker app on iOS devices (iPhone, iPad, and Mac) following recent updates to currency input and expense management systems.
 
 ## Test Environment
 - **iOS Version**: _[To be filled]_
-- **macOS Version**: _[To be filled]_
+- **Device Type**: _[iPhone/iPad/Mac - To be filled]_
 - **App Version**: _[To be filled]_
 - **Tester**: _[To be filled]_
 
@@ -224,22 +224,95 @@ This test plan validates the functionality and user experience of the Rideshare 
 
 ---
 
+## Test 7: Currency Input Fields
+**Objective**: Verify enhanced currency input behavior across all forms
+
+**Test Steps**:
+1. Open StartShiftView and navigate to currency fields
+2. Test clearing a currency field - verify it stays empty (not "$0.00")
+3. Type "5.67" in a currency field and tab away - verify it formats to "$5.67"
+4. Edit an existing "$12.34" value by deleting characters - verify no interference
+5. Test in EndShiftView, EditShiftView, and expense forms
+6. Test both required and optional currency fields
+7. Verify decimal precision is maintained correctly
+
+**Acceptance Criteria**:
+- Empty fields stay empty when cleared
+- No typing interference or unwanted zero insertion
+- Proper formatting only occurs when editing is complete
+- Consistent behavior across all currency fields app-wide
+- Both Double and Optional<Double> bindings work correctly
+
+### Test Results
+
+| Test Date | Device Type | Form | Clear Behavior | Edit Behavior | Format Behavior | Issues Found |
+|-----------|-------------|------|----------------|---------------|-----------------|--------------|
+|           | iPhone      | StartShift |          |               |                 |              |
+|           | iPhone      | EndShift |            |               |                 |              |
+|           | iPhone      | EditShift |           |               |                 |              |
+|           | iPhone      | Expenses |            |               |                 |              |
+|           | iPad        | All Forms |           |               |                 |              |
+|           | Mac         | All Forms |           |               |                 |              |
+
+---
+
+## Test 8: Expense Management System  
+**Objective**: Verify complete expense tracking functionality
+
+**Test Steps**:
+1. Switch to Expenses tab in main navigation
+2. Verify empty state shows correctly for current month
+3. Add expense: Vehicle category, "Oil change", $45.00, today's date
+4. Add expense: Equipment category, "Phone mount", $25.99, different date
+5. Verify month total updates to $70.99
+6. Navigate to previous/next month using arrow buttons
+7. Test date picker for month selection
+8. Edit an existing expense - change amount to $50.00
+9. Verify totals update automatically
+10. Delete an expense using swipe gesture
+11. Test expense row layout - day number should not wrap
+12. Add expense with very long description - verify truncation works
+
+**Acceptance Criteria**:
+- Month navigation works correctly
+- Totals calculate and update automatically
+- All CRUD operations work properly
+- Day numbers never wrap or show "..."
+- Long descriptions truncate with ellipsis
+- Category icons display correctly
+
+### Test Results
+
+| Test Date | Device Type | Feature | Success/Fail | Totals Correct | Layout Issues | Notes |
+|-----------|-------------|---------|--------------|----------------|---------------|-------|
+|           | iPhone      | Add Expense |        |                |               |       |
+|           | iPhone      | Month Navigation |   |                |               |       |
+|           | iPhone      | Edit/Delete |       |                |               |       |
+|           | iPhone      | Layout/Truncation | |                |               |       |
+|           | iPad        | All Features |      |                |               |       |
+|           | Mac         | All Features |      |                |               |       |
+
+---
+
 ## Summary
 
 ### Overall Test Results
-| Test Category | iOS Status | macOS Status | Critical Issues | Notes |
-|---------------|------------|--------------|-----------------|-------|
-| Complete Workflow |        |              |                 |       |
-| Platform UI |             |              |                 |       |
-| Data Persistence |         |              |                 |       |
-| Edit Functionality |       |              |                 |       |
-| Preferences |              |              |                 |       |
-| Edge Cases |               |              |                 |       |
+| Test Category | iPhone | iPad | Mac | Critical Issues | Notes |
+|---------------|--------|------|-----|-----------------|-------|
+| Complete Workflow |      |      |     |                 |       |
+| Platform UI |           |      |     |                 |       |
+| Data Persistence |       |      |     |                 |       |
+| Edit Functionality |     |      |     |                 |       |
+| Preferences |            |      |     |                 |       |
+| Edge Cases |             |      |     |                 |       |
+| Currency Input |         |      |     |                 |       |
+| Expense Management |     |      |     |                 |       |
 
 ### Testing Notes
-- **Recommended Testing Order**: Start with Test 1 (Complete Workflow) on both platforms
-- **Priority Issues**: Any failures in Tests 1, 3, or 4 should be addressed immediately
-- **UI Polish**: Test 2 results will guide any UI refinements needed
+- **Recommended Testing Order**: Start with Test 1 (Complete Workflow), then Test 7 (Currency Input), then Test 8 (Expense Management)
+- **Priority Issues**: Any failures in Tests 1, 3, 4, 7, or 8 should be addressed immediately
+- **New Features**: Tests 7 and 8 validate recent currency input and expense management enhancements
+- **Device Coverage**: Test on iPhone, iPad, and Mac to ensure universal compatibility
 
 ### Sign-off
 - **Tester**: _______________  **Date**: _______________

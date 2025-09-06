@@ -3,7 +3,6 @@
 //  Rideshare Tracker
 //
 //  Created by George Knaggs with Claude AI assistance on 8/10/25.
-//  Updated for macOS support on 8/13/25
 //
 
 import SwiftUI
@@ -23,11 +22,20 @@ struct EndShiftView: View {
     @State private var totalTrips = ""
     @State private var netFare: Double? = nil
     @State private var tips: Double? = nil
+    @State private var promotions: Double? = nil
+    @State private var riderFees: Double? = nil
     @State private var totalTolls: Double? = nil
     @State private var tollsReimbursed: Double? = nil
     @State private var parkingFees: Double? = nil
+    @State private var miscFees: Double? = nil
     @State private var odometerError = ""
     @State private var showEndDatePicker = false
+    @State private var showEndTimePicker = false
+    @FocusState private var focusedField: FocusedField?
+    
+    enum FocusedField {
+        case endMileage, refuelGallons, refuelCost, trips, netFare, tips, promotions, riderFees, totalTolls, tollsReimbursed, parkingFees, miscFees
+    }
     
     init(shift: Binding<RideshareShift>) {
         self._shift = shift
@@ -50,104 +58,57 @@ struct EndShiftView: View {
     }
     
     var body: some View {
-        #if os(macOS)
-        VStack(spacing: 0) {
-            // Custom Title Bar
-            HStack {
-                Button("Cancel") {
-                    presentationMode.wrappedValue.dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
-                
-                Spacer()
-                
-                Text("End Shift")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                Button("Save") {
-                    endShift()
-                }
-                .disabled(endMileage.isEmpty || totalTrips.isEmpty || !odometerError.isEmpty)
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(Color(.windowBackgroundColor))
-            .overlay(
-                Rectangle()
-                    .frame(height: 1)
-                    .foregroundColor(Color(.separatorColor)),
-                alignment: .bottom
-            )
-            
-            // Content
-            mainContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .frame(width: 700, height: 700)
-        #else
         NavigationView {
             formContent
         }
-        #endif
     }
     
     private var mainContent: some View {
-        #if os(macOS)
-        ScrollView {
-            VStack(spacing: 20) {
-                endSectionCustom
-                earningsSectionCustom
-                expensesSectionCustom
-                
-                Spacer()
-            }
-            .padding(.horizontal, 15)
-            .padding(.vertical)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.windowBackgroundColor))
-        #else
         formContent
-        #endif
     }
     
     private var formContent: some View {
         Form {
                 Section("Shift End") {
-                    HStack {
-                        Text("Date")
-                        Spacer()
-                        Button(preferences.formatDate(endDate)) {
-                            // Date picker will be shown in overlay
+                    Button(action: { showEndDatePicker.toggle() }) {
+                        HStack {
+                            Text("Date")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Text(preferences.formatDate(endDate))
+                                .foregroundColor(.primary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
                         }
-                        .foregroundColor(.primary)
                     }
-                    .background(
-                        DatePicker("", selection: $endDate, displayedComponents: .date)
-                            .datePickerStyle(.compact)
-                            .labelsHidden()
-                            .opacity(0.011) // Nearly invisible but still functional
-                    )
                     
-                    HStack {
-                        Text("Time")
-                        Spacer()
-                        Button(preferences.formatTime(endDate)) {
-                            // Time picker will be shown in overlay
-                        }
-                        .foregroundColor(.primary)
-                    }
-                    .background(
-                        DatePicker("", selection: $endDate, displayedComponents: .hourAndMinute)
-                            .datePickerStyle(.compact)
+                    if showEndDatePicker {
+                        DatePicker("", selection: $endDate, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
                             .labelsHidden()
-                            .opacity(0.011) // Nearly invisible but still functional
-                    )
+                    }
+                    
+                    Button(action: { showEndTimePicker.toggle() }) {
+                        HStack {
+                            Text("Time")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Text(preferences.formatTime(endDate))
+                                .foregroundColor(.primary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
+                        }
+                    }
+                    
+                    if showEndTimePicker {
+                        DatePicker("", selection: $endDate, displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+                    }
                 }
                 
                 Section("Vehicle Information") {
@@ -155,12 +116,15 @@ struct EndShiftView: View {
                         Text("End Odometer Reading")
                         Spacer()
                         TextField("Miles", text: $endMileage)
-                            #if os(iOS)
                             .keyboardType(.decimalPad)
-                            #endif
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 120)
+                            .focused($focusedField, equals: .endMileage)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .endMileage ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
                             .onChange(of: endMileage) { _ in
                                 validateOdometerReading()
                             }
@@ -183,23 +147,27 @@ struct EndShiftView: View {
                             Text("Gallons Filled")
                             Spacer()
                             TextField("Gallons", text: $refuelGallons)
-                                #if os(iOS)
                                 .keyboardType(.decimalPad)
-                                #endif
                                 .multilineTextAlignment(.trailing)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 120)
+                                .focused($focusedField, equals: .refuelGallons)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(focusedField == .refuelGallons ? Color.accentColor : Color.clear, lineWidth: 2)
+                                )
                         }
                         HStack {
                             Text("Fuel Cost")
                             Spacer()
-                            TextField("$0.00", value: $refuelCost, format: .currency(code: "USD"))
-                                #if os(iOS)
-                                .keyboardType(.decimalPad)
-                                #endif
-                                .multilineTextAlignment(.trailing)
+                            CurrencyTextField(placeholder: "$0.00", value: $refuelCost)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 120)
+                                .focused($focusedField, equals: .refuelCost)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(focusedField == .refuelCost ? Color.accentColor : Color.clear, lineWidth: 2)
+                                )
                         }
                     } else {
                         VStack(alignment: .leading, spacing: 8) {
@@ -217,73 +185,117 @@ struct EndShiftView: View {
                 
                 Section("Trip & Earnings Data") {
                     HStack {
-                        Text("Total Trips")
+                        Text("# Trips")
                         Spacer()
                         TextField("0", text: $totalTrips)
-                            #if os(iOS)
                             .keyboardType(.numberPad)
-                            #endif
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
+                            .focused($focusedField, equals: .trips)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .trips ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
                     }
                     HStack {
                         Text("Net Fare")
                         Spacer()
-                        TextField("$0.00", value: $netFare, format: .currency(code: "USD"))
-                            #if os(iOS)
-                            .keyboardType(.decimalPad)
-                            #endif
-                            .multilineTextAlignment(.trailing)
+                        CurrencyTextField(placeholder: "$0.00", value: $netFare)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 120)
+                            .focused($focusedField, equals: .netFare)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .netFare ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
                     }
                     HStack {
                         Text("Tips")
                         Spacer()
-                        TextField("$0.00", value: $tips, format: .currency(code: "USD"))
-                            #if os(iOS)
-                            .keyboardType(.decimalPad)
-                            #endif
-                            .multilineTextAlignment(.trailing)
+                        CurrencyTextField(placeholder: "$0.00", value: $tips)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 120)
+                            .focused($focusedField, equals: .tips)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .tips ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
+                    }
+                    HStack {
+                        Text("Promotions")
+                        Spacer()
+                        CurrencyTextField(placeholder: "$0.00", value: $promotions)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 120)
+                            .focused($focusedField, equals: .promotions)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .promotions ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
+                    }
+                    HStack {
+                        Text("Rider Fees")
+                        Spacer()
+                        CurrencyTextField(placeholder: "$0.00", value: $riderFees)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 120)
+                            .focused($focusedField, equals: .riderFees)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .riderFees ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
                     }
                 }
                 
                 Section("Additional Expenses") {
                     HStack {
-                        Text("Total Tolls")
+                        Text("Tolls")
                         Spacer()
-                        TextField("$0.00", value: $totalTolls, format: .currency(code: "USD"))
-                            #if os(iOS)
-                            .keyboardType(.decimalPad)
-                            #endif
-                            .multilineTextAlignment(.trailing)
+                        CurrencyTextField(placeholder: "$0.00", value: $totalTolls)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 120)
+                            .focused($focusedField, equals: .totalTolls)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .totalTolls ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
                     }
                     HStack {
                         Text("Tolls Reimbursed")
                         Spacer()
-                        TextField("$0.00", value: $tollsReimbursed, format: .currency(code: "USD"))
-                            #if os(iOS)
-                            .keyboardType(.decimalPad)
-                            #endif
-                            .multilineTextAlignment(.trailing)
+                        CurrencyTextField(placeholder: "$0.00", value: $tollsReimbursed)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 120)
+                            .focused($focusedField, equals: .tollsReimbursed)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .tollsReimbursed ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
                     }
                     HStack {
                         Text("Parking Fees")
                         Spacer()
-                        TextField("$0.00", value: $parkingFees, format: .currency(code: "USD"))
-                            #if os(iOS)
-                            .keyboardType(.decimalPad)
-                            #endif
-                            .multilineTextAlignment(.trailing)
+                        CurrencyTextField(placeholder: "$0.00", value: $parkingFees)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 120)
+                            .focused($focusedField, equals: .parkingFees)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .parkingFees ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
+                    }
+                    HStack {
+                        Text("Misc Fees")
+                        Spacer()
+                        CurrencyTextField(placeholder: "$0.00", value: $miscFees)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 120)
+                            .focused($focusedField, equals: .miscFees)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .miscFees ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
                     }
                 }
             }
@@ -312,176 +324,6 @@ struct EndShiftView: View {
             })
     }
     
-    #if os(macOS)
-    private var endSectionCustom: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Shift End")
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            VStack(spacing: 15) {
-                HStack {
-                    Text("End Date & Time")
-                    Spacer()
-                    TextField("End Date & Time", value: $endDate, format: .dateTime.month(.abbreviated).day().year().hour().minute())
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.trailing)
-                        .frame(maxWidth: 300)
-                    
-                    Button(action: { showEndDatePicker.toggle() }) {
-                        Image(systemName: "calendar")
-                    }
-                    .buttonStyle(.borderless)
-                }
-                
-                if showEndDatePicker {
-                    VStack(spacing: 10) {
-                        DatePicker("Date", selection: $endDate, displayedComponents: .date)
-                            .datePickerStyle(.compact)
-                        
-                        DatePicker("Time", selection: $endDate, displayedComponents: .hourAndMinute)
-                            .datePickerStyle(.compact)
-                    }
-                    .frame(maxHeight: 120)
-                }
-                
-                HStack {
-                    Text("End Odometer Reading")
-                    Spacer()
-                    TextField("Miles", text: $endMileage)
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 120)
-                        .onChange(of: endMileage) { _ in
-                            validateOdometerReading()
-                        }
-                }
-                
-                if !odometerError.isEmpty {
-                    Text(odometerError)
-                        .foregroundColor(.red)
-                        .font(.caption)
-                }
-                
-                HStack {
-                    Text("Refueled Tank")
-                    Spacer()
-                    Toggle("", isOn: $didRefuel)
-                }
-                
-                if didRefuel {
-                    HStack {
-                        Text("Gallons Filled")
-                        Spacer()
-                        TextField("Gallons", text: $refuelGallons)
-                            .textFieldStyle(.roundedBorder)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 120)
-                    }
-                    HStack {
-                        Text("Fuel Cost")
-                        Spacer()
-                        TextField("$0.00", value: $refuelCost, format: .currency(code: "USD"))
-                            .textFieldStyle(.roundedBorder)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 120)
-                    }
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Tank Level")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        Picker("Tank Reading", selection: $tankReading) {
-                            ForEach(availableTankLevels, id: \.value) { level in
-                                Text(level.label).tag(level.value)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                }
-            }
-            .padding()
-            .background(Color(.controlBackgroundColor))
-            .cornerRadius(0)
-        }
-    }
-    
-    private var earningsSectionCustom: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Trip & Earnings Data")
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            VStack(spacing: 15) {
-                HStack {
-                    Text("Total Trips")
-                    Spacer()
-                    TextField("0", text: $totalTrips)
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 80)
-                }
-                HStack {
-                    Text("Net Fare")
-                    Spacer()
-                    TextField("$0.00", value: $netFare, format: .currency(code: "USD"))
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 120)
-                }
-                HStack {
-                    Text("Tips")
-                    Spacer()
-                    TextField("$0.00", value: $tips, format: .currency(code: "USD"))
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 120)
-                }
-            }
-            .padding()
-            .background(Color(.controlBackgroundColor))
-            .cornerRadius(0)
-        }
-    }
-    
-    private var expensesSectionCustom: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Additional Expenses")
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            VStack(spacing: 15) {
-                HStack {
-                    Text("Total Tolls")
-                    Spacer()
-                    TextField("$0.00", value: $totalTolls, format: .currency(code: "USD"))
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 120)
-                }
-                HStack {
-                    Text("Tolls Reimbursed")
-                    Spacer()
-                    TextField("$0.00", value: $tollsReimbursed, format: .currency(code: "USD"))
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 120)
-                }
-                HStack {
-                    Text("Parking Fees")
-                    Spacer()
-                    TextField("$0.00", value: $parkingFees, format: .currency(code: "USD"))
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 120)
-                }
-            }
-            .padding()
-            .background(Color(.controlBackgroundColor))
-            .cornerRadius(0)
-        }
-    }
-    #endif
     
     private func validateOdometerReading() {
         guard let endMiles = Double(endMileage), endMiles > 0 else {
@@ -510,20 +352,25 @@ struct EndShiftView: View {
             shift.endTankReading = tankReading
         }
         
-        shift.totalTrips = Int(totalTrips)
+        shift.trips = Int(totalTrips)
         shift.netFare = netFare
         shift.tips = tips
-        shift.totalTolls = totalTolls
+        shift.promotions = promotions
+        shift.riderFees = riderFees
+        shift.tolls = totalTolls
         shift.tollsReimbursed = tollsReimbursed
         shift.parkingFees = parkingFees
+        shift.miscFees = miscFees
+        
+        // Always capture current preference values when ending shift (when calculations become meaningful)
+        shift.gasPrice = preferences.gasPrice
+        shift.standardMileageRate = preferences.standardMileageRate
         
         dataManager.updateShift(shift)
         presentationMode.wrappedValue.dismiss()
     }
     
     private func hideKeyboard() {
-        #if os(iOS)
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        #endif
     }
 }

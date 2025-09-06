@@ -10,14 +10,18 @@ import SwiftUI
 
 @main
 struct RideshareTrackerApp: App {
-    @StateObject private var preferences = AppPreferences()
-    @StateObject private var dataManager = ShiftDataManager()
+    @StateObject private var preferences = AppPreferences.shared
+    @StateObject private var dataManager = ShiftDataManager.shared
+    @StateObject private var expenseManager = ExpenseDataManager.shared
+    @StateObject private var syncLifecycleManager = SyncLifecycleManager.shared
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainTabView()
                 .environmentObject(preferences)
                 .environmentObject(dataManager)
+                .environmentObject(expenseManager)
+                .environmentObject(syncLifecycleManager)
         }
     }
 }

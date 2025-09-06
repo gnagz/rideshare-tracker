@@ -6,9 +6,16 @@
 //
 
 import Foundation
+import UIKit
 
 struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     var id = UUID()
+    
+    // Sync metadata
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var deviceID: String = UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+    var isDeleted: Bool = false
     
     // Start of shift data
     var startDate: Date
@@ -25,12 +32,19 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     var refuelCost: Double?
     
     // Trip and earnings data
-    var totalTrips: Int?
+    var trips: Int?
     var netFare: Double?
     var tips: Double?
-    var totalTolls: Double?
+    var promotions: Double?
+    var riderFees: Double?
+    var tolls: Double?
     var tollsReimbursed: Double?
     var parkingFees: Double?
+    var miscFees: Double?
+    
+    // Shift-specific rates (captured at shift creation)
+    var gasPrice: Double?
+    var standardMileageRate: Double?
     
     // Computed properties
     var shiftMileage: Double {
@@ -50,6 +64,34 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     var shiftMinutes: Int {
         return Int((shiftDuration.truncatingRemainder(dividingBy: 3600)) / 60)
     }
+    
+    // Trip Data
+    
+    // Backward compatibility properties
+    var totalTrips: Int? {
+        get { trips }
+        set { trips = newValue }
+    }
+
+    // Tax Summary Properties
+    var totalTips: Double {
+        return tips ?? 0
+    }
+    
+    var taxableIncome: Double {
+        return (netFare ?? 0) + (promotions ?? 0) + (riderFees ?? 0)
+    }
+    
+    var revenue: Double {
+        return taxableIncome + (tips ?? 0)
+    }
+    
+    // Keep for backward compatibility in UI
+    var totalEarnings: Double {
+        return revenue
+    }
+    
+    // Expenses
     
     func shiftGasUsage(tankCapacity: Double) -> Double {
         guard let endTankReading = endTankReading else { return 0 }
@@ -78,62 +120,150 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
         return gasUsed > 0 ? shiftMileage / gasUsed : 0
     }
     
-    var totalEarnings: Double {
-        return (netFare ?? 0) + (tips ?? 0)
-    }
-    
-    var totalPaymentDue: Double {
-        return totalEarnings + (tollsReimbursed ?? 0)
-    }
-    
-    func totalTaxDeductibleExpense(mileageRate: Double) -> Double {
-        return (parkingFees ?? 0) + (shiftMileage * mileageRate)
-    }
-    
-    func totalShiftExpenses(tankCapacity: Double, gasPrice: Double) -> Double {
-        let gasExpense = shiftGasCost(tankCapacity: tankCapacity, gasPrice: gasPrice)
-        let tollExpense = (totalTolls ?? 0) - (tollsReimbursed ?? 0)
-        return gasExpense + tollExpense + (parkingFees ?? 0)
-    }
-    
-    func netProfit(mileageRate: Double) -> Double {
-        return totalEarnings - totalTaxDeductibleExpense(mileageRate: mileageRate)
-    }
-    
-    func grossProfit(tankCapacity: Double, gasPrice: Double) -> Double {
-        return totalEarnings - totalShiftExpenses(tankCapacity: tankCapacity, gasPrice: gasPrice)
-    }
-    
-    // Tax Summary Properties
-    var totalTips: Double {
-        return tips ?? 0
-    }
-    
-    var taxableIncome: Double {
-        return totalEarnings - totalTips
+    // Backward compatibility properties
+    var totalTolls: Double? {
+        get { tolls }
+        set { tolls = newValue }
     }
     
     func deductibleExpenses(mileageRate: Double) -> Double {
-        let netTolls = (totalTolls ?? 0) - (tollsReimbursed ?? 0)
-        return (shiftMileage * mileageRate) + netTolls + (parkingFees ?? 0)
+        let tollExpense = (tolls ?? 0) - (tollsReimbursed ?? 0)
+        return (shiftMileage * mileageRate) + tollExpense + (parkingFees ?? 0) + (miscFees ?? 0)
     }
     
+    // Keep for backward compatibility
+    func totalTaxDeductibleExpense(mileageRate: Double) -> Double {
+        return deductibleExpenses(mileageRate: mileageRate)
+    }
+    
+    func directCosts(tankCapacity: Double, gasPrice: Double) -> Double {
+        let gasExpense = shiftGasCost(tankCapacity: tankCapacity, gasPrice: gasPrice)
+        let tollExpense = (tolls ?? 0) - (tollsReimbursed ?? 0)
+        return gasExpense + tollExpense + (parkingFees ?? 0) + (miscFees ?? 0)
+    }
+    
+    // Keep for backward compatibility
+    func totalShiftExpenses(tankCapacity: Double, gasPrice: Double) -> Double {
+        return directCosts(tankCapacity: tankCapacity, gasPrice: gasPrice)
+    }
+       
+    func grossProfit(tankCapacity: Double, gasPrice: Double) -> Double {
+        return revenue - directCosts(tankCapacity: tankCapacity, gasPrice: gasPrice)
+    }
+
     // Cash Flow Summary Properties
+    
     var expectedPayout: Double {
-        return (netFare ?? 0) + (tips ?? 0) + (tollsReimbursed ?? 0)
+        return revenue + (tollsReimbursed ?? 0)
     }
     
     func outOfPocketCosts(tankCapacity: Double, gasPrice: Double) -> Double {
         let gasExpense = shiftGasCost(tankCapacity: tankCapacity, gasPrice: gasPrice)
-        return gasExpense + (totalTolls ?? 0) + (parkingFees ?? 0)
+        return gasExpense + (tolls ?? 0) + (parkingFees ?? 0) + (miscFees ?? 0)
     }
     
-    func profit(tankCapacity: Double, gasPrice: Double) -> Double {
+    func cashFlowProfit(tankCapacity: Double, gasPrice: Double) -> Double {
         return expectedPayout - outOfPocketCosts(tankCapacity: tankCapacity, gasPrice: gasPrice)
     }
     
+    // Keep for backward compatibility
+    func profit(tankCapacity: Double, gasPrice: Double) -> Double {
+        return cashFlowProfit(tankCapacity: tankCapacity, gasPrice: gasPrice)
+    }
+    
     func profitPerHour(tankCapacity: Double, gasPrice: Double) -> Double {
-        let shiftProfit = profit(tankCapacity: tankCapacity, gasPrice: gasPrice)
+        let shiftProfit = cashFlowProfit(tankCapacity: tankCapacity, gasPrice: gasPrice)
         return shiftDuration > 0 ? shiftProfit / (shiftDuration / 3600.0) : 0
+    }
+    
+    // MARK: - Convenience methods using shift-specific rates
+    
+    func shiftGasCost(tankCapacity: Double) -> Double {
+        return shiftGasCost(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
+    }
+    
+    func totalTaxDeductibleExpense() -> Double {
+        return totalTaxDeductibleExpense(mileageRate: standardMileageRate ?? AppPreferences.shared.standardMileageRate)
+    }
+    
+    func directCosts(tankCapacity: Double) -> Double {
+        return directCosts(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
+    }
+    
+    func totalShiftExpenses(tankCapacity: Double) -> Double {
+        return totalShiftExpenses(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
+    }
+    
+    func grossProfit(tankCapacity: Double) -> Double {
+        return grossProfit(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
+    }
+    
+    func deductibleExpenses() -> Double {
+        return deductibleExpenses(mileageRate: standardMileageRate ?? AppPreferences.shared.standardMileageRate)
+    }
+    
+    func outOfPocketCosts(tankCapacity: Double) -> Double {
+        return outOfPocketCosts(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
+    }
+    
+    func cashFlowProfit(tankCapacity: Double) -> Double {
+        return cashFlowProfit(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
+    }
+    
+    func profit(tankCapacity: Double) -> Double {
+        return profit(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
+    }
+    
+    func profitPerHour(tankCapacity: Double) -> Double {
+        return profitPerHour(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
+    }
+}
+
+// MARK: - Backward Compatibility for Decoding
+extension RideshareShift {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Decode required fields
+        id = try container.decode(UUID.self, forKey: .id)
+        startDate = try container.decode(Date.self, forKey: .startDate)
+        startMileage = try container.decode(Double.self, forKey: .startMileage)
+        startTankReading = try container.decode(Double.self, forKey: .startTankReading)
+        hasFullTankAtStart = try container.decode(Bool.self, forKey: .hasFullTankAtStart)
+        
+        // Decode optional fields
+        endDate = try container.decodeIfPresent(Date.self, forKey: .endDate)
+        endMileage = try container.decodeIfPresent(Double.self, forKey: .endMileage)
+        endTankReading = try container.decodeIfPresent(Double.self, forKey: .endTankReading)
+        didRefuelAtEnd = try container.decodeIfPresent(Bool.self, forKey: .didRefuelAtEnd)
+        refuelGallons = try container.decodeIfPresent(Double.self, forKey: .refuelGallons)
+        refuelCost = try container.decodeIfPresent(Double.self, forKey: .refuelCost)
+        trips = try container.decodeIfPresent(Int.self, forKey: .trips)
+        netFare = try container.decodeIfPresent(Double.self, forKey: .netFare)
+        tips = try container.decodeIfPresent(Double.self, forKey: .tips)
+        promotions = try container.decodeIfPresent(Double.self, forKey: .promotions)
+        riderFees = try container.decodeIfPresent(Double.self, forKey: .riderFees)
+        tolls = try container.decodeIfPresent(Double.self, forKey: .tolls)
+        tollsReimbursed = try container.decodeIfPresent(Double.self, forKey: .tollsReimbursed)
+        parkingFees = try container.decodeIfPresent(Double.self, forKey: .parkingFees)
+        miscFees = try container.decodeIfPresent(Double.self, forKey: .miscFees)
+        
+        // Decode shift-specific rates (new fields - backward compatible)
+        gasPrice = try container.decodeIfPresent(Double.self, forKey: .gasPrice)
+        standardMileageRate = try container.decodeIfPresent(Double.self, forKey: .standardMileageRate)
+        
+        // Decode sync metadata with backward compatibility
+        createdDate = try container.decodeIfPresent(Date.self, forKey: .createdDate) ?? startDate
+        modifiedDate = try container.decodeIfPresent(Date.self, forKey: .modifiedDate) ?? endDate ?? startDate
+        deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID) ?? UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+        isDeleted = try container.decodeIfPresent(Bool.self, forKey: .isDeleted) ?? false
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case id, createdDate, modifiedDate, deviceID, isDeleted
+        case startDate, startMileage, startTankReading, hasFullTankAtStart
+        case endDate, endMileage, endTankReading, didRefuelAtEnd, refuelGallons, refuelCost
+        case trips, netFare, tips, promotions, riderFees, tolls, tollsReimbursed, parkingFees, miscFees
+        case gasPrice, standardMileageRate
     }
 }

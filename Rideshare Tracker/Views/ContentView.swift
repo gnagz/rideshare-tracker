@@ -10,9 +10,10 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
+    @EnvironmentObject var expenseManager: ExpenseDataManager
     @EnvironmentObject var preferences: AppPreferences
     @State private var showingStartShift = false
-    @State private var showingPreferences = false
+    @State private var showingMainMenu = false
     @State private var selectedDate = Date()
     @State private var showingDatePicker = false
     
@@ -99,9 +100,11 @@ struct ContentView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { showingPreferences = true }) {
+                    Button(action: { showingMainMenu = true }) {
                         Image(systemName: "gearshape")
                     }
+                    .accessibilityIdentifier("settings_button")
+                    .accessibilityLabel("Settings")
                 }
                 
                 ToolbarItem(placement: .principal) {
@@ -114,14 +117,17 @@ struct ContentView: View {
                     Button(action: { showingStartShift = true }) {
                         Image(systemName: "plus")
                     }
+                    .accessibilityIdentifier("start_shift_button")
+                    .accessibilityLabel("Start New Shift")
                 }
             }
             .sheet(isPresented: $showingStartShift) {
                 StartShiftView(onShiftStarted: navigateToWeekContaining)
             }
-            .sheet(isPresented: $showingPreferences) {
-                PreferencesView()
+            .sheet(isPresented: $showingMainMenu) {
+                MainMenuView()
                     .environmentObject(dataManager)
+                    .environmentObject(expenseManager)
                     .environmentObject(preferences)
             }
         }
@@ -178,8 +184,9 @@ struct ContentView: View {
     
     private var currentWeekShifts: [RideshareShift] {
         let weekInterval = getWeekInterval(for: selectedDate)
-        return dataManager.shifts.filter { shift in
-            weekInterval.contains(shift.startDate)
+        return dataManager.activeShifts.filter { shift in
+            // Make end date inclusive by checking <= instead of using DateInterval.contains
+            shift.startDate >= weekInterval.start && shift.startDate <= weekInterval.end
         }
     }
     
@@ -203,7 +210,9 @@ struct ContentView: View {
         }
         
         let endOfWeek = calendar.date(byAdding: .day, value: 6, to: adjustedStart) ?? adjustedStart
-        return DateInterval(start: adjustedStart, end: endOfWeek)
+        // Set end to end of day (23:59:59.999) to make comparison truly inclusive  
+        let endOfDay = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: endOfWeek) ?? endOfWeek
+        return DateInterval(start: adjustedStart, end: endOfDay)
     }
     
     private func moveWeek(_ direction: Int) {
@@ -218,7 +227,7 @@ struct ContentView: View {
     
     private var monthTotals: (paymentDue: Double, trips: Int, miles: Double, hours: Double) {
         let calendar = Calendar.current
-        let monthShifts = dataManager.shifts.filter { shift in
+        let monthShifts = dataManager.activeShifts.filter { shift in
             calendar.isDate(shift.startDate, equalTo: selectedDate, toGranularity: .month)
         }
         return calculateTotals(for: monthShifts)
@@ -226,7 +235,7 @@ struct ContentView: View {
     
     private var yearTotals: (paymentDue: Double, trips: Int, miles: Double, hours: Double) {
         let calendar = Calendar.current
-        let yearShifts = dataManager.shifts.filter { shift in
+        let yearShifts = dataManager.activeShifts.filter { shift in
             calendar.isDate(shift.startDate, equalTo: selectedDate, toGranularity: .year)
         }
         return calculateTotals(for: yearShifts)
@@ -238,14 +247,14 @@ struct ContentView: View {
     
     private var monthShifts: [RideshareShift] {
         let calendar = Calendar.current
-        return dataManager.shifts.filter { shift in
+        return dataManager.activeShifts.filter { shift in
             calendar.isDate(shift.startDate, equalTo: selectedDate, toGranularity: .month)
         }
     }
     
     private var yearShifts: [RideshareShift] {
         let calendar = Calendar.current
-        return dataManager.shifts.filter { shift in
+        return dataManager.activeShifts.filter { shift in
             calendar.isDate(shift.startDate, equalTo: selectedDate, toGranularity: .year)
         }
     }
@@ -253,20 +262,20 @@ struct ContentView: View {
     private func calculateTotals(for shifts: [RideshareShift]) -> (paymentDue: Double, trips: Int, miles: Double, hours: Double) {
         let completedShifts = shifts.filter { $0.endDate != nil }
         
-        let totalPaymentDue = completedShifts.reduce(0) { sum, shift in
-            sum + shift.totalPaymentDue
+        let totalPaymentDue = completedShifts.reduce(into: 0) { sum, shift in
+            sum += shift.expectedPayout
         }
         
-        let totalTrips = completedShifts.reduce(0) { sum, shift in
-            sum + (shift.totalTrips ?? 0)
+        let totalTrips = completedShifts.reduce(into: 0) { sum, shift in
+            sum += (shift.totalTrips ?? 0)
         }
         
-        let totalMiles = completedShifts.reduce(0) { sum, shift in
-            sum + shift.shiftMileage
+        let totalMiles = completedShifts.reduce(into: 0) { sum, shift in
+            sum += shift.shiftMileage
         }
         
-        let totalHours = completedShifts.reduce(0) { sum, shift in
-            sum + (shift.shiftDuration / 3600.0)
+        let totalHours = completedShifts.reduce(into: 0) { sum, shift in
+            sum += (shift.shiftDuration / 3600.0)
         }
         
         return (totalPaymentDue, totalTrips, totalMiles, totalHours)
@@ -274,16 +283,16 @@ struct ContentView: View {
     
     private func calculateGrossProfit(for shifts: [RideshareShift]) -> Double {
         let completedShifts = shifts.filter { $0.endDate != nil }
-        return completedShifts.reduce(0) { sum, shift in
-            sum + shift.grossProfit(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
+        return completedShifts.reduce(into: 0) { sum, shift in
+            sum += shift.grossProfit(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
         }
     }
     
     private func calculateGrossProfitPerHour(for shifts: [RideshareShift]) -> Double {
         let completedShifts = shifts.filter { $0.endDate != nil }
         let totalProfit = calculateGrossProfit(for: completedShifts)
-        let totalHours = completedShifts.reduce(0) { sum, shift in
-            sum + (shift.shiftDuration / 3600.0)
+        let totalHours = completedShifts.reduce(into: 0) { sum, shift in
+            sum += (shift.shiftDuration / 3600.0)
         }
         
         return totalHours > 0 ? totalProfit / totalHours : 0

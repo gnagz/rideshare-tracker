@@ -7,7 +7,6 @@
 //
 
 import SwiftUI
-import UniformTypeIdentifiers
 import UIKit
 
 struct PreferencesView: View {
@@ -15,23 +14,13 @@ struct PreferencesView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
     @Environment(\.presentationMode) var presentationMode
     
-    @State private var showingExportSheet = false
-    @State private var showingImportSheet = false
-    @State private var showingImportAlert = false
-    @State private var importAlertTitle = ""
-    @State private var importAlertMessage = ""
-    @State private var backupFileURL: URL?
-    @State private var pendingBackupData: BackupData?
-    @State private var showingImportOptions = false
     @State private var currentDate = Date()
+    @FocusState private var focusedField: FocusedField?
     
-    private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    enum FocusedField {
+        case tankCapacity, gasPrice, mileageRate
     }
     
-    private var buildNumber: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-    }
     
     private var dateFormatExamples: [(String, String)] {
         let formats = [
@@ -149,15 +138,22 @@ struct PreferencesView: View {
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
+                            .focused($focusedField, equals: .tankCapacity)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .tankCapacity ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
                     }
                     HStack {
                         Text("Gas Price (per gallon)")
                         Spacer()
-                        TextField("$0.00", value: $preferences.gasPrice, format: .currency(code: "USD"))
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
+                        CurrencyTextField(placeholder: "$0.00", value: $preferences.gasPrice)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .gasPrice ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
                     }
                 }
                 
@@ -165,11 +161,13 @@ struct PreferencesView: View {
                     HStack {
                         Text("Standard Mileage Rate")
                         Spacer()
-                        TextField("Rate", value: $preferences.standardMileageRate, format: .currency(code: "USD"))
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
+                        CurrencyTextField(placeholder: "$0.67", value: $preferences.standardMileageRate)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .mileageRate ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
                     }
                     
                     Text("Standard mileage rate is the IRS-approved rate for tax deductions. Update this annually.")
@@ -178,30 +176,6 @@ struct PreferencesView: View {
                         .padding(.top, 4)
                 }
                 
-                Section("Data Management") {
-                    Button("Export Data") {
-                        exportData()
-                    }
-                    
-                    Button("Import Data") {
-                        showingImportSheet = true
-                    }
-                }
-                
-                Section("App Info") {
-                    HStack {
-                        Text("Version")
-                        Spacer()
-                        Text(appVersion)
-                            .foregroundColor(.secondary)
-                    }
-                    HStack {
-                        Text("Build")
-                        Spacer()
-                        Text(buildNumber)
-                            .foregroundColor(.secondary)
-                    }
-                }
             }
             .navigationTitle("Preferences")
             .navigationBarTitleDisplayMode(.inline)
@@ -227,107 +201,10 @@ struct PreferencesView: View {
                 currentDate = Date()
             }
         }
-        .sheet(isPresented: $showingExportSheet) {
-            if let url = backupFileURL {
-                ActivityView(activityItems: [url])
-            }
-        }
-        .fileImporter(
-            isPresented: $showingImportSheet,
-            allowedContentTypes: [UTType.json],
-            allowsMultipleSelection: false
-        ) { result in
-            handleImportFile(result: result)
-        }
-        .alert(isPresented: $showingImportAlert) {
-            Alert(
-                title: Text(importAlertTitle),
-                message: Text(importAlertMessage),
-                dismissButton: .default(Text("OK"))
-            )
-        }
-        .alert(isPresented: $showingImportOptions) {
-            Alert(
-                title: Text("Import Options"),
-                message: Text("How would you like to import the data?"),
-                primaryButton: .destructive(Text("Replace All")) {
-                    performImport(replaceExisting: true)
-                },
-                secondaryButton: .default(Text("Merge")) {
-                    performImport(replaceExisting: false)
-                }
-            )
-        }
     }
     
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
-    
-    private func exportData() {
-        guard let url = preferences.exportData(shifts: dataManager.shifts) else {
-            importAlertTitle = "Export Failed"
-            importAlertMessage = "Unable to create backup file."
-            showingImportAlert = true
-            return
-        }
-        
-        backupFileURL = url
-        showingExportSheet = true
-    }
-    
-    private func handleImportFile(result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            guard let url = urls.first else { return }
-            
-            let importResult = AppPreferences.importData(from: url)
-            switch importResult {
-            case .success(let backupData):
-                pendingBackupData = backupData
-                showingImportOptions = true
-                
-            case .failure(let error):
-                importAlertTitle = "Import Failed"
-                importAlertMessage = error.localizedDescription
-                showingImportAlert = true
-            }
-            
-        case .failure(let error):
-            importAlertTitle = "Import Failed"
-            importAlertMessage = error.localizedDescription
-            showingImportAlert = true
-        }
-    }
-    
-    private func performImport(replaceExisting: Bool) {
-        guard let backupData = pendingBackupData else { return }
-        
-        dataManager.importShifts(backupData.shifts, replaceExisting: replaceExisting)
-        preferences.importPreferences(backupData.preferences)
-        
-        importAlertTitle = "Import Successful"
-        if replaceExisting {
-            importAlertMessage = "Data has been replaced with backup data."
-        } else {
-            let newShiftsCount = backupData.shifts.count
-            importAlertMessage = "Successfully merged \(newShiftsCount) shifts from backup."
-        }
-        showingImportAlert = true
-        
-        pendingBackupData = nil
-    }
 }
 
-struct ActivityView: UIViewControllerRepresentable {
-    let activityItems: [Any]
-    
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-        return controller
-    }
-    
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
-        
-    }
-}

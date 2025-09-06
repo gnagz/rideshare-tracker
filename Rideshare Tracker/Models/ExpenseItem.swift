@@ -1,0 +1,72 @@
+//
+//  ExpenseItem.swift
+//  Rideshare Tracker
+//
+//  Created by George Knaggs with Claude AI assistance on 8/23/25.
+//
+
+import Foundation
+import UIKit
+
+enum ExpenseCategory: String, CaseIterable, Codable {
+    case vehicle = "Vehicle"
+    case equipment = "Equipment" 
+    case supplies = "Supplies"
+    case amenities = "Amenities"
+    
+    var systemImage: String {
+        switch self {
+        case .vehicle: return "car.fill"
+        case .equipment: return "duffle.bag.fill"
+        case .supplies: return "questionmark.square.fill"
+        case .amenities: return "waterbottle.fill"
+        }
+    }
+}
+
+struct ExpenseItem: Codable, Identifiable, Equatable, Hashable {
+    var id = UUID()
+    
+    // Sync metadata
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var deviceID: String = UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+    var isDeleted: Bool = false
+    
+    var date: Date
+    var category: ExpenseCategory
+    var description: String
+    var amount: Double
+    
+    init(date: Date = Date(), category: ExpenseCategory, description: String, amount: Double) {
+        self.date = date
+        self.category = category
+        self.description = description
+        self.amount = amount
+    }
+}
+
+// MARK: - Backward Compatibility for Decoding
+extension ExpenseItem {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Decode required fields
+        id = try container.decode(UUID.self, forKey: .id)
+        date = try container.decode(Date.self, forKey: .date)
+        category = try container.decode(ExpenseCategory.self, forKey: .category)
+        description = try container.decode(String.self, forKey: .description)
+        amount = try container.decode(Double.self, forKey: .amount)
+        
+        // Decode sync metadata with backward compatibility
+        createdDate = try container.decodeIfPresent(Date.self, forKey: .createdDate) ?? date
+        modifiedDate = try container.decodeIfPresent(Date.self, forKey: .modifiedDate) ?? date
+        deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID) ?? UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+        isDeleted = try container.decodeIfPresent(Bool.self, forKey: .isDeleted) ?? false
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case id, createdDate, modifiedDate, deviceID, isDeleted
+        case date, category, description, amount
+    }
+}

@@ -136,10 +136,16 @@ struct ShiftDetailView: View {
                 .foregroundColor(.primary)
             
             VStack(spacing: 8) {
-                DetailRow("Total Trips", "\(shift.totalTrips ?? 0)")
+                DetailRow("# Trips", "\(shift.trips ?? 0)")
                 DetailRow("Net Fare", String(format: "$%.2f", shift.netFare ?? 0))
                 DetailRow("Tips", String(format: "$%.2f", shift.tips ?? 0))
-                DetailRow("Total Earnings", String(format: "$%.2f", shift.totalEarnings), valueColor: .green)
+                if let promotions = shift.promotions, promotions > 0 {
+                    DetailRow("Promotions", String(format: "$%.2f", promotions))
+                }
+                if let riderFees = shift.riderFees, riderFees > 0 {
+                    DetailRow("Rider Fees", String(format: "$%.2f", riderFees))
+                }
+                DetailRow("Revenue", String(format: "$%.2f", shift.revenue), valueColor: .green)
             }
             .padding()
             .background(Color(.systemGray6))
@@ -158,16 +164,24 @@ struct ShiftDetailView: View {
                 .foregroundColor(.primary)
             
             VStack(spacing: 8) {
-                DetailRow("Gas Cost", String(format: "$%.2f", shift.shiftGasCost(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)))
+                DetailRow("Gas Cost", String(format: "$%.2f", shift.shiftGasCost(tankCapacity: preferences.tankCapacity)))
                 DetailRow("Gas Used", String(format: "%.1f gal", shift.shiftGasUsage(tankCapacity: preferences.tankCapacity)))
                 DetailRow("MPG", String(format: "%.1f", shift.shiftMPG(tankCapacity: preferences.tankCapacity)))
                 
-                if let tolls = shift.totalTolls, tolls > 0 {
-                    DetailRow("Total Tolls", String(format: "$%.2f", tolls))
+                // Show gas price used for this shift if available
+                if let gasPrice = shift.gasPrice {
+                    DetailRow("Gas Price Used", String(format: "$%.3f/gal", gasPrice))
+                }
+                
+                if let tolls = shift.tolls, tolls > 0 {
+                    DetailRow("Tolls", String(format: "$%.2f", tolls))
                     DetailRow("Tolls Reimbursed", String(format: "$%.2f", shift.tollsReimbursed ?? 0))
                 }
                 if let parking = shift.parkingFees, parking > 0 {
                     DetailRow("Parking Fees", String(format: "$%.2f", parking))
+                }
+                if let miscFees = shift.miscFees, miscFees > 0 {
+                    DetailRow("Misc Fees", String(format: "$%.2f", miscFees))
                 }
             }
             .padding()
@@ -187,10 +201,15 @@ struct ShiftDetailView: View {
                 .foregroundColor(.primary)
             
             VStack(spacing: 8) {
-                DetailRow("Total Earnings", String(format: "$%.2f", shift.totalEarnings))
-                DetailRow("Total Tips", String(format: "$%.2f", shift.totalTips))
+                DetailRow("Revenue", String(format: "$%.2f", shift.revenue))
+                DetailRow("Tips", String(format: "$%.2f", shift.totalTips))
                 DetailRow("Taxable Income", String(format: "$%.2f", shift.taxableIncome))
-                DetailRow("Deductible Expenses", String(format: "$%.2f", shift.deductibleExpenses(mileageRate: preferences.standardMileageRate)))
+                DetailRow("Deductible Expenses", String(format: "$%.2f", shift.deductibleExpenses()))
+                
+                // Show mileage rate used for this shift if available
+                if let mileageRate = shift.standardMileageRate {
+                    DetailRow("Mileage Rate Used", String(format: "$%.3f/mi", mileageRate))
+                }
             }
             .padding()
             .background(Color(.systemGray6))
@@ -210,12 +229,12 @@ struct ShiftDetailView: View {
             
             VStack(spacing: 8) {
                 DetailRow("Expected Payout", String(format: "$%.2f", shift.expectedPayout), valueColor: .blue)
-                DetailRow("Out of Pocket Costs", String(format: "$%.2f", shift.outOfPocketCosts(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)))
+                DetailRow("Out of Pocket Costs", String(format: "$%.2f", shift.outOfPocketCosts(tankCapacity: preferences.tankCapacity)))
                 
-                let profit = shift.profit(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
-                let profitPerHour = shift.profitPerHour(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
+                let profit = shift.cashFlowProfit(tankCapacity: preferences.tankCapacity)
+                let profitPerHour = shift.profitPerHour(tankCapacity: preferences.tankCapacity)
                 
-                DetailRow("Profit", String(format: "$%.2f", profit), valueColor: profit >= 0 ? .green : .red)
+                DetailRow("Cash Flow Profit", String(format: "$%.2f", profit), valueColor: profit >= 0 ? .green : .red)
                 DetailRow("Profit/hr", String(format: "$%.2f", profitPerHour), valueColor: profitPerHour >= 0 ? .green : .red)
             }
             .padding()
