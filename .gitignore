@@ -13,8 +13,24 @@ build/
 .env
 .tmp
 
+# Additional Xcode files
+*.xcscmblueprint
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+*.swp
+*.lock
+*~
+
 ## User settings
 xcuserdata/
+# Breakpoint files
+*.xcbkptlist
 
 ## Obj-C/Swift specific
 *.hmap
@@ -76,4 +92,20 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# Debug and temporary files
+test_output.log
+debug_*.swift
+
+# Code Injection (if using injection tools)
+iOSInjectionProject/
+
+# Accio dependency management
+Dependencies/
+.accio/
+
+# Additional build artifacts
+config.json
+insecure_hash.json
+.netrc
 
