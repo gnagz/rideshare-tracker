@@ -146,9 +146,10 @@ struct EndShiftView: View {
                         HStack {
                             Text("Gallons Filled")
                             Spacer()
-                            TextField("Gallons", text: $refuelGallons)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.trailing)
+                            CalculatorTextField(placeholder: "Gallons", value: Binding(
+                                    get: { Double(refuelGallons) ?? 0.0 },
+                                    set: { newValue in refuelGallons = newValue > 0 ? String(newValue) : "" }
+                                ), formatter: .mileage, keyboardType: .decimalPad)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 120)
                                 .focused($focusedField, equals: .refuelGallons)
@@ -187,9 +188,10 @@ struct EndShiftView: View {
                     HStack {
                         Text("# Trips")
                         Spacer()
-                        TextField("0", text: $totalTrips)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
+                        CalculatorTextField(placeholder: "0", intValue: Binding(
+                                get: { Int(totalTrips) },
+                                set: { newValue in totalTrips = newValue != nil && newValue! > 0 ? String(newValue!) : "" }
+                            ), keyboardType: .numberPad)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                             .focused($focusedField, equals: .trips)

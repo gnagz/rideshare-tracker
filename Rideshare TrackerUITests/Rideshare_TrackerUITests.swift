@@ -1727,4 +1727,144 @@ final class Rideshare_TrackerUITests: XCTestCase {
         // Should return to main app screen
         XCTAssertTrue(app.staticTexts["Rideshare Tracker"].waitForExistence(timeout: 3), "Should return to main app")
     }
+    
+    // MARK: - Calculator UI Tests
+    
+    @MainActor
+    func testCalculatorInCurrencyFields() throws {
+        let app = XCUIApplication()
+        configureTestApp(app)
+        app.launch()
+        
+        debugPrint("Starting calculator UI test for currency fields")
+        
+        // Navigate to start shift to access currency fields
+        let startShiftButton = findStartShiftButton(in: app)
+        XCTAssertTrue(startShiftButton.waitForExistence(timeout: 5), "Start shift button should exist")
+        startShiftButton.tap()
+        
+        // Verify we're on start shift screen
+        XCTAssertTrue(app.navigationBars["New Shift"].waitForExistence(timeout: 3), "Should be on New Shift screen")
+        
+        // Fill in required fields to enable "Next" button
+        // Start mileage
+        let mileageField = app.textFields["Miles"]
+        if mileageField.exists {
+            mileageField.tap()
+            mileageField.typeText("25000")
+        }
+        
+        // Tank reading - select full tank
+        let fullTankButton = app.buttons["Full"]
+        if fullTankButton.exists {
+            fullTankButton.tap()
+        }
+        
+        // Proceed to end shift screen
+        let nextButton = app.buttons["Next"]
+        if nextButton.exists {
+            nextButton.tap()
+        }
+        
+        // Should be on end shift screen
+        XCTAssertTrue(app.navigationBars["End Shift"].waitForExistence(timeout: 3), "Should be on End Shift screen")
+        
+        // Test calculator in Net Fare field
+        let netFareField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS '$0.00'")).firstMatch
+        if netFareField.exists {
+            debugPrint("Found Net Fare field, testing calculator")
+            netFareField.tap()
+            
+            // Type a mathematical expression
+            netFareField.typeText("45+35+28")
+            
+            // Dismiss keyboard to trigger calculation
+            app.buttons["Done"].tap()
+            
+            // Give time for calculation to process
+            sleep(1)
+            
+            debugPrint("Calculator test completed for currency field")
+        }
+    }
+    
+    @MainActor
+    func testCalculatorInMileageFields() throws {
+        let app = XCUIApplication()
+        configureTestApp(app)
+        app.launch()
+        
+        debugPrint("Starting calculator UI test for mileage fields")
+        
+        // Navigate to start shift
+        let startShiftButton = findStartShiftButton(in: app)
+        XCTAssertTrue(startShiftButton.waitForExistence(timeout: 5), "Start shift button should exist")
+        startShiftButton.tap()
+        
+        // Test calculator in start mileage field
+        let mileageField = app.textFields["Miles"]
+        XCTAssertTrue(mileageField.waitForExistence(timeout: 3), "Mileage field should exist")
+        
+        mileageField.tap()
+        
+        // Type a mileage calculation (current reading minus last reading)
+        mileageField.typeText("47250-200")
+        
+        // Tap elsewhere to trigger calculation
+        app.buttons["Full"].tap()
+        
+        // Give time for calculation to process
+        sleep(1)
+        
+        debugPrint("Calculator test completed for mileage field")
+    }
+    
+    @MainActor
+    func testMultipleRefuelingScenarioUI() throws {
+        let app = XCUIApplication()
+        configureTestApp(app)
+        app.launch()
+        
+        debugPrint("Starting multiple refueling scenario UI test")
+        
+        // Navigate through to end shift screen
+        let startShiftButton = findStartShiftButton(in: app)
+        startShiftButton.tap()
+        
+        // Fill required fields
+        app.textFields["Miles"].tap()
+        app.textFields["Miles"].typeText("25000")
+        app.buttons["Full"].tap()
+        app.buttons["Next"].tap()
+        
+        // Should be on end shift screen
+        XCTAssertTrue(app.navigationBars["End Shift"].waitForExistence(timeout: 3))
+        
+        // Enable refueling
+        let refuelToggle = app.switches.firstMatch
+        if refuelToggle.exists {
+            refuelToggle.tap() // Enable refueling section
+        }
+        
+        // Test multiple fuel costs calculation
+        let fuelCostField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS '$0.00'")).element(boundBy: 0)
+        if fuelCostField.exists {
+            fuelCostField.tap()
+            // Your scenario: two refueling stops
+            fuelCostField.typeText("45.67+38.25")
+            app.buttons["Done"].tap()
+            sleep(1)
+            debugPrint("Multiple refuel cost calculation completed")
+        }
+        
+        // Test gallons calculation
+        let gallonsField = app.textFields["Gallons"]
+        if gallonsField.exists {
+            gallonsField.tap()
+            gallonsField.typeText("12.5+10.75")
+            app.buttons["Done"].tap()
+            sleep(1)
+            debugPrint("Multiple refuel gallons calculation completed")
+        }
+    }
 }

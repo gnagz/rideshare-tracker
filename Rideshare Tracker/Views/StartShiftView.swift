@@ -115,9 +115,7 @@ struct StartShiftView: View {
                 HStack {
                     Text("Start Odometer Reading (miles)")
                     Spacer()
-                    TextField("Miles", value: $startMileage, format: .number)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
+                    CalculatorTextField(placeholder: "Miles", value: $startMileage, formatter: .mileage)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 120)
                         .focused($focusedField, equals: .mileage)

@@ -1386,6 +1386,148 @@ struct WeekDateRangeTests {
     }
 }
 
+// MARK: - Calculator Tests
+struct CalculatorEngineTests {
+    
+    @Test func testBasicArithmetic() async throws {
+        let calculator = CalculatorEngine.shared
+        
+        // Basic operations
+        #expect(calculator.evaluate("45+23") == 68.0)
+        #expect(calculator.evaluate("100-25") == 75.0)
+        #expect(calculator.evaluate("50*2") == 100.0)
+        #expect(calculator.evaluate("100/4") == 25.0)
+        
+        // Decimal operations
+        let result1 = calculator.evaluate("12.50+3.75")
+        #expect(result1 != nil && abs(result1! - 16.25) < 0.001)
+        
+        let result2 = calculator.evaluate("45.67*0.85")
+        #expect(result2 != nil && abs(result2! - 38.8195) < 0.001)
+    }
+    
+    @Test func testRideshareScenarios() async throws {
+        let calculator = CalculatorEngine.shared
+        
+        // Scenarios from your Uber shifts
+        #expect(calculator.evaluate("250-175") == 75.0)   // Mileage calculation (end - start)
+        #expect(calculator.evaluate("45/3") == 15.0)       // Tip splitting
+        #expect(calculator.evaluate("65*0.75") == 48.75)   // Fuel costs
+        #expect(calculator.evaluate("150*0.67") == 100.5)  // Tax deductions (IRS rate)
+        
+        // Expense calculations
+        #expect(calculator.evaluate("12.50+3.50") == 16.0)  // Meal + tip
+        #expect(calculator.evaluate("25+15+8") == 48.0)     // Multiple expenses
+    }
+    
+    @Test func testComplexExpressions() async throws {
+        let calculator = CalculatorEngine.shared
+        
+        // Parentheses and order of operations
+        #expect(calculator.evaluate("(100+50)*0.67") == 100.5)
+        #expect(calculator.evaluate("100+50*2-25/5") == 195.0)
+        #expect(calculator.evaluate("(250-175)*0.67") == 50.25) // Miles times IRS rate
+    }
+    
+    @Test func testExpressionDetection() async throws {
+        let calculator = CalculatorEngine.shared
+        
+        // Should detect math expressions
+        #expect(calculator.containsMathExpression("45+23") == true)
+        #expect(calculator.containsMathExpression("100*0.67") == true)
+        #expect(calculator.containsMathExpression("250-175=") == true)
+        
+        // Should not detect plain numbers
+        #expect(calculator.containsMathExpression("45") == false)
+        #expect(calculator.containsMathExpression("123.45") == false)
+        #expect(calculator.containsMathExpression("") == false)
+    }
+    
+    @Test func testInputSanitization() async throws {
+        let calculator = CalculatorEngine.shared
+        
+        // Should handle equals sign at end
+        #expect(calculator.evaluate("45+23=") == 68.0)
+        #expect(calculator.evaluate("100/4=") == 25.0)
+        
+        // Should handle alternative math symbols
+        #expect(calculator.evaluate("50×2") == 100.0)  // Multiplication symbol
+        #expect(calculator.evaluate("100÷4") == 25.0)  // Division symbol
+        #expect(calculator.evaluate("100−25") == 75.0) // En-dash minus
+    }
+    
+    @Test func testErrorHandling() async throws {
+        let calculator = CalculatorEngine.shared
+        
+        // Invalid expressions should return nil
+        #expect(calculator.evaluate("invalid") == nil)
+        #expect(calculator.evaluate("45+") == nil)
+        #expect(calculator.evaluate("+45") == nil)
+        #expect(calculator.evaluate("45++23") == nil)
+        #expect(calculator.evaluate("(") == nil)
+        #expect(calculator.evaluate("45/0") != nil) // Division by zero should be handled by NSExpression
+    }
+    
+    @Test func testStringExtensions() async throws {
+        // Test convenience extensions
+        #expect("45+23".evaluateAsMath() == 68.0)
+        #expect("100*0.67".evaluateAsMath() == 67.0)
+        
+        #expect("45+23".containsMathExpression == true)
+        #expect("123.45".containsMathExpression == false)
+        
+        #expect("45+23".isValidMathExpression == true)
+        #expect("45+".isValidMathExpression == false)
+    }
+    
+    @Test func testMultipleRefuelingScenario() async throws {
+        let calculator = CalculatorEngine.shared
+        
+        // Your real scenario: refueling more than once
+        // Fuel costs: First fill $45.67, second fill $38.25
+        #expect(calculator.evaluate("45.67+38.25") == 83.92)
+        
+        // Gallons used: First 12.5 gallons, second 10.75 gallons
+        let totalGallons = calculator.evaluate("12.5+10.75")
+        #expect(totalGallons == 23.25)
+        
+        // Average cost per gallon across both fills
+        let avgCostPerGallon = calculator.evaluate("(45.67+38.25)/(12.5+10.75)")
+        #expect(avgCostPerGallon != nil && abs(avgCostPerGallon! - 3.61) < 0.01)
+        
+        // Complex refuel math: (cost1/gallons1 + cost2/gallons2)/2 for average price
+        let complexAvg = calculator.evaluate("(45.67/12.5 + 38.25/10.75)/2")
+        #expect(complexAvg != nil && complexAvg! > 3.5 && complexAvg! < 4.0)
+    }
+    
+    @Test func testRealWorldUberScenarios() async throws {
+        let calculator = CalculatorEngine.shared
+        
+        // After 12-hour shift calculations
+        // Multiple platform earnings: Uber + Lyft + DoorDash
+        #expect(calculator.evaluate("125.50+87.25+45.75") == 258.5)
+        
+        // Tip calculations with cash tips included
+        #expect(calculator.evaluate("35.75+12+8.50") == 56.25)
+        
+        // Toll road costs throughout day
+        #expect(calculator.evaluate("3.50+2.75+4.25+3.50") == 14.0)
+        
+        // Parking fees at multiple locations
+        #expect(calculator.evaluate("8+5+12") == 25.0)
+        
+        // Net profit after all expenses
+        let revenue = calculator.evaluate("258.5+56.25") // Fare + tips
+        let expenses = calculator.evaluate("83.92+14+25") // Fuel + tolls + parking
+        #expect(revenue == 314.75)
+        #expect(expenses == 122.92)
+        
+        // Quick profit check
+        let profit = calculator.evaluate("314.75-122.92")
+        #expect(profit != nil && abs(profit! - 191.83) < 0.01)
+    }
+}
+
 enum TestError: Error {
     case dateCreationFailed
 }

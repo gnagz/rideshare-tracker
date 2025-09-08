@@ -8,6 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		352826D42E6BBA4A000A426E /* DebugUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352826D32E6BBA4A000A426E /* DebugUtilities.swift */; };
+		352827002E6D40A5000A426E /* CalculatorEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352826FF2E6D40A5000A426E /* CalculatorEngine.swift */; };
+		352827022E6D4170000A426E /* CalculatorTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352827012E6D4170000A426E /* CalculatorTextField.swift */; };
+		3528271C2E6E1AA5000A426E /* CurrencyTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3528271B2E6E1AA5000A426E /* CurrencyTextField.swift */; };
+		352827732E6E324C000A426E /* CustomKeyboardTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352827722E6E324C000A426E /* CustomKeyboardTextField.swift */; };
+		352827742E6E324C000A426E /* CustomCalculatorKeyboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352827712E6E324C000A426E /* CustomCalculatorKeyboard.swift */; };
+		352827A62E6E4007000A426E /* ToolbarTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352827A52E6E4007000A426E /* ToolbarTestView.swift */; };
 		3531FC532E498727000F2CD7 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3531FC502E498727000F2CD7 /* ContentView.swift */; };
 		3531FC542E498727000F2CD7 /* Rideshare_TrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3531FC512E498727000F2CD7 /* Rideshare_TrackerApp.swift */; };
 		3531FC5B2E498828000F2CD7 /* RideshareShift.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3531FC5A2E498828000F2CD7 /* RideshareShift.swift */; };
@@ -57,6 +63,12 @@
 /* Begin PBXFileReference section */
 		352826D22E6B943A000A426E /* UI_AUTOMATED_TESTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = UI_AUTOMATED_TESTING.md; sourceTree = "<group>"; };
 		352826D32E6BBA4A000A426E /* DebugUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugUtilities.swift; sourceTree = "<group>"; };
+		352826FF2E6D40A5000A426E /* CalculatorEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorEngine.swift; sourceTree = "<group>"; };
+		352827012E6D4170000A426E /* CalculatorTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorTextField.swift; sourceTree = "<group>"; };
+		3528271B2E6E1AA5000A426E /* CurrencyTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyTextField.swift; sourceTree = "<group>"; };
+		352827712E6E324C000A426E /* CustomCalculatorKeyboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomCalculatorKeyboard.swift; sourceTree = "<group>"; };
+		352827722E6E324C000A426E /* CustomKeyboardTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomKeyboardTextField.swift; sourceTree = "<group>"; };
+		352827A52E6E4007000A426E /* ToolbarTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarTestView.swift; sourceTree = "<group>"; };
 		3531FC242E497ECC000F2CD7 /* Rideshare Tracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Rideshare Tracker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3531FC312E497ECD000F2CD7 /* Rideshare TrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Rideshare TrackerTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3531FC3B2E497ECD000F2CD7 /* Rideshare TrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Rideshare TrackerUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -180,6 +192,11 @@
 		3531FC572E498762000F2CD7 /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
+				352827712E6E324C000A426E /* CustomCalculatorKeyboard.swift */,
+				352827722E6E324C000A426E /* CustomKeyboardTextField.swift */,
+				3528271B2E6E1AA5000A426E /* CurrencyTextField.swift */,
+				352827012E6D4170000A426E /* CalculatorTextField.swift */,
+				352826FF2E6D40A5000A426E /* CalculatorEngine.swift */,
 				352826D32E6BBA4A000A426E /* DebugUtilities.swift */,
 				353424952E5286FF00B86346 /* NumberFormatter+Extensions.swift */,
 				3531FC6A2E498C66000F2CD7 /* DateFormatter+Extensions.swift */,
@@ -201,6 +218,7 @@
 		3531FC592E498777000F2CD7 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				352827A52E6E4007000A426E /* ToolbarTestView.swift */,
 				355BB9072E62CB7400028172 /* IncrementalSyncView.swift */,
 				3597BA6B2E5D4BE6003DA956 /* AppInfoView.swift */,
 				3597BA6C2E5D4BE6003DA956 /* BackupRestoreView.swift */,
@@ -392,9 +410,13 @@
 				3597BA672E5A2E95003DA956 /* EditExpenseView.swift in Sources */,
 				3597BA682E5A2E95003DA956 /* MainTabView.swift in Sources */,
 				355BB9082E62CB7400028172 /* IncrementalSyncView.swift in Sources */,
+				352827002E6D40A5000A426E /* CalculatorEngine.swift in Sources */,
+				352827A62E6E4007000A426E /* ToolbarTestView.swift in Sources */,
 				3531FC6C2E498E2F000F2CD7 /* DateFormatter+Extensions.swift in Sources */,
 				353424962E5286FF00B86346 /* NumberFormatter+Extensions.swift in Sources */,
 				352826D42E6BBA4A000A426E /* DebugUtilities.swift in Sources */,
+				352827732E6E324C000A426E /* CustomKeyboardTextField.swift in Sources */,
+				352827742E6E324C000A426E /* CustomCalculatorKeyboard.swift in Sources */,
 				3531FC6E2E49AF78000F2CD7 /* EditShiftView.swift in Sources */,
 				3531FC532E498727000F2CD7 /* ContentView.swift in Sources */,
 				355BB9052E62CB4C00028172 /* SyncLifecycleManager.swift in Sources */,
@@ -403,6 +425,8 @@
 				3597BA6F2E5D4BE6003DA956 /* MainMenuView.swift in Sources */,
 				3597BA702E5D4BE6003DA956 /* AppInfoView.swift in Sources */,
 				35F153AA2E66A6EA00927F88 /* CloudSyncManager.swift in Sources */,
+				352827022E6D4170000A426E /* CalculatorTextField.swift in Sources */,
+				3528271C2E6E1AA5000A426E /* CurrencyTextField.swift in Sources */,
 				3597BA712E5D4BE6003DA956 /* BackupRestoreView.swift in Sources */,
 				3597BA722E5D4BE6003DA956 /* ImportExportView.swift in Sources */,
 				3531FC5D2E498840000F2CD7 /* AppPreferences.swift in Sources */,
@@ -575,7 +599,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 380;
+				CURRENT_PROJECT_VERSION = 422;
 				DEVELOPMENT_TEAM = 9W9PZ48ZRL;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -610,7 +634,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 380;
+				CURRENT_PROJECT_VERSION = 422;
 				DEVELOPMENT_TEAM = 9W9PZ48ZRL;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -643,7 +667,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 380;
+				CURRENT_PROJECT_VERSION = 422;
 				DEVELOPMENT_TEAM = 9W9PZ48ZRL;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
@@ -662,7 +686,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 380;
+				CURRENT_PROJECT_VERSION = 422;
 				DEVELOPMENT_TEAM = 9W9PZ48ZRL;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
@@ -680,7 +704,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 380;
+				CURRENT_PROJECT_VERSION = 422;
 				DEVELOPMENT_TEAM = 9W9PZ48ZRL;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
@@ -697,7 +721,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 380;
+				CURRENT_PROJECT_VERSION = 422;
 				DEVELOPMENT_TEAM = 9W9PZ48ZRL;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
