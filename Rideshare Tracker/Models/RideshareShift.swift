@@ -36,7 +36,6 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     var netFare: Double?
     var tips: Double?
     var promotions: Double?
-    var riderFees: Double?
     var tolls: Double?
     var tollsReimbursed: Double?
     var parkingFees: Double?
@@ -79,7 +78,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     }
     
     var taxableIncome: Double {
-        return (netFare ?? 0) + (promotions ?? 0) + (riderFees ?? 0)
+        return (netFare ?? 0) + (promotions ?? 0)
     }
     
     var revenue: Double {
@@ -242,7 +241,6 @@ extension RideshareShift {
         netFare = try container.decodeIfPresent(Double.self, forKey: .netFare)
         tips = try container.decodeIfPresent(Double.self, forKey: .tips)
         promotions = try container.decodeIfPresent(Double.self, forKey: .promotions)
-        riderFees = try container.decodeIfPresent(Double.self, forKey: .riderFees)
         tolls = try container.decodeIfPresent(Double.self, forKey: .tolls)
         tollsReimbursed = try container.decodeIfPresent(Double.self, forKey: .tollsReimbursed)
         parkingFees = try container.decodeIfPresent(Double.self, forKey: .parkingFees)
@@ -263,7 +261,7 @@ extension RideshareShift {
         case id, createdDate, modifiedDate, deviceID, isDeleted
         case startDate, startMileage, startTankReading, hasFullTankAtStart
         case endDate, endMileage, endTankReading, didRefuelAtEnd, refuelGallons, refuelCost
-        case trips, netFare, tips, promotions, riderFees, tolls, tollsReimbursed, parkingFees, miscFees
+        case trips, netFare, tips, promotions, tolls, tollsReimbursed, parkingFees, miscFees
         case gasPrice, standardMileageRate
     }
 }

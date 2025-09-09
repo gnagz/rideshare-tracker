@@ -29,8 +29,20 @@ struct ExpenseListView: View {
         expenseManager.totalForMonth(selectedDate)
     }
     
+    private var monthTotalWithoutVehicle: Double {
+        expenseManager.expensesForMonth(selectedDate)
+            .filter { $0.category != .vehicle }
+            .reduce(0) { $0 + $1.amount }
+    }
+    
     private var yearTotal: Double {
         expenseManager.totalForYear(selectedDate)
+    }
+    
+    private var yearTotalWithoutVehicle: Double {
+        expenseManager.expensesForYear(selectedDate)
+            .filter { $0.category != .vehicle }
+            .reduce(0) { $0 + $1.amount }
     }
     
     private func formatMonthYear(_ date: Date) -> String {
@@ -86,25 +98,61 @@ struct ExpenseListView: View {
                     .padding(.top, 8)
                     
                     // Totals Summary
-                    HStack(spacing: 20) {
-                        VStack {
-                            Text("Month Total")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text("$\(monthTotal, specifier: "%.2f")")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(monthTotal > 0 ? .red : .secondary)
+                    VStack(spacing: 8) {
+                        HStack(spacing: 20) {
+                            VStack {
+                                Text("Month Total")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("w/ Vehicle")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("$\(monthTotal, specifier: "%.2f")")
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(monthTotal > 0 ? .red : .secondary)
+                            }
+                            
+                            VStack {
+                                Text("Month Total")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("w/o Vehicle")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("$\(monthTotalWithoutVehicle, specifier: "%.2f")")
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(monthTotalWithoutVehicle > 0 ? .red : .secondary)
+                            }
                         }
                         
-                        VStack {
-                            Text("Year Total")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text("$\(yearTotal, specifier: "%.2f")")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(yearTotal > 0 ? .red : .secondary)
+                        HStack(spacing: 20) {
+                            VStack {
+                                Text("Year Total")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("w/ Vehicle")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("$\(yearTotal, specifier: "%.2f")")
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(yearTotal > 0 ? .red : .secondary)
+                            }
+                            
+                            VStack {
+                                Text("Year Total")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("w/o Vehicle")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("$\(yearTotalWithoutVehicle, specifier: "%.2f")")
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(yearTotalWithoutVehicle > 0 ? .red : .secondary)
+                            }
                         }
                     }
                     .padding(.horizontal)

@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// A TextField that handles numeric input with calculator functionality
-/// Supports mathematical expressions for any numeric field (mileage, tank levels, etc.)
+/// Uses calculator popup for complex calculations
 struct CalculatorTextField: View {
     let placeholder: String
     @Binding var value: Double
@@ -17,8 +17,9 @@ struct CalculatorTextField: View {
     
     @State private var textValue: String = ""
     @FocusState private var isFocused: Bool
+    @State private var showingCalculator = false
     
-    init(placeholder: String, value: Binding<Double>, formatter: NumberFormatter = .mileage, keyboardType: UIKeyboardType = .numbersAndPunctuation) {
+    init(placeholder: String, value: Binding<Double>, formatter: NumberFormatter = .mileage, keyboardType: UIKeyboardType = .decimalPad) {
         self.placeholder = placeholder
         self._value = value
         self.formatter = formatter
@@ -26,26 +27,49 @@ struct CalculatorTextField: View {
     }
     
     var body: some View {
-        TextField(placeholder, text: $textValue)
-            .keyboardType(keyboardType)
-            .multilineTextAlignment(.trailing)
-            .focused($isFocused)
-            .onAppear {
-                updateTextFromValue()
+        HStack(spacing: 4) {
+            TextField(placeholder, text: $textValue)
+                .keyboardType(keyboardType)
+                .multilineTextAlignment(.trailing)
+                .focused($isFocused)
+            
+            Button(action: {
+                // Parse current text value to clean number before opening calculator
+                let cleanText = textValue
+                    .replacingOccurrences(of: ",", with: "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if let cleanValue = Double(cleanText), cleanValue > 0 {
+                    value = cleanValue
+                }
+                showingCalculator = true
+                isFocused = false
+            }) {
+                Image(systemName: "plus.forwardslash.minus")
+                    .foregroundColor(.accentColor)
+                    .font(.system(size: 14))
             }
-            .onSubmit {
+            .buttonStyle(PlainButtonStyle())
+            .frame(width: 20, height: 20)
+        }
+        .sheet(isPresented: $showingCalculator) {
+            CalculatorPopupView(isPresented: $showingCalculator, resultValue: $value, decimalPlaces: formatter == .mileageInteger ? 0 : 1)
+        }
+        .onAppear {
+            updateTextFromValue()
+        }
+        .onSubmit {
+            updateValueFromText()
+        }
+        .onChange(of: isFocused) { _ in
+            if !isFocused {
                 updateValueFromText()
             }
-            .onChange(of: isFocused) { _ in
-                if !isFocused {
-                    updateValueFromText()
-                }
+        }
+        .onChange(of: value) { _ in
+            if !isFocused {
+                updateTextFromValue()
             }
-            .onChange(of: value) { _ in
-                if !isFocused {
-                    updateTextFromValue()
-                }
-            }
+        }
     }
     
     private func updateTextFromValue() {
@@ -61,7 +85,7 @@ struct CalculatorTextField: View {
             .replacingOccurrences(of: ",", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         
-        debugPrint("CalculatorTextField processing input: '\\(cleanText)'")
+        debugPrint("CalculatorTextField processing input: '\(cleanText)'")
         
         if cleanText.isEmpty {
             value = 0.0
@@ -69,12 +93,12 @@ struct CalculatorTextField: View {
             return
         }
         
-        // Check if the text contains mathematical expressions
+        // Check if the text contains mathematical expressions (fallback for Mac users)
         if cleanText.containsMathExpression {
-            debugPrint("Math expression detected: '\\(cleanText)'")
+            debugPrint("Math expression detected: '\(cleanText)'")
             if let calculatedValue = cleanText.evaluateAsMath(), calculatedValue >= 0 {
                 value = calculatedValue
-                debugPrint("Calculator result: \\(calculatedValue)")
+                debugPrint("Calculator result: \(calculatedValue)")
                 
                 // Update text field with calculated result formatted
                 DispatchQueue.main.async {
@@ -89,16 +113,16 @@ struct CalculatorTextField: View {
         // Fall back to standard numeric parsing
         if let newValue = Double(cleanText), newValue >= 0 {
             value = newValue
-            debugPrint("Standard numeric parsing: \\(newValue)")
+            debugPrint("Standard numeric parsing: \(newValue)")
         } else {
-            debugPrint("Failed to parse as number: '\\(cleanText)'")
+            debugPrint("Failed to parse as number: '\(cleanText)'")
         }
     }
 }
 
 /// Overload for optional Double binding
 extension CalculatorTextField {
-    init(placeholder: String, value: Binding<Double?>, formatter: NumberFormatter = .mileage, keyboardType: UIKeyboardType = .numbersAndPunctuation) {
+    init(placeholder: String, value: Binding<Double?>, formatter: NumberFormatter = .mileage, keyboardType: UIKeyboardType = .decimalPad) {
         self.placeholder = placeholder
         self.formatter = formatter
         self.keyboardType = keyboardType
@@ -113,7 +137,7 @@ extension CalculatorTextField {
 
 /// Overload for integer values (like trip counts)
 extension CalculatorTextField {
-    init(placeholder: String, intValue: Binding<Int?>, keyboardType: UIKeyboardType = .numbersAndPunctuation) {
+    init(placeholder: String, intValue: Binding<Int?>, keyboardType: UIKeyboardType = .numberPad) {
         self.placeholder = placeholder
         self.formatter = .mileageInteger
         self.keyboardType = keyboardType

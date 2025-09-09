@@ -46,6 +46,15 @@ extension NumberFormatter {
         formatter.usesGroupingSeparator = false
         return formatter
     }()
+    
+    static let gallons: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 4
+        formatter.usesGroupingSeparator = false
+        return formatter
+    }()
 }
 
 extension Double {

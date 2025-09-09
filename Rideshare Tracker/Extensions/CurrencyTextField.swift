@@ -16,79 +16,53 @@ struct CurrencyTextField: View {
     @Binding var value: Double
     @State private var textValue: String = ""
     @FocusState private var isFocused: Bool
+    @State private var showingCalculator = false
     
     var body: some View {
-        TextField(placeholder, text: $textValue)
-            .keyboardType(.decimalPad)
-            .multilineTextAlignment(.trailing)
-            .focused($isFocused)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    if isFocused {
-                        HStack(spacing: 8) {
-                            // Primary math operators
-                            Button("+") { insertOperator("+") }
-                                .foregroundColor(.blue)
-                                .font(.system(size: 16, weight: .semibold))
-                            
-                            Button("−") { insertOperator("-") }
-                                .foregroundColor(.blue)
-                                .font(.system(size: 16, weight: .semibold))
-                            
-                            Button("×") { insertOperator("*") }
-                                .foregroundColor(.blue)
-                                .font(.system(size: 16, weight: .semibold))
-                            
-                            Button("÷") { insertOperator("/") }
-                                .foregroundColor(.blue)
-                                .font(.system(size: 16, weight: .semibold))
-                            
-                            Button("(") { insertOperator("(") }
-                                .foregroundColor(.blue)
-                                .font(.system(size: 16, weight: .semibold))
-                            
-                            Button(")") { insertOperator(")") }
-                                .foregroundColor(.blue)
-                                .font(.system(size: 16, weight: .semibold))
-                            
-                            Button("=") {
-                                debugPrint("Equals button tapped, calculating expression")
-                                updateValueFromText()
-                                let notificationFeedback = UINotificationFeedbackGenerator()
-                                notificationFeedback.notificationOccurred(.success)
-                            }
-                            .foregroundColor(.green)
-                            .font(.system(size: 16, weight: .bold))
-                            
-                            Spacer()
-                            
-                            Button("Done") {
-                                isFocused = false
-                            }
-                            .foregroundColor(.primary)
-                            .font(.system(size: 16, weight: .medium))
-                        }
-                    } else {
-                        EmptyView()
-                    }
+        HStack(spacing: 4) {
+            TextField(placeholder, text: $textValue)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .focused($isFocused)
+            
+            Button(action: {
+                // Parse current text value to clean number before opening calculator
+                let cleanText = textValue
+                    .replacingOccurrences(of: "$", with: "")
+                    .replacingOccurrences(of: ",", with: "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if let cleanValue = Double(cleanText), cleanValue > 0 {
+                    value = cleanValue
                 }
+                showingCalculator = true
+                isFocused = false
+            }) {
+                Image(systemName: "plus.forwardslash.minus")
+                    .foregroundColor(.accentColor)
+                    .font(.system(size: 14))
             }
-            .onAppear {
-                updateTextFromValue()
-            }
-            .onSubmit {
+            .buttonStyle(PlainButtonStyle())
+            .frame(width: 20, height: 20)
+        }
+        .sheet(isPresented: $showingCalculator) {
+            CalculatorPopupView(isPresented: $showingCalculator, resultValue: $value, decimalPlaces: 2)
+        }
+        .onAppear {
+            updateTextFromValue()
+        }
+        .onSubmit {
+            updateValueFromText()
+        }
+        .onChange(of: isFocused) { _ in
+            if !isFocused {
                 updateValueFromText()
             }
-            .onChange(of: isFocused) { _ in
-                if !isFocused {
-                    updateValueFromText()
-                }
+        }
+        .onChange(of: value) { _ in
+            if !isFocused {
+                updateTextFromValue()
             }
-            .onChange(of: value) { _ in
-                if !isFocused {
-                    updateTextFromValue()
-                }
-            }
+        }
     }
     
     private func updateTextFromValue() {
@@ -114,7 +88,7 @@ struct CurrencyTextField: View {
             return
         }
         
-        // Check if the text contains mathematical expressions
+        // Check if the text contains mathematical expressions (fallback for Mac users)
         if cleanText.containsMathExpression {
             debugPrint("Math expression detected: '\(cleanText)'")
             if let calculatedValue = cleanText.evaluateAsMath(), calculatedValue >= 0 {
@@ -139,15 +113,6 @@ struct CurrencyTextField: View {
             debugPrint("Failed to parse as number: '\(cleanText)'")
         }
         // Don't revert on invalid input - let user continue typing
-    }
-    
-    private func insertOperator(_ operatorString: String) {
-        debugPrint("Inserting operator: '\(operatorString)' into currency field")
-        textValue += operatorString
-        
-        // Provide haptic feedback for button press
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
     }
 }
 

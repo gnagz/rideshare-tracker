@@ -11,12 +11,69 @@ import SwiftUI
 struct ShiftDetailView: View {
     @State var shift: RideshareShift
     @EnvironmentObject var dataManager: ShiftDataManager
+    @EnvironmentObject var expenseManager: ExpenseDataManager
     @EnvironmentObject var preferences: AppPreferences
     @State private var showingEndShift = false
     @State private var showingEditShift = false
     
     private func formatDateTime(_ date: Date) -> String {
         return "\(preferences.formatDate(date)) \(preferences.formatTime(date))"
+    }
+    
+    // Year-to-date calculations
+    private var yearToDateShifts: [RideshareShift] {
+        let calendar = Calendar.current
+        let currentYear = calendar.component(.year, from: shift.startDate)
+        return dataManager.shifts.filter { 
+            calendar.component(.year, from: $0.startDate) == currentYear && $0.endDate != nil
+        }
+    }
+    
+    private var yearTotalRevenue: Double {
+        yearToDateShifts.reduce(0) { $0 + $1.revenue }
+    }
+    
+    private var yearTotalTips: Double {
+        yearToDateShifts.reduce(0) { $0 + $1.totalTips }
+    }
+    
+    private var yearTotalDeductibleTips: Double {
+        guard AppPreferences.shared.tipDeductionEnabled else { return 0 }
+        let totalTips = yearTotalTips
+        // Apply $25,000 cap on deductible tip income
+        return min(totalTips, 25000.0)
+    }
+    
+    private var yearTotalMileageDeduction: Double {
+        yearToDateShifts.reduce(0) { $0 + $1.deductibleExpenses() }
+    }
+    
+    private var yearTotalExpensesWithoutVehicle: Double {
+        let calendar = Calendar.current
+        let currentYear = calendar.component(.year, from: shift.startDate)
+        return expenseManager.expenses
+            .filter { calendar.component(.year, from: $0.date) == currentYear && $0.category != .vehicle }
+            .reduce(0) { $0 + $1.amount }
+    }
+    
+    private var yearTotalFuelExpenses: Double {
+        yearToDateShifts.reduce(0) { $0 + $1.shiftGasCost(tankCapacity: preferences.tankCapacity) }
+    }
+    
+    private var yearTotalTollExpenses: Double {
+        yearToDateShifts.reduce(0) { $0 + (($1.tolls ?? 0) - ($1.tollsReimbursed ?? 0)) }
+    }
+    
+    private var yearTotalTripFees: Double {
+        yearToDateShifts.reduce(0) { $0 + ($1.parkingFees ?? 0) + ($1.miscFees ?? 0) }
+    }
+    
+    private var yearTotalExpensesWithVehicle: Double {
+        let calendar = Calendar.current
+        let currentYear = calendar.component(.year, from: shift.startDate)
+        return expenseManager.expenses
+            .filter { calendar.component(.year, from: $0.date) == currentYear }
+            .reduce(0) { $0 + $1.amount }
     }
     
     var body: some View {
@@ -48,8 +105,8 @@ struct ShiftDetailView: View {
                             VStack(spacing: 20) {
                                 if shift.endDate != nil {
                                     expensesSection
-                                    taxSummarySection
                                     cashFlowSummarySection
+                                    taxSummarySection
                                 }
                             }
                         }
@@ -61,8 +118,8 @@ struct ShiftDetailView: View {
                             if shift.endDate != nil {
                                 tripDataSection
                                 expensesSection
-                                taxSummarySection
                                 cashFlowSummarySection
+                                taxSummarySection
                             }
                         }
                         .padding(.horizontal)
@@ -138,13 +195,10 @@ struct ShiftDetailView: View {
             VStack(spacing: 8) {
                 DetailRow("# Trips", "\(shift.trips ?? 0)")
                 DetailRow("Net Fare", String(format: "$%.2f", shift.netFare ?? 0))
-                DetailRow("Tips", String(format: "$%.2f", shift.tips ?? 0))
                 if let promotions = shift.promotions, promotions > 0 {
                     DetailRow("Promotions", String(format: "$%.2f", promotions))
                 }
-                if let riderFees = shift.riderFees, riderFees > 0 {
-                    DetailRow("Rider Fees", String(format: "$%.2f", riderFees))
-                }
+                DetailRow("Tips", String(format: "$%.2f", shift.tips ?? 0))
                 DetailRow("Revenue", String(format: "$%.2f", shift.revenue), valueColor: .green)
             }
             .padding()
@@ -196,20 +250,67 @@ struct ShiftDetailView: View {
     
     private var taxSummarySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Tax Summary")
+            Text("YTD Tax Summary")
                 .font(.headline)
                 .foregroundColor(.primary)
             
             VStack(spacing: 8) {
-                DetailRow("Revenue", String(format: "$%.2f", shift.revenue))
-                DetailRow("Tips", String(format: "$%.2f", shift.totalTips))
-                DetailRow("Taxable Income", String(format: "$%.2f", shift.taxableIncome))
-                DetailRow("Deductible Expenses", String(format: "$%.2f", shift.deductibleExpenses()))
+                
+                let adjustedGrossIncome = yearTotalRevenue - yearTotalDeductibleTips
+                let selfEmploymentTax = yearTotalRevenue * 0.153
+                
+                DetailRow("Gross Income", String(format: "$%.2f", yearTotalRevenue))
+                
+                if AppPreferences.shared.tipDeductionEnabled {
+                    DetailRow("Deductible Tip Income†", String(format: "$%.2f", yearTotalDeductibleTips))
+                } else {
+                    DetailRow("Deductible Tip Income†", "$0.00")
+                }
+                
+                DetailRow("Adjusted Gross Income", String(format: "$%.2f", adjustedGrossIncome), valueColor: .green)
+                                
+                // Tax Calculations if Using Mileage Deduction
+                Divider()
+                    .padding(.vertical, 4)
                 
                 // Show mileage rate used for this shift if available
                 if let mileageRate = shift.standardMileageRate {
                     DetailRow("Mileage Rate Used", String(format: "$%.3f/mi", mileageRate))
                 }
+                DetailRow("Mileage Deduction (This Trip)", String(format: "$%.2f", shift.deductibleExpenses()))
+                DetailRow("Total Mileage Deduction", String(format: "$%.2f", yearTotalMileageDeduction))
+                DetailRow("Total Expenses (Mileage)", String(format: "$%.2f", yearTotalExpensesWithoutVehicle))
+                
+                let taxableIncomeUsingMileage = max(0, adjustedGrossIncome - yearTotalMileageDeduction - yearTotalExpensesWithoutVehicle)
+                DetailRow("Taxable Income (Mileage)", String(format: "$%.2f", taxableIncomeUsingMileage))
+                
+                // Standard Mileage Method Tax Calculations
+                let incomeTaxMileage = taxableIncomeUsingMileage * (AppPreferences.shared.effectivePersonalTaxRate / 100.0)
+                let totalTaxMileage = incomeTaxMileage + selfEmploymentTax
+                
+                DetailRow("Income Tax (Mileage)", String(format: "$%.2f", incomeTaxMileage))
+                DetailRow("Self-Employment Tax", String(format: "$%.2f", selfEmploymentTax))
+                DetailRow("Total Tax Due (Mileage)", String(format: "$%.2f", totalTaxMileage), valueColor: .red)
+                
+                // Tax Calculations if Using Actual Auto Expenses
+                Divider()
+                    .padding(.vertical, 4)
+                
+                DetailRow("Total Fuel Costs", String(format: "$%.2f", yearTotalFuelExpenses))
+                DetailRow("Total Tolls Not Reimbursed", String(format: "$%.2f", yearTotalTollExpenses))
+                DetailRow("Total Trip Fees", String(format: "$%.2f", yearTotalTripFees))
+                DetailRow("Total Expenses (Actual)", String(format: "$%.2f", yearTotalExpensesWithVehicle))
+                
+                let taxableIncomeWithActualExpenses = max(0, adjustedGrossIncome - yearTotalFuelExpenses - yearTotalTollExpenses - yearTotalTripFees - yearTotalExpensesWithVehicle)
+                DetailRow("Taxable Income (Actual)", String(format: "$%.2f", taxableIncomeWithActualExpenses))
+                
+                // Actual Expenses Method Tax Calculations
+                let incomeTaxActual = taxableIncomeWithActualExpenses * (AppPreferences.shared.effectivePersonalTaxRate / 100.0)
+                let totalTaxActual = incomeTaxActual + selfEmploymentTax
+                
+                DetailRow("Income Tax (Actual)", String(format: "$%.2f", incomeTaxActual))
+                DetailRow("Self-Employment Tax", String(format: "$%.2f", selfEmploymentTax))
+                DetailRow("Total Tax Due (Actual)", String(format: "$%.2f", totalTaxActual), valueColor: .red)
             }
             .padding()
             .background(Color(.systemGray6))
@@ -218,6 +319,11 @@ struct ShiftDetailView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(Color.gray, lineWidth: 1.0)
             )
+            
+            Text("† Tip deduction capped at $25,000, reduced for high income earners")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 16)
         }
     }
     

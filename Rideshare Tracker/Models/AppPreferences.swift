@@ -95,6 +95,10 @@ struct BackupPreferences: Codable {
     let timeFormat: String
     let timeZoneIdentifier: String
     
+    // Tax preferences (optional for backward compatibility)
+    let tipDeductionEnabled: Bool?
+    let effectivePersonalTaxRate: Double?
+    
     // Sync preferences (optional for backward compatibility)
     let incrementalSyncEnabled: Bool?
     let syncFrequency: String?
@@ -124,6 +128,10 @@ class AppPreferences: ObservableObject {
     @Published var timeFormat: String = "h:mm a" // 12-hour format
     @Published var timeZoneIdentifier: String = TimeZone.current.identifier // Default to device timezone
     
+    // Tax Calculation Preferences
+    @Published var tipDeductionEnabled: Bool = true // Tips deductible through tax year 2028
+    @Published var effectivePersonalTaxRate: Double = 22.0 // Combined federal + state tax rate percentage
+    
     // Incremental Sync Settings
     @Published var incrementalSyncEnabled: Bool = false
     @Published var syncFrequency: String = "Immediate"
@@ -150,6 +158,11 @@ class AppPreferences: ObservableObject {
         timeFormat = UserDefaults.standard.string(forKey: "timeFormat") ?? "h:mm a"
         timeZoneIdentifier = UserDefaults.standard.string(forKey: "timeZoneIdentifier") ?? TimeZone.current.identifier
         
+        // Load tax calculation preferences
+        tipDeductionEnabled = UserDefaults.standard.object(forKey: "tipDeductionEnabled") != nil ? UserDefaults.standard.bool(forKey: "tipDeductionEnabled") : true
+        effectivePersonalTaxRate = UserDefaults.standard.double(forKey: "effectivePersonalTaxRate")
+        if effectivePersonalTaxRate == 0 { effectivePersonalTaxRate = 22.0 }
+        
         // Load incremental sync settings
         incrementalSyncEnabled = UserDefaults.standard.bool(forKey: "incrementalSyncEnabled")
         syncFrequency = UserDefaults.standard.string(forKey: "syncFrequency") ?? "Immediate"
@@ -166,6 +179,10 @@ class AppPreferences: ObservableObject {
         UserDefaults.standard.set(dateFormat, forKey: "dateFormat")
         UserDefaults.standard.set(timeFormat, forKey: "timeFormat")
         UserDefaults.standard.set(timeZoneIdentifier, forKey: "timeZoneIdentifier")
+        
+        // Save tax calculation preferences
+        UserDefaults.standard.set(tipDeductionEnabled, forKey: "tipDeductionEnabled")
+        UserDefaults.standard.set(effectivePersonalTaxRate, forKey: "effectivePersonalTaxRate")
         
         // Save incremental sync settings
         UserDefaults.standard.set(incrementalSyncEnabled, forKey: "incrementalSyncEnabled")
@@ -213,6 +230,14 @@ class AppPreferences: ObservableObject {
         timeFormat = backupPrefs.timeFormat
         timeZoneIdentifier = backupPrefs.timeZoneIdentifier
         
+        // Import tax preferences if available (backward compatibility)
+        if let tipEnabled = backupPrefs.tipDeductionEnabled {
+            tipDeductionEnabled = tipEnabled
+        }
+        if let taxRate = backupPrefs.effectivePersonalTaxRate {
+            effectivePersonalTaxRate = taxRate
+        }
+        
         // Import sync preferences if available (backward compatibility)
         if let syncEnabled = backupPrefs.incrementalSyncEnabled {
             incrementalSyncEnabled = syncEnabled
@@ -236,6 +261,8 @@ class AppPreferences: ObservableObject {
             dateFormat: dateFormat,
             timeFormat: timeFormat,
             timeZoneIdentifier: timeZoneIdentifier,
+            tipDeductionEnabled: tipDeductionEnabled,
+            effectivePersonalTaxRate: effectivePersonalTaxRate,
             incrementalSyncEnabled: incrementalSyncEnabled,
             syncFrequency: syncFrequency,
             lastIncrementalSyncDate: lastIncrementalSyncDate
@@ -550,10 +577,6 @@ class AppPreferences: ObservableObject {
                         if !value.isEmpty {
                             shift.promotions = Double(value)
                         }
-                    case "RiderFees":
-                        if !value.isEmpty {
-                            shift.riderFees = Double(value)
-                        }
                     case "TotalTolls", "Tolls":
                         if !value.isEmpty {
                             shift.tolls = Double(value)
@@ -713,7 +736,6 @@ class AppPreferences: ObservableObject {
                 shift.netFare != nil ? String(format: "%.2f", shift.netFare!) : "",
                 shift.tips != nil ? String(format: "%.2f", shift.tips!) : "",
                 shift.promotions != nil ? String(format: "%.2f", shift.promotions!) : "",
-                shift.riderFees != nil ? String(format: "%.2f", shift.riderFees!) : "",
                 shift.tolls != nil ? String(format: "%.2f", shift.tolls!) : "",
                 shift.tollsReimbursed != nil ? String(format: "%.2f", shift.tollsReimbursed!) : "",
                 shift.parkingFees != nil ? String(format: "%.2f", shift.parkingFees!) : "",
@@ -843,6 +865,8 @@ class AppPreferences: ObservableObject {
                 dateFormat: dateFormat,
                 timeFormat: timeFormat,
                 timeZoneIdentifier: timeZoneIdentifier,
+                tipDeductionEnabled: tipDeductionEnabled,
+                effectivePersonalTaxRate: effectivePersonalTaxRate,
                 incrementalSyncEnabled: incrementalSyncEnabled,
                 syncFrequency: syncFrequency,
                 lastIncrementalSyncDate: lastIncrementalSyncDate
@@ -895,6 +919,8 @@ class AppPreferences: ObservableObject {
                 dateFormat: dateFormat,
                 timeFormat: timeFormat,
                 timeZoneIdentifier: timeZoneIdentifier,
+                tipDeductionEnabled: tipDeductionEnabled,
+                effectivePersonalTaxRate: effectivePersonalTaxRate,
                 incrementalSyncEnabled: incrementalSyncEnabled,
                 syncFrequency: syncFrequency,
                 lastIncrementalSyncDate: lastIncrementalSyncDate

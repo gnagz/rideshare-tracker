@@ -29,13 +29,22 @@ class CalculatorEngine {
         debugPrint("Sanitized expression: '\(cleanExpression)'")
         
         // Use NSExpression for safe mathematical evaluation
-        let nsExpression = NSExpression(format: cleanExpression)
-        if let result = nsExpression.expressionValue(with: nil, context: nil) as? NSNumber {
+        // Force floating point division by adding .0 to integers
+        let floatExpression = forceFloatingPointDivision(cleanExpression)
+        debugPrint("Float-forced expression: '\(floatExpression)'")
+        
+        let nsExpression = NSExpression(format: floatExpression)
+        debugPrint("Created NSExpression for: '\(floatExpression)'")
+        
+        let expressionValue = nsExpression.expressionValue(with: nil, context: nil)
+        debugPrint("NSExpression raw result: \(expressionValue ?? "nil")")
+        
+        if let result = expressionValue as? NSNumber {
             let doubleResult = result.doubleValue
             debugPrint("Expression evaluated successfully: \(doubleResult)")
             return doubleResult
         } else {
-            debugPrint("NSExpression returned non-numeric result")
+            debugPrint("NSExpression returned non-numeric result: \(type(of: expressionValue))")
             return nil
         }
     }
@@ -44,7 +53,7 @@ class CalculatorEngine {
     /// - Parameter text: The input text to check
     /// - Returns: True if the text appears to contain mathematical operations
     func containsMathExpression(_ text: String) -> Bool {
-        let mathOperators = CharacterSet(charactersIn: "+-*/()=")
+        let mathOperators = CharacterSet(charactersIn: "+-*/()=÷×−")
         return text.rangeOfCharacter(from: mathOperators) != nil && text.count > 1
     }
     
@@ -94,6 +103,7 @@ class CalculatorEngine {
             .replacingOccurrences(of: "×", with: "*")
             .replacingOccurrences(of: "÷", with: "/")
             .replacingOccurrences(of: "−", with: "-") // En-dash to hyphen
+            .replacingOccurrences(of: ",", with: "") // Remove thousand separators
         
         // Remove equals sign if present at the end (user might type "5+5=")
         if sanitized.hasSuffix("=") {
@@ -116,6 +126,34 @@ class CalculatorEngine {
         }
         
         return sanitized
+    }
+    
+    /// Forces floating point division by adding .0 to integers
+    /// - Parameter expression: Mathematical expression string
+    /// - Returns: Expression with floating point operands
+    private func forceFloatingPointDivision(_ expression: String) -> String {
+        var result = expression
+        debugPrint("forceFloatingPointDivision input: '\(expression)'")
+        
+        // Use regex to find integers that are not already part of decimal numbers
+        let integerPattern = #"(?<![.\d])(\d+)(?![.\d])"#
+        
+        if let regex = try? NSRegularExpression(pattern: integerPattern) {
+            let range = NSRange(location: 0, length: result.count)
+            let matches = regex.matches(in: result, range: range).reversed() // Reverse to preserve indices
+            debugPrint("Found \(matches.count) integer matches")
+            
+            for match in matches {
+                if let range = Range(match.range, in: result) {
+                    let integer = String(result[range])
+                    debugPrint("Converting integer '\(integer)' to '\(integer).0'")
+                    result.replaceSubrange(range, with: "\(integer).0")
+                }
+            }
+        }
+        
+        debugPrint("forceFloatingPointDivision output: '\(result)'")
+        return result
     }
 }
 

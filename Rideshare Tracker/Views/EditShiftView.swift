@@ -22,7 +22,7 @@ struct EditShiftView: View {
     @FocusState private var focusedField: FocusedField?
     
     enum FocusedField {
-        case startMileage, endMileage, refuelGallons, refuelCost, totalTrips, netFare, tips, promotions, riderFees, totalTolls, tollsReimbursed, parkingFees, miscFees, gasPrice, standardMileageRate
+        case startMileage, endMileage, refuelGallons, refuelCost, totalTrips, netFare, tips, promotions, totalTolls, tollsReimbursed, parkingFees, miscFees, gasPrice, standardMileageRate
     }
     
     // End shift data
@@ -36,7 +36,6 @@ struct EditShiftView: View {
     @State private var netFare: Double?
     @State private var tips: Double?
     @State private var promotions: Double?
-    @State private var riderFees: Double?
     @State private var totalTolls: Double?
     @State private var tollsReimbursed: Double?
     @State private var parkingFees: Double?
@@ -66,7 +65,6 @@ struct EditShiftView: View {
         self._netFare = State(initialValue: shift.wrappedValue.netFare)
         self._tips = State(initialValue: shift.wrappedValue.tips)
         self._promotions = State(initialValue: shift.wrappedValue.promotions)
-        self._riderFees = State(initialValue: shift.wrappedValue.riderFees)
         self._totalTolls = State(initialValue: shift.wrappedValue.tolls)
         self._tollsReimbursed = State(initialValue: shift.wrappedValue.tollsReimbursed)
         self._parkingFees = State(initialValue: shift.wrappedValue.parkingFees)
@@ -178,9 +176,10 @@ struct EditShiftView: View {
                 HStack {
                     Text("Start Odometer Reading (miles)")
                     Spacer()
-                    TextField("Miles", text: $startMileage)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
+                    CalculatorTextField(placeholder: "Miles", value: Binding(
+                        get: { Double(startMileage) ?? 0.0 },
+                        set: { newValue in startMileage = newValue > 0 ? String(newValue) : "" }
+                    ), formatter: .mileage, keyboardType: .decimalPad)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 120)
                         .focused($focusedField, equals: .startMileage)
@@ -260,9 +259,13 @@ struct EditShiftView: View {
                 HStack {
                     Text("End Odometer Reading (miles)")
                     Spacer()
-                    TextField("Miles", text: $endMileage)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
+                    CalculatorTextField(placeholder: "Miles", value: Binding(
+                        get: { Double(endMileage) ?? 0.0 },
+                        set: { newValue in 
+                            endMileage = newValue > 0 ? String(newValue) : ""
+                            validateOdometerReading()
+                        }
+                    ), formatter: .mileage, keyboardType: .decimalPad)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 120)
                         .focused($focusedField, equals: .endMileage)
@@ -270,9 +273,6 @@ struct EditShiftView: View {
                             RoundedRectangle(cornerRadius: 6)
                                 .stroke(focusedField == .endMileage ? Color.accentColor : Color.clear, lineWidth: 2)
                         )
-                        .onSubmit {
-                            validateOdometerReading()
-                        }
                 }
                 
                 if !odometerError.isEmpty {
@@ -291,9 +291,10 @@ struct EditShiftView: View {
                     HStack {
                         Text("Gallons Filled")
                         Spacer()
-                        TextField("Gallons", text: $refuelGallons)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
+                        CalculatorTextField(placeholder: "Gallons", value: Binding(
+                            get: { Double(refuelGallons) ?? 0.0 },
+                            set: { newValue in refuelGallons = newValue > 0 ? String(newValue) : "" }
+                        ), formatter: .gallons, keyboardType: .decimalPad)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 120)
                             .focused($focusedField, equals: .refuelGallons)
@@ -326,6 +327,34 @@ struct EditShiftView: View {
                         .pickerStyle(.segmented)
                     }
                 }
+                
+                Divider()
+                
+                HStack {
+                    Text("Gas Price")
+                    Spacer()
+                    CurrencyTextField(placeholder: "$0.000", value: $gasPrice)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 120)
+                        .focused($focusedField, equals: .gasPrice)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(focusedField == .gasPrice ? Color.accentColor : Color.clear, lineWidth: 2)
+                        )
+                }
+                
+                HStack {
+                    Text("Mileage Rate")
+                    Spacer()
+                    CurrencyTextField(placeholder: "$0.000", value: $standardMileageRate)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 120)
+                        .focused($focusedField, equals: .standardMileageRate)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(focusedField == .standardMileageRate ? Color.accentColor : Color.clear, lineWidth: 2)
+                        )
+                }
             }
         }
     }
@@ -335,9 +364,10 @@ struct EditShiftView: View {
             HStack {
                 Text("# Trips")
                 Spacer()
-                TextField("0", text: $totalTrips)
-                    .keyboardType(.numberPad)
-                    .multilineTextAlignment(.trailing)
+                CalculatorTextField(placeholder: "0", intValue: Binding(
+                    get: { Int(totalTrips) },
+                    set: { newValue in totalTrips = newValue != nil && newValue! > 0 ? String(newValue!) : "" }
+                ), keyboardType: .numberPad)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 80)
                     .focused($focusedField, equals: .totalTrips)
@@ -359,18 +389,6 @@ struct EditShiftView: View {
                     )
             }
             HStack {
-                Text("Tips")
-                Spacer()
-                CurrencyTextField(placeholder: "$0.00", value: $tips)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 120)
-                    .focused($focusedField, equals: .tips)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(focusedField == .tips ? Color.accentColor : Color.clear, lineWidth: 2)
-                    )
-            }
-            HStack {
                 Text("Promotions")
                 Spacer()
                 CurrencyTextField(placeholder: "$0.00", value: $promotions)
@@ -383,15 +401,15 @@ struct EditShiftView: View {
                     )
             }
             HStack {
-                Text("Rider Fees")
+                Text("Tips")
                 Spacer()
-                CurrencyTextField(placeholder: "$0.00", value: $riderFees)
+                CurrencyTextField(placeholder: "$0.00", value: $tips)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 120)
-                    .focused($focusedField, equals: .riderFees)
+                    .focused($focusedField, equals: .tips)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(focusedField == .riderFees ? Color.accentColor : Color.clear, lineWidth: 2)
+                            .stroke(focusedField == .tips ? Color.accentColor : Color.clear, lineWidth: 2)
                     )
             }
         }
@@ -447,34 +465,6 @@ struct EditShiftView: View {
                             .stroke(focusedField == .miscFees ? Color.accentColor : Color.clear, lineWidth: 2)
                     )
             }
-            
-            Divider()
-            
-            HStack {
-                Text("Gas Price")
-                Spacer()
-                CurrencyTextField(placeholder: "$0.000", value: $gasPrice)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 120)
-                    .focused($focusedField, equals: .gasPrice)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(focusedField == .gasPrice ? Color.accentColor : Color.clear, lineWidth: 2)
-                    )
-            }
-            
-            HStack {
-                Text("Mileage Rate")
-                Spacer()
-                CurrencyTextField(placeholder: "$0.000", value: $standardMileageRate)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 120)
-                    .focused($focusedField, equals: .standardMileageRate)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(focusedField == .standardMileageRate ? Color.accentColor : Color.clear, lineWidth: 2)
-                    )
-            }
         }
     }
     
@@ -518,7 +508,6 @@ struct EditShiftView: View {
             shift.netFare = netFare
             shift.tips = tips
             shift.promotions = promotions
-            shift.riderFees = riderFees
             shift.tolls = totalTolls
             shift.tollsReimbursed = tollsReimbursed
             shift.parkingFees = parkingFees
