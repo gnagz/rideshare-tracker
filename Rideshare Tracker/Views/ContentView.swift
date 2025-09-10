@@ -47,7 +47,7 @@ struct ContentView: View {
                                      displayedComponents: .date)
                                 .datePickerStyle(GraphicalDatePickerStyle())
                                 .padding()
-                                .onChange(of: selectedDate) { _ in
+                                .onChange(of: selectedDate) {
                                     showingDatePicker = false
                                 }
                         }

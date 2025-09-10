@@ -53,12 +53,12 @@ struct CurrencyTextField: View {
         .onSubmit {
             updateValueFromText()
         }
-        .onChange(of: isFocused) { _ in
+        .onChange(of: isFocused) {
             if !isFocused {
                 updateValueFromText()
             }
         }
-        .onChange(of: value) { _ in
+        .onChange(of: value) {
             if !isFocused {
                 updateTextFromValue()
             }

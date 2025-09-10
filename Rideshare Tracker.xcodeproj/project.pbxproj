@@ -37,6 +37,9 @@
 		3597BA702E5D4BE6003DA956 /* AppInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3597BA6B2E5D4BE6003DA956 /* AppInfoView.swift */; };
 		3597BA712E5D4BE6003DA956 /* BackupRestoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3597BA6C2E5D4BE6003DA956 /* BackupRestoreView.swift */; };
 		3597BA722E5D4BE6003DA956 /* ImportExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3597BA6D2E5D4BE6003DA956 /* ImportExportView.swift */; };
+		35A841842E711EE60050192C /* ImageAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841832E711EE60050192C /* ImageAttachment.swift */; };
+		35A841862E711EF30050192C /* ImageViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841852E711EF30050192C /* ImageViewerView.swift */; };
+		35A841882E711EFF0050192C /* ImageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841872E711EFF0050192C /* ImageManager.swift */; };
 		35F153AA2E66A6EA00927F88 /* CloudSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F153A92E66A6EA00927F88 /* CloudSyncManager.swift */; };
 		35F840692E56D56B00AA3EBD /* Media.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 35F840682E56D56B00AA3EBD /* Media.xcassets */; };
 /* End PBXBuildFile section */
@@ -96,6 +99,9 @@
 		3597BA6C2E5D4BE6003DA956 /* BackupRestoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupRestoreView.swift; sourceTree = "<group>"; };
 		3597BA6D2E5D4BE6003DA956 /* ImportExportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportExportView.swift; sourceTree = "<group>"; };
 		3597BA6E2E5D4BE6003DA956 /* MainMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuView.swift; sourceTree = "<group>"; };
+		35A841832E711EE60050192C /* ImageAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageAttachment.swift; sourceTree = "<group>"; };
+		35A841852E711EF30050192C /* ImageViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViewerView.swift; sourceTree = "<group>"; };
+		35A841872E711EFF0050192C /* ImageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageManager.swift; sourceTree = "<group>"; };
 		35F153A92E66A6EA00927F88 /* CloudSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncManager.swift; sourceTree = "<group>"; };
 		35F840682E56D56B00AA3EBD /* Media.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Media.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -178,6 +184,7 @@
 		3531FC562E49872D000F2CD7 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				35A841832E711EE60050192C /* ImageAttachment.swift */,
 				3597BA5F2E5A2E8B003DA956 /* ExpenseItem.swift */,
 				3531FC5C2E498840000F2CD7 /* AppPreferences.swift */,
 				3531FC5A2E498828000F2CD7 /* RideshareShift.swift */,
@@ -201,6 +208,7 @@
 		3531FC582E498770000F2CD7 /* Managers */ = {
 			isa = PBXGroup;
 			children = (
+				35A841872E711EFF0050192C /* ImageManager.swift */,
 				35F153A92E66A6EA00927F88 /* CloudSyncManager.swift */,
 				355BB9042E62CB4C00028172 /* SyncLifecycleManager.swift */,
 				3597BA692E5A2E9F003DA956 /* ExpenseDataManager.swift */,
@@ -212,6 +220,7 @@
 		3531FC592E498777000F2CD7 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				35A841852E711EF30050192C /* ImageViewerView.swift */,
 				352828072E6E8194000A426E /* CalculatorPopupView.swift */,
 				355BB9072E62CB7400028172 /* IncrementalSyncView.swift */,
 				3597BA6B2E5D4BE6003DA956 /* AppInfoView.swift */,
@@ -400,11 +409,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				3597BA652E5A2E95003DA956 /* ExpenseListView.swift in Sources */,
+				35A841882E711EFF0050192C /* ImageManager.swift in Sources */,
 				3597BA662E5A2E95003DA956 /* AddExpenseView.swift in Sources */,
 				3597BA672E5A2E95003DA956 /* EditExpenseView.swift in Sources */,
 				3597BA682E5A2E95003DA956 /* MainTabView.swift in Sources */,
 				355BB9082E62CB7400028172 /* IncrementalSyncView.swift in Sources */,
 				352827002E6D40A5000A426E /* CalculatorEngine.swift in Sources */,
+				35A841862E711EF30050192C /* ImageViewerView.swift in Sources */,
 				3531FC6C2E498E2F000F2CD7 /* DateFormatter+Extensions.swift in Sources */,
 				353424962E5286FF00B86346 /* NumberFormatter+Extensions.swift in Sources */,
 				352826D42E6BBA4A000A426E /* DebugUtilities.swift in Sources */,
@@ -427,6 +438,7 @@
 				3531FC672E4988AD000F2CD7 /* EndShiftView.swift in Sources */,
 				3531FC692E4988BB000F2CD7 /* PreferencesView.swift in Sources */,
 				3531FC652E49889E000F2CD7 /* ShiftDetailView.swift in Sources */,
+				35A841842E711EE60050192C /* ImageAttachment.swift in Sources */,
 				3531FC612E49887F000F2CD7 /* ShiftRowView.swift in Sources */,
 				3531FC632E498890000F2CD7 /* StartShiftView.swift in Sources */,
 				3531FC5B2E498828000F2CD7 /* RideshareShift.swift in Sources */,
@@ -591,7 +603,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 483;
+				CURRENT_PROJECT_VERSION = 502;
 				DEVELOPMENT_TEAM = 9W9PZ48ZRL;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -601,7 +613,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -626,7 +638,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 483;
+				CURRENT_PROJECT_VERSION = 502;
 				DEVELOPMENT_TEAM = 9W9PZ48ZRL;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -636,7 +648,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -659,7 +671,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 483;
+				CURRENT_PROJECT_VERSION = 502;
 				DEVELOPMENT_TEAM = 9W9PZ48ZRL;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
@@ -678,7 +690,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 483;
+				CURRENT_PROJECT_VERSION = 502;
 				DEVELOPMENT_TEAM = 9W9PZ48ZRL;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
@@ -696,7 +708,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 483;
+				CURRENT_PROJECT_VERSION = 502;
 				DEVELOPMENT_TEAM = 9W9PZ48ZRL;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
@@ -713,7 +725,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 483;
+				CURRENT_PROJECT_VERSION = 502;
 				DEVELOPMENT_TEAM = 9W9PZ48ZRL;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;

@@ -81,7 +81,7 @@ struct ExpenseListView: View {
                                 .datePickerStyle(GraphicalDatePickerStyle())
                                 .frame(minWidth: 300, minHeight: 300)
                                 .padding()
-                                .onChange(of: selectedDate) { _ in
+                                .onChange(of: selectedDate) {
                                     showingDatePicker = false
                                 }
                         }
@@ -227,6 +227,8 @@ struct ExpenseListView: View {
 struct ExpenseRowView: View {
     let expense: ExpenseItem
     @EnvironmentObject var preferences: AppPreferences
+    @State private var showingImageViewer = false
+    @State private var thumbnailImages: [UIImage] = []
     
     private var dayOfMonth: String {
         let calendar = Calendar.current
@@ -252,6 +254,43 @@ struct ExpenseRowView: View {
                 .frame(width: 25)
                 .layoutPriority(1)
             
+            // Photo thumbnail indicator
+            if !expense.imageAttachments.isEmpty {
+                Button(action: { showingImageViewer = true }) {
+                    if let firstImage = thumbnailImages.first {
+                        Image(uiImage: firstImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 30, height: 30)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(Color(.systemGray4), lineWidth: 0.5)
+                            )
+                            .overlay(
+                                // Show count if multiple images
+                                expense.imageAttachments.count > 1 ?
+                                Text("\(expense.imageAttachments.count)")
+                                    .font(.caption2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .padding(2)
+                                    .background(Color.black.opacity(0.7), in: Circle())
+                                    .offset(x: 10, y: -10)
+                                : nil
+                            )
+                    } else {
+                        Image(systemName: "photo.fill")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .frame(width: 30, height: 30)
+                            .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 4))
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+                .layoutPriority(1)
+            }
+            
             // Description with flexible space
             VStack(alignment: .leading, spacing: 2) {
                 Text(expense.description)
@@ -271,5 +310,40 @@ struct ExpenseRowView: View {
                 .layoutPriority(1)
         }
         .padding(.vertical, 6)
+        .onAppear {
+            loadThumbnails()
+        }
+        .sheet(isPresented: $showingImageViewer) {
+            if !thumbnailImages.isEmpty {
+                ImageViewerView(
+                    images: thumbnailImages,
+                    startingIndex: 0,
+                    isPresented: $showingImageViewer
+                )
+            }
+        }
+    }
+    
+    private func loadThumbnails() {
+        thumbnailImages.removeAll()
+        
+        for attachment in expense.imageAttachments {
+            if let thumbnail = ImageManager.shared.loadThumbnail(
+                for: expense.id,
+                parentType: .expense,
+                filename: attachment.filename
+            ) {
+                thumbnailImages.append(thumbnail)
+            } else {
+                // Fallback to full image if thumbnail not available
+                if let fullImage = ImageManager.shared.loadImage(
+                    for: expense.id,
+                    parentType: .expense,
+                    filename: attachment.filename
+                ) {
+                    thumbnailImages.append(fullImage)
+                }
+            }
+        }
     }
 }

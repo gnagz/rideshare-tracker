@@ -37,12 +37,14 @@ struct ExpenseItem: Codable, Identifiable, Equatable, Hashable {
     var category: ExpenseCategory
     var description: String
     var amount: Double
+    var imageAttachments: [ImageAttachment] = []
     
     init(date: Date = Date(), category: ExpenseCategory, description: String, amount: Double) {
         self.date = date
         self.category = category
         self.description = description
         self.amount = amount
+        self.imageAttachments = []
     }
 }
 
