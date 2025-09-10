@@ -18,7 +18,7 @@ struct PreferencesView: View {
     @FocusState private var focusedField: FocusedField?
     
     enum FocusedField {
-        case tankCapacity, gasPrice, mileageRate
+        case tankCapacity, gasPrice, mileageRate, taxRate
     }
     
     
@@ -174,6 +174,31 @@ struct PreferencesView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.top, 4)
+                    
+                    Toggle("Tips are tax deductible", isOn: $preferences.tipDeductionEnabled)
+                    
+                    Text("Tips are deductible through tax year 2028 under current IRS rules.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 2)
+                    
+                    HStack {
+                        Text("Effective Tax Rate (%)")
+                        Spacer()
+                        CalculatorTextField(placeholder: "22.0", value: $preferences.effectivePersonalTaxRate, formatter: .mileage)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                            .focused($focusedField, equals: .taxRate)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .taxRate ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
+                    }
+                    
+                    Text("Your combined Federal and State tax rate percentages used for estimating your taxes due.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 2)
                 }
                 
             }
