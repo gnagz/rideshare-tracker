@@ -8,13 +8,18 @@
 import Foundation
 import UIKit
 
+@MainActor
+private func getCurrentDeviceID() -> String {
+    return UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+}
+
 struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     var id = UUID()
     
     // Sync metadata
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
-    var deviceID: String = UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+    var deviceID: String = "unknown"
     var isDeleted: Bool = false
     
     // Start of shift data
@@ -44,6 +49,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     // Shift-specific rates (captured at shift creation)
     var gasPrice: Double?
     var standardMileageRate: Double?
+    
     
     // Computed properties
     var shiftMileage: Double {
@@ -175,47 +181,6 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
         return shiftDuration > 0 ? shiftProfit / (shiftDuration / 3600.0) : 0
     }
     
-    // MARK: - Convenience methods using shift-specific rates
-    
-    func shiftGasCost(tankCapacity: Double) -> Double {
-        return shiftGasCost(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
-    }
-    
-    func totalTaxDeductibleExpense() -> Double {
-        return totalTaxDeductibleExpense(mileageRate: standardMileageRate ?? AppPreferences.shared.standardMileageRate)
-    }
-    
-    func directCosts(tankCapacity: Double) -> Double {
-        return directCosts(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
-    }
-    
-    func totalShiftExpenses(tankCapacity: Double) -> Double {
-        return totalShiftExpenses(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
-    }
-    
-    func grossProfit(tankCapacity: Double) -> Double {
-        return grossProfit(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
-    }
-    
-    func deductibleExpenses() -> Double {
-        return deductibleExpenses(mileageRate: standardMileageRate ?? AppPreferences.shared.standardMileageRate)
-    }
-    
-    func outOfPocketCosts(tankCapacity: Double) -> Double {
-        return outOfPocketCosts(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
-    }
-    
-    func cashFlowProfit(tankCapacity: Double) -> Double {
-        return cashFlowProfit(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
-    }
-    
-    func profit(tankCapacity: Double) -> Double {
-        return profit(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
-    }
-    
-    func profitPerHour(tankCapacity: Double) -> Double {
-        return profitPerHour(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
-    }
 }
 
 // MARK: - Backward Compatibility for Decoding
@@ -253,7 +218,7 @@ extension RideshareShift {
         // Decode sync metadata with backward compatibility
         createdDate = try container.decodeIfPresent(Date.self, forKey: .createdDate) ?? startDate
         modifiedDate = try container.decodeIfPresent(Date.self, forKey: .modifiedDate) ?? endDate ?? startDate
-        deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID) ?? UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+        deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID) ?? "unknown"
         isDeleted = try container.decodeIfPresent(Bool.self, forKey: .isDeleted) ?? false
     }
     

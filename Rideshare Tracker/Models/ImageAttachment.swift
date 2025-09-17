@@ -23,10 +23,12 @@ struct ImageAttachment: Codable, Identifiable, Hashable, Equatable {
     }
     
     // Computed properties for file paths
+    @MainActor
     func fileURL(for parentID: UUID, parentType: AttachmentParentType) -> URL {
         return ImageManager.shared.imageURL(for: parentID, parentType: parentType, filename: filename)
     }
     
+    @MainActor
     func thumbnailURL(for parentID: UUID, parentType: AttachmentParentType) -> URL {
         return ImageManager.shared.thumbnailURL(for: parentID, parentType: parentType, filename: filename)
     }

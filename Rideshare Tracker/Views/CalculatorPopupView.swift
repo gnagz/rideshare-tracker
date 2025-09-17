@@ -8,6 +8,7 @@
 import SwiftUI
 
 // Global calculator state manager to persist across app lifecycle  
+@MainActor
 class CalculatorStateManager: ObservableObject {
     static let shared = CalculatorStateManager()
     

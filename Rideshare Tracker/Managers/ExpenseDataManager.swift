@@ -7,6 +7,7 @@
 
 import Foundation
 
+@MainActor
 class ExpenseDataManager: ObservableObject {
     static let shared = ExpenseDataManager()
     

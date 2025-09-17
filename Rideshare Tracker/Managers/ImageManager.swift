@@ -9,6 +9,7 @@ import Foundation
 import UIKit
 import SwiftUI
 
+@MainActor
 class ImageManager: ObservableObject {
     static let shared = ImageManager()
     

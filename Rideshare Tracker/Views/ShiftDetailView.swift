@@ -45,7 +45,7 @@ struct ShiftDetailView: View {
     }
     
     private var yearTotalMileageDeduction: Double {
-        yearToDateShifts.reduce(0) { $0 + $1.deductibleExpenses() }
+        yearToDateShifts.reduce(0) { $0 + $1.deductibleExpenses(mileageRate: preferences.standardMileageRate) }
     }
     
     private var yearTotalExpensesWithoutVehicle: Double {
@@ -57,7 +57,7 @@ struct ShiftDetailView: View {
     }
     
     private var yearTotalFuelExpenses: Double {
-        yearToDateShifts.reduce(0) { $0 + $1.shiftGasCost(tankCapacity: preferences.tankCapacity) }
+        yearToDateShifts.reduce(0) { $0 + $1.shiftGasCost(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice) }
     }
     
     private var yearTotalTollExpenses: Double {
@@ -218,7 +218,7 @@ struct ShiftDetailView: View {
                 .foregroundColor(.primary)
             
             VStack(spacing: 8) {
-                DetailRow("Gas Cost", String(format: "$%.2f", shift.shiftGasCost(tankCapacity: preferences.tankCapacity)))
+                DetailRow("Gas Cost", String(format: "$%.2f", shift.shiftGasCost(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)))
                 DetailRow("Gas Used", String(format: "%.1f gal", shift.shiftGasUsage(tankCapacity: preferences.tankCapacity)))
                 DetailRow("MPG", String(format: "%.1f", shift.shiftMPG(tankCapacity: preferences.tankCapacity)))
                 
@@ -277,7 +277,7 @@ struct ShiftDetailView: View {
                 if let mileageRate = shift.standardMileageRate {
                     DetailRow("Mileage Rate Used", String(format: "$%.3f/mi", mileageRate))
                 }
-                DetailRow("Mileage Deduction (This Trip)", String(format: "$%.2f", shift.deductibleExpenses()))
+                DetailRow("Mileage Deduction (This Trip)", String(format: "$%.2f", shift.deductibleExpenses(mileageRate: preferences.standardMileageRate)))
                 DetailRow("Total Mileage Deduction", String(format: "$%.2f", yearTotalMileageDeduction))
                 DetailRow("Total Expenses (Mileage)", String(format: "$%.2f", yearTotalExpensesWithoutVehicle))
                 
@@ -335,10 +335,10 @@ struct ShiftDetailView: View {
             
             VStack(spacing: 8) {
                 DetailRow("Expected Payout", String(format: "$%.2f", shift.expectedPayout), valueColor: .blue)
-                DetailRow("Out of Pocket Costs", String(format: "$%.2f", shift.outOfPocketCosts(tankCapacity: preferences.tankCapacity)))
+                DetailRow("Out of Pocket Costs", String(format: "$%.2f", shift.outOfPocketCosts(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)))
                 
-                let profit = shift.cashFlowProfit(tankCapacity: preferences.tankCapacity)
-                let profitPerHour = shift.profitPerHour(tankCapacity: preferences.tankCapacity)
+                let profit = shift.cashFlowProfit(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
+                let profitPerHour = shift.profitPerHour(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
                 
                 DetailRow("Cash Flow Profit", String(format: "$%.2f", profit), valueColor: profit >= 0 ? .green : .red)
                 DetailRow("Profit/hr", String(format: "$%.2f", profitPerHour), valueColor: profitPerHour >= 0 ? .green : .red)

@@ -10,7 +10,7 @@ import UIKit
 
 // MARK: - Storage Protocol
 
-protocol SyncStorageProtocol {
+protocol SyncStorageProtocol: Sendable {
     var isAvailable: Bool { get }
     var documentsURL: URL? { get }
     
@@ -25,7 +25,7 @@ protocol SyncStorageProtocol {
 
 // MARK: - Storage Implementations
 
-class CloudSyncStorage: SyncStorageProtocol {
+class CloudSyncStorage: SyncStorageProtocol, @unchecked Sendable {
     private let fileManager = FileManager.default
     
     var isAvailable: Bool {
@@ -114,7 +114,7 @@ class CloudSyncStorage: SyncStorageProtocol {
     }
 }
 
-class LocalSyncStorage: SyncStorageProtocol {
+class LocalSyncStorage: SyncStorageProtocol, @unchecked Sendable {
     private let fileManager = FileManager.default
     private let testDirectoryName = "RideshareTrackerTestSync"
     
@@ -182,6 +182,7 @@ class LocalSyncStorage: SyncStorageProtocol {
     }
 }
 
+@MainActor
 class CloudSyncManager: ObservableObject {
     static let shared = CloudSyncManager()
     
@@ -239,7 +240,7 @@ class CloudSyncManager: ObservableObject {
             // Create sync metadata
             let metadata = SyncMetadata(
                 lastSyncDate: Date(),
-                deviceID: await UIDevice.current.identifierForVendor?.uuidString ?? "unknown",
+                deviceID: await MainActor.run { UIDevice.current.identifierForVendor?.uuidString ?? "unknown" },
                 schemaVersion: 1
             )
             try await uploadSyncMetadata(metadata)
@@ -288,7 +289,7 @@ class CloudSyncManager: ObservableObject {
             // Update sync metadata
             let newMetadata = SyncMetadata(
                 lastSyncDate: Date(),
-                deviceID: await UIDevice.current.identifierForVendor?.uuidString ?? "unknown",
+                deviceID: await MainActor.run { UIDevice.current.identifierForVendor?.uuidString ?? "unknown" },
                 schemaVersion: cloudMetadata?.schemaVersion ?? 1
             )
             try await uploadSyncMetadata(newMetadata)

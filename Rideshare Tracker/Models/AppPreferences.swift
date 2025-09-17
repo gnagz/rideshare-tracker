@@ -117,6 +117,7 @@ struct CSVImportResult {
     let shifts: [RideshareShift]
 }
 
+@MainActor
 class AppPreferences: ObservableObject {
     static let shared = AppPreferences()
     
@@ -744,16 +745,16 @@ class AppPreferences: ObservableObject {
                 shift.endDate != nil ? String(format: "%.1f", shift.shiftDuration / 3600.0) : "",
                 String(format: "%.1f", shift.shiftMileage),
                 String(format: "%.2f", shift.revenue),
-                String(format: "%.2f", shift.shiftGasCost(tankCapacity: tankCapacity)),
+                String(format: "%.2f", shift.shiftGasCost(tankCapacity: tankCapacity, gasPrice: gasPrice)),
                 String(format: "%.2f", shift.shiftGasUsage(tankCapacity: tankCapacity)),
                 String(format: "%.1f", shift.shiftMPG(tankCapacity: tankCapacity)),
                 String(format: "%.2f", shift.totalTips),
                 String(format: "%.2f", shift.taxableIncome),
-                String(format: "%.2f", shift.deductibleExpenses()),
+                String(format: "%.2f", shift.deductibleExpenses(mileageRate: standardMileageRate)),
                 String(format: "%.2f", shift.expectedPayout),
-                String(format: "%.2f", shift.outOfPocketCosts(tankCapacity: tankCapacity)),
-                String(format: "%.2f", shift.cashFlowProfit(tankCapacity: tankCapacity)),
-                String(format: "%.2f", shift.profitPerHour(tankCapacity: tankCapacity)),
+                String(format: "%.2f", shift.outOfPocketCosts(tankCapacity: tankCapacity, gasPrice: gasPrice)),
+                String(format: "%.2f", shift.cashFlowProfit(tankCapacity: tankCapacity, gasPrice: gasPrice)),
+                String(format: "%.2f", shift.profitPerHour(tankCapacity: tankCapacity, gasPrice: gasPrice)),
                 // Preference fields for context
                 String(tankCapacity),
                 String(format: "%.3f", shift.gasPrice ?? gasPrice),
