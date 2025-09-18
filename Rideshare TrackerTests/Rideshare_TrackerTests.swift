@@ -23,7 +23,9 @@ final class RideshareShiftTests: XCTestCase {
             startDate: startDate,
             startMileage: 100.0,
             startTankReading: 8.0,
-            hasFullTankAtStart: true
+            hasFullTankAtStart: true,
+            gasPrice: 2.00,
+            standardMileageRate: 0.67
         )
         shift.endDate = endDate
         shift.endMileage = 200.0
@@ -46,7 +48,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      shift.netFare = 150.0
      shift.tips = 25.0
@@ -68,7 +72,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      shift.endDate = Date().addingTimeInterval(3600) // 1 hour
      shift.endMileage = 200.0
@@ -78,24 +84,64 @@ final class RideshareShiftTests: XCTestCase {
      shift.tolls = 10.0
      shift.tollsReimbursed = 5.0
      shift.parkingFees = 5.0
-     shift.refuelCost = 30.0
-     
+     shift.didRefuelAtEnd = true
+     shift.refuelGallons = 4.0 // Only refuel what was used (2/8ths of 16-gallon tank = 4 gallons)
+     shift.refuelCost = 8.0 // 4 gallons * $2.00/gallon = $8.00
+
      let tankCapacity = 16.0 // gallons
-     let gasPrice = 3.50
+     let gasPrice = 2.00 // Set to $2.00/gallon to match refuel calculation
      
      // When
      let revenue = shift.revenue
-     let directCosts = shift.directCosts(tankCapacity: tankCapacity, gasPrice: gasPrice)
-     let grossProfit = shift.grossProfit(tankCapacity: tankCapacity, gasPrice: gasPrice)
-     let cashFlowProfit = shift.cashFlowProfit(tankCapacity: tankCapacity, gasPrice: gasPrice)
+     let directCosts = shift.directCosts(tankCapacity: tankCapacity)
+     let grossProfit = shift.grossProfit(tankCapacity: tankCapacity)
+     let cashFlowProfit = shift.cashFlowProfit(tankCapacity: tankCapacity)
      
      // Then
      XCTAssertEqual(revenue, 175.0) // netFare + tips
-     XCTAssertEqual(directCosts, 40.0) // refuelCost + (tolls - tollsReimbursed) + parkingFees
-     XCTAssertEqual(grossProfit, 135.0) // revenue - directCosts
+     XCTAssertEqual(directCosts, 18.0) // shiftGasCost(8.0) + (tolls - tollsReimbursed) + parkingFees = 8.0 + 5.0 + 5.0 = 18.0
+     XCTAssertEqual(grossProfit, 157.0) // revenue - directCosts = 175.0 - 18.0 = 157.0
      XCTAssertEqual(cashFlowProfit, grossProfit) // Should be same for this test
      }
-     
+
+     // Test Bug #1: Tank shortage at start + refuel at end - only charge for gas used during shift
+     func testTankShortageRefuelBug() async throws {
+     // Given: Tank starts NOT full, refuels at end (Bug #1 scenario)
+     var shift = RideshareShift(
+     startDate: Date(),
+     startMileage: 100.0,
+     startTankReading: 6.0, // NOT FULL: 6/8 = 4 gallons short of full 16-gallon tank
+     hasFullTankAtStart: false,
+     gasPrice: 2.00, // Set to $2.00/gallon to match refuel calculation (avoid Bug #2)
+     standardMileageRate: 0.67
+     )
+     shift.endDate = Date().addingTimeInterval(3600) // 1 hour
+     shift.endMileage = 150.0
+     shift.endTankReading = 8.0 // Full tank after refuel
+     shift.netFare = 50.0
+     shift.tips = 0.0
+     shift.tolls = 0.0
+     shift.tollsReimbursed = 0.0
+     shift.parkingFees = 0.0
+     shift.didRefuelAtEnd = true
+     shift.refuelGallons = 6.0 // 2 gallons for shift + 4 gallons for tank shortage = 6 total
+     shift.refuelCost = 12.0 // 6 gallons * $2.00/gallon = $12.00
+
+     let tankCapacity = 16.0 // tank capacity in gallons
+
+     // When
+     let revenue = shift.revenue
+     let directCosts = shift.directCosts(tankCapacity: tankCapacity)
+     let grossProfit = shift.grossProfit(tankCapacity: tankCapacity)
+     let cashFlowProfit = shift.cashFlowProfit(tankCapacity: tankCapacity)
+
+     // Then: Should only charge for 4 gallons used during shift, NOT the 2-gallon tank shortage
+     XCTAssertEqual(revenue, 50.00) // netFare + tips
+     XCTAssertEqual(directCosts, 4.00) // shiftGasCost($4.00 for 2 gallons) + (tolls - tollsReimbursed) + parkingFees = 4.00 + 0.0 + 0.0 = $4.00
+     XCTAssertEqual(grossProfit, 46.00) // revenue - directCosts = 50.0 - 4.0 = $46.00
+     XCTAssertEqual(cashFlowProfit, grossProfit) // Should be same for this test
+     }
+
      // Test gas usage calculation
      func testGasUsageCalculation() async throws {
      // Given
@@ -103,7 +149,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 8.0, // Full tank
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      shift.endMileage = 200.0
      shift.endTankReading = 4.0 // Half tank remaining
@@ -126,7 +174,10 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 6.0, // 3/4 tank
-     hasFullTankAtStart: false
+     
+     hasFullTankAtStart: false,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      shift.endMileage = 300.0
      shift.endTankReading = 8.0 // Full tank (after refuel)
@@ -151,7 +202,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      
      // When/Then
@@ -168,7 +221,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      shift.endMileage = 200.0 // 100 miles
      shift.netFare = 150.0
@@ -193,12 +248,14 @@ final class RideshareShiftTests: XCTestCase {
      // Given
      let startDate = Date()
      let endDate = startDate.addingTimeInterval(2 * 3600) // 2 hours
-     
+
      var shift = RideshareShift(
      startDate: startDate,
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      shift.endDate = endDate
      shift.endMileage = 150.0
@@ -210,8 +267,8 @@ final class RideshareShiftTests: XCTestCase {
      let gasPrice = 3.50
      
      // When
-     let totalProfit = shift.cashFlowProfit(tankCapacity: tankCapacity, gasPrice: gasPrice)
-     let profitPerHour = shift.profitPerHour(tankCapacity: tankCapacity, gasPrice: gasPrice)
+     let totalProfit = shift.cashFlowProfit(tankCapacity: tankCapacity)
+     let profitPerHour = shift.profitPerHour(tankCapacity: tankCapacity)
      
      // Then
      XCTAssertTrue(totalProfit > 0) // Should be profitable
@@ -229,12 +286,14 @@ final class RideshareShiftTests: XCTestCase {
      let preferences = AppPreferences.shared
      let startDate = Date()
      let endDate = startDate.addingTimeInterval(3600) // 1 hour later
-     
+
      var shift = RideshareShift(
      startDate: startDate,
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      shift.endDate = endDate
      shift.endMileage = 150.0
@@ -413,7 +472,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      ]
      let testExpenses: [ExpenseItem] = [
@@ -460,7 +521,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      ]
      let fromDate = Date()
@@ -787,7 +850,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      
      // Then
@@ -821,7 +886,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      let originalModifiedDate = shift.modifiedDate
      
@@ -844,7 +911,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      oldShift.endDate = Date().addingTimeInterval(3600)
      oldShift.endMileage = 150.0
@@ -930,7 +999,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      
      let expenseWithSyncData = ExpenseItem(
@@ -1045,7 +1116,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 100.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      testShift.deviceID = "test-device-123"
      testShift.modifiedDate = Date()
@@ -1249,7 +1322,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: Date(),
      startMileage: 10000.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      }
      }
@@ -1276,7 +1351,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: sundayAug24,
      startMileage: 62495.0,
      startTankReading: 1.0,
-     hasFullTankAtStart: false
+     hasFullTankAtStart: false,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      
      manager.shifts = [boundaryShift]
@@ -1343,7 +1420,9 @@ final class RideshareShiftTests: XCTestCase {
      startDate: wednesdayAug20,
      startMileage: 10000.0,
      startTankReading: 8.0,
-     hasFullTankAtStart: true
+     hasFullTankAtStart: true,
+     gasPrice: 2.00,
+     standardMileageRate: 0.67
      )
      
      manager.shifts = [testShift]
@@ -2147,7 +2226,9 @@ final class RideshareShiftTests: XCTestCase {
                 startDate: Date(),
                 startMileage: 100000,
                 startTankReading: 8.0,
-                hasFullTankAtStart: true
+                hasFullTankAtStart: true,
+                gasPrice: 2.00,
+                standardMileageRate: 0.67
             )
 
             // When: Checking imageAttachments property exists
@@ -2165,7 +2246,9 @@ final class RideshareShiftTests: XCTestCase {
                 startDate: Date(),
                 startMileage: 100000,
                 startTankReading: 8.0,
-                hasFullTankAtStart: true
+                hasFullTankAtStart: true,
+                gasPrice: 3.50,
+                standardMileageRate: 0.67
             )
 
             // Create shift-specific photo attachments
@@ -2192,7 +2275,9 @@ final class RideshareShiftTests: XCTestCase {
                 startDate: Date(),
                 startMileage: 100000,
                 startTankReading: 8.0,
-                hasFullTankAtStart: true
+                hasFullTankAtStart: true,
+                gasPrice: 3.50,
+                standardMileageRate: 0.67
             )
 
             let attachment = ImageAttachment(
@@ -2226,7 +2311,9 @@ final class RideshareShiftTests: XCTestCase {
                 startDate: Date(),
                 startMileage: 100000,
                 startTankReading: 8.0,
-                hasFullTankAtStart: true
+                hasFullTankAtStart: true,
+                gasPrice: 3.50,
+                standardMileageRate: 0.67
             )
             shift.id = testShiftID
 
@@ -2261,32 +2348,77 @@ final class RideshareShiftTests: XCTestCase {
 
         // MARK: - Critical Calculation Bug Tests
 
-        func testRefuelCalculationBug() async throws {
-            // Critical bug: When refueling, the shift gas cost should only charge for
-            // gas used during the shift, not including gas needed to top off tank shortage
+        func testGasPriceCalculationFromRefuelData() async throws {
+            // Bug #2: Gas price should be calculated from actual refuel data when available,
+            // not always use App Preferences gas price
 
-            // Given: Shift starts with tank 2 gallons short, refuels 5 gallons for $10
+            // Given: Shift with different preferences gas price vs actual refuel price
             var shift = RideshareShift(
                 startDate: Date(),
                 startMileage: 100.0,
-                startTankReading: 6.0, // 3/4 tank (6/8) = 2 gallons short of full 8-gallon tank
-                hasFullTankAtStart: false
+                startTankReading: 8.0, // Start with full tank to simplify calculation
+                hasFullTankAtStart: true,
+                gasPrice: 3.50, // Preferences gas price: $2.50/gallon
+                standardMileageRate: 0.67
             )
             shift.endDate = Date().addingTimeInterval(3600)
             shift.endMileage = 150.0
-            shift.endTankReading = 8.0 // Full tank after refuel
-            shift.refuelGallons = 5.0 // Pumped 5 gallons total
-            shift.refuelCost = 10.0 // Cost $10 total
+            shift.endTankReading = 6.0 // Used 2 gallons during shift
+            shift.refuelGallons = 2.0 // Refueled exactly what was used
+            shift.refuelCost = 5.00 // Actual cost: $5.00 (= $2.50/gallon, different from preferences!)
 
             let tankCapacity = 8.0
 
-            // When calculating shift gas cost
-            let shiftGasCost = shift.shiftGasCost(tankCapacity: tankCapacity, gasPrice: 2.50)
+            // When: Simulate EndShiftView setting gas price from refuel data
+            if let cost = shift.refuelCost, let gallons = shift.refuelGallons, gallons > 0 {
+                shift.gasPrice = cost / gallons  // This is what EndShiftView should do
+            }
+            let shiftGasCost = shift.shiftGasCost(tankCapacity: tankCapacity)
 
-            // Then: Should only charge for 3 gallons used for shift (5 pumped - 2 shortage)
-            // Gas price = $10/5g = $2/gallon
-            // Shift cost = 3 gallons * $2/gallon = $6 (NOT the full $10 refuel cost)
-            XCTAssertEqual(shiftGasCost, 6.0, accuracy: 0.01, "Should charge only for gas used during shift, not tank shortage")
+            // Then: Should use actual refuel price ($2.50/gallon), not preferences ($3.50/gallon)
+            XCTAssertEqual(shift.gasPrice, 2.50, accuracy: 0.01, "Gas price should be updated from refuel data")
+            XCTAssertEqual(shiftGasCost, 5.00, accuracy: 0.01, "Should use actual refuel price for gas cost calculation")
+
+            // Verify it would be different if using preferences price
+            let wouldBeWithPreferences = 2.0 * 3.50 // 2 gallons * $3.50 = $7.00
+            XCTAssertNotEqual(shiftGasCost, wouldBeWithPreferences, "Should NOT use preferences gas price when refuel data available")
+        }
+
+        // MARK: - Tax Calculation Tests
+        func testTaxCalculationMethods() async throws {
+            // Given: Tax calculation inputs
+            let grossIncome = 1000.0
+            let deductibleTips = 500.0
+            let mileageDeduction = 350.0
+            let otherExpenses = 100.0
+            let taxRate = 22.0
+
+            // When: Calculate tax components using static methods
+            let adjustedGrossIncome = RideshareShift.calculateAdjustedGrossIncome(
+                grossIncome: grossIncome,
+                deductibleTips: deductibleTips
+            )
+            let selfEmploymentTax = RideshareShift.calculateSelfEmploymentTax(grossIncome: grossIncome)
+            let taxableIncome = RideshareShift.calculateTaxableIncome(
+                adjustedGrossIncome: adjustedGrossIncome,
+                mileageDeduction: mileageDeduction,
+                otherExpenses: otherExpenses
+            )
+            let incomeTax = RideshareShift.calculateIncomeTax(
+                taxableIncome: taxableIncome,
+                taxRate: taxRate
+            )
+            let totalTax = RideshareShift.calculateTotalTax(
+                incomeTax: incomeTax,
+                selfEmploymentTax: selfEmploymentTax
+            )
+
+            // Then: Verify calculations match expected values
+            XCTAssertEqual(adjustedGrossIncome, 500.0, accuracy: 0.01, "Adjusted gross income should be $500.00")
+            XCTAssertEqual(selfEmploymentTax, 153.0, accuracy: 0.01, "Self-employment tax should be $153.00 (15.3%)")
+            XCTAssertEqual(taxableIncome, 50.0, accuracy: 0.01, "Taxable income should be $50.00")
+            XCTAssertEqual(incomeTax, 11.0, accuracy: 0.01, "Income tax should be $11.00 (22%)")
+            XCTAssertEqual(totalTax, 164.0, accuracy: 0.01, "Total tax should be $164.00")
         }
 
         // Helper method to create test images

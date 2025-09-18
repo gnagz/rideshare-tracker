@@ -399,7 +399,11 @@ struct EndShiftView: View {
         shift.miscFees = miscFees
         
         // Always capture current preference values when ending shift (when calculations become meaningful)
-        shift.gasPrice = preferences.gasPrice
+        if didRefuel, let cost = refuelCost, let gallons = Double(refuelGallons), gallons > 0 {
+            shift.gasPrice = cost / gallons  // Calculate from actual refuel data
+        } else {
+            shift.gasPrice = preferences.gasPrice  // Use preference as fallback
+        }
         shift.standardMileageRate = preferences.standardMileageRate
 
         // Save photos and create attachments

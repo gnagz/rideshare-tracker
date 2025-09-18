@@ -608,8 +608,8 @@ struct EditShiftView: View {
             shift.tollsReimbursed = tollsReimbursed
             shift.parkingFees = parkingFees
             shift.miscFees = miscFees
-            shift.gasPrice = gasPrice
-            shift.standardMileageRate = standardMileageRate
+            shift.gasPrice = gasPrice ?? preferences.gasPrice
+            shift.standardMileageRate = standardMileageRate ?? preferences.standardMileageRate
         }
 
         // Handle photo changes

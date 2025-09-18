@@ -201,7 +201,9 @@ struct StartShiftView: View {
             startDate: startDate,
             startMileage: mileage,
             startTankReading: tankReading,
-            hasFullTankAtStart: tankReading == 8.0
+            hasFullTankAtStart: tankReading == 8.0,
+            gasPrice: preferences.gasPrice,
+            standardMileageRate: preferences.standardMileageRate
         )
 
         // Save photos and create attachments

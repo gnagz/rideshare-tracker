@@ -284,7 +284,7 @@ struct ContentView: View {
     private func calculateGrossProfit(for shifts: [RideshareShift]) -> Double {
         let completedShifts = shifts.filter { $0.endDate != nil }
         return completedShifts.reduce(into: 0) { sum, shift in
-            sum += shift.grossProfit(tankCapacity: preferences.tankCapacity, gasPrice: preferences.gasPrice)
+            sum += shift.grossProfit(tankCapacity: preferences.tankCapacity)
         }
     }
     

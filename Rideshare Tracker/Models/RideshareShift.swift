@@ -47,12 +47,23 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     var miscFees: Double?
     
     // Shift-specific rates (captured at shift creation)
-    var gasPrice: Double?
-    var standardMileageRate: Double?
+    var gasPrice: Double
+    var standardMileageRate: Double
 
     // Photo attachments (Phase 2)
     var imageAttachments: [ImageAttachment] = []
 
+    // Gas price management
+
+    mutating func updateGasPrice() {
+        if let refuelCost = refuelCost, let refuelGallons = refuelGallons, refuelGallons > 0 {
+            gasPrice = refuelCost / refuelGallons
+        }
+    }
+
+    mutating func resetGasPriceToPreferences(preferencesGasPrice: Double) {
+        gasPrice = preferencesGasPrice
+    }
 
     // Computed properties
     var shiftMileage: Double {
@@ -115,12 +126,8 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
         return max(gasUsed, 0)
     }
     
-    func shiftGasCost(tankCapacity: Double, gasPrice: Double) -> Double {
-        if let refuelCost = refuelCost {
-            return refuelCost
-        } else {
-            return shiftGasUsage(tankCapacity: tankCapacity) * gasPrice
-        }
+    func shiftGasCost(tankCapacity: Double) -> Double {
+        return shiftGasUsage(tankCapacity: tankCapacity) * gasPrice
     }
     
     func shiftMPG(tankCapacity: Double) -> Double {
@@ -144,19 +151,19 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
         return deductibleExpenses(mileageRate: mileageRate)
     }
     
-    func directCosts(tankCapacity: Double, gasPrice: Double) -> Double {
-        let gasExpense = shiftGasCost(tankCapacity: tankCapacity, gasPrice: gasPrice)
+    func directCosts(tankCapacity: Double) -> Double {
+        let gasExpense = shiftGasCost(tankCapacity: tankCapacity)
         let tollExpense = (tolls ?? 0) - (tollsReimbursed ?? 0)
         return gasExpense + tollExpense + (parkingFees ?? 0) + (miscFees ?? 0)
     }
     
     // Keep for backward compatibility
-    func totalShiftExpenses(tankCapacity: Double, gasPrice: Double) -> Double {
-        return directCosts(tankCapacity: tankCapacity, gasPrice: gasPrice)
+    func totalShiftExpenses(tankCapacity: Double) -> Double {
+        return directCosts(tankCapacity: tankCapacity)
     }
        
-    func grossProfit(tankCapacity: Double, gasPrice: Double) -> Double {
-        return revenue - directCosts(tankCapacity: tankCapacity, gasPrice: gasPrice)
+    func grossProfit(tankCapacity: Double) -> Double {
+        return revenue - directCosts(tankCapacity: tankCapacity)
     }
 
     // Cash Flow Summary Properties
@@ -165,25 +172,47 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
         return revenue + (tollsReimbursed ?? 0)
     }
     
-    func outOfPocketCosts(tankCapacity: Double, gasPrice: Double) -> Double {
-        let gasExpense = shiftGasCost(tankCapacity: tankCapacity, gasPrice: gasPrice)
+    func outOfPocketCosts(tankCapacity: Double) -> Double {
+        let gasExpense = shiftGasCost(tankCapacity: tankCapacity)
         return gasExpense + (tolls ?? 0) + (parkingFees ?? 0) + (miscFees ?? 0)
     }
     
-    func cashFlowProfit(tankCapacity: Double, gasPrice: Double) -> Double {
-        return expectedPayout - outOfPocketCosts(tankCapacity: tankCapacity, gasPrice: gasPrice)
+    func cashFlowProfit(tankCapacity: Double) -> Double {
+        return expectedPayout - outOfPocketCosts(tankCapacity: tankCapacity)
     }
     
     // Keep for backward compatibility
-    func profit(tankCapacity: Double, gasPrice: Double) -> Double {
-        return cashFlowProfit(tankCapacity: tankCapacity, gasPrice: gasPrice)
+    func profit(tankCapacity: Double) -> Double {
+        return cashFlowProfit(tankCapacity: tankCapacity)
     }
     
-    func profitPerHour(tankCapacity: Double, gasPrice: Double) -> Double {
-        let shiftProfit = cashFlowProfit(tankCapacity: tankCapacity, gasPrice: gasPrice)
+    func profitPerHour(tankCapacity: Double) -> Double {
+        let shiftProfit = cashFlowProfit(tankCapacity: tankCapacity)
         return shiftDuration > 0 ? shiftProfit / (shiftDuration / 3600.0) : 0
     }
-    
+
+    // MARK: - Tax Calculation Methods
+
+    static func calculateAdjustedGrossIncome(grossIncome: Double, deductibleTips: Double) -> Double {
+        return grossIncome - deductibleTips
+    }
+
+    static func calculateSelfEmploymentTax(grossIncome: Double) -> Double {
+        return grossIncome * 0.153
+    }
+
+    static func calculateTaxableIncome(adjustedGrossIncome: Double, mileageDeduction: Double, otherExpenses: Double) -> Double {
+        return max(0, adjustedGrossIncome - mileageDeduction - otherExpenses)
+    }
+
+    static func calculateIncomeTax(taxableIncome: Double, taxRate: Double) -> Double {
+        return taxableIncome * (taxRate / 100.0)
+    }
+
+    static func calculateTotalTax(incomeTax: Double, selfEmploymentTax: Double) -> Double {
+        return incomeTax + selfEmploymentTax
+    }
+
 }
 
 // MARK: - Backward Compatibility for Decoding
@@ -215,8 +244,8 @@ extension RideshareShift {
         miscFees = try container.decodeIfPresent(Double.self, forKey: .miscFees)
         
         // Decode shift-specific rates (new fields - backward compatible)
-        gasPrice = try container.decodeIfPresent(Double.self, forKey: .gasPrice)
-        standardMileageRate = try container.decodeIfPresent(Double.self, forKey: .standardMileageRate)
+        gasPrice = try container.decodeIfPresent(Double.self, forKey: .gasPrice) ?? 3.50
+        standardMileageRate = try container.decodeIfPresent(Double.self, forKey: .standardMileageRate) ?? 0.67
         
         // Decode sync metadata with backward compatibility
         createdDate = try container.decodeIfPresent(Date.self, forKey: .createdDate) ?? startDate
