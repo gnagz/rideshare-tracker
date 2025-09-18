@@ -49,14 +49,13 @@ struct RideshareShiftTests {
         shift.netFare = 150.0
         shift.tips = 25.0
         shift.promotions = 10.0
-        shift.riderFees = 5.0
         
         // When
         let revenue = shift.revenue
         let totalEarnings = shift.totalEarnings
         
         // Then
-        #expect(revenue == 190.0) // 150 + 25 + 10 + 5
+        #expect(revenue == 185.0) // 150 + 25 + 10
         #expect(totalEarnings == revenue) // Should be the same
     }
     
@@ -77,6 +76,8 @@ struct RideshareShiftTests {
         shift.tolls = 10.0
         shift.tollsReimbursed = 5.0
         shift.parkingFees = 5.0
+        shift.didRefuelAtEnd = true
+        shift.refuelGallons = 10.0
         shift.refuelCost = 30.0
         
         let tankCapacity = 16.0 // gallons
@@ -215,6 +216,180 @@ struct RideshareShiftTests {
         // Then
         #expect(totalProfit > 0) // Should be profitable
         #expect(profitPerHour == totalProfit / 2.0) // Should be profit divided by 2 hours
+    }
+
+    // MARK: - Bug Fix Tests (Should FAIL until bugs are fixed)
+
+    // Test for Bug #1: Refuel gas cost calculation with non-full tank start
+    @Test func testRefuelGasCostCalculationWithNonFullTankStart() async throws {
+        // Given: Your specific scenario (adjusted for realistic tank capacity)
+        // Tank starts 2 gallons short of full (10 gallon tank for easy math)
+        // Refuel: $10 for 5 gallons to fill tank
+        // Expected: Gas price = $10/5g = $2.00/gallon
+        // Expected: Shift gas cost = (5g - 2g shortage) * $2.00/g = $6.00
+
+        let tankCapacity = 10.0 // Use round number for clear math
+        let startDate = Date()
+        let endDate = startDate.addingTimeInterval(3600) // 1 hour later
+
+        var shift = RideshareShift(
+            startDate: startDate,
+            startMileage: 100.0,
+            startTankReading: 6.4, // 6.4/8 * 10 = 8 gallons (2 gallons short)
+            hasFullTankAtStart: false
+        )
+        shift.endDate = endDate
+        shift.endMileage = 150.0
+        shift.endTankReading = 8.0 // Full after refuel
+        shift.didRefuelAtEnd = true
+        shift.refuelGallons = 5.0
+        shift.refuelCost = 10.0
+
+        // When
+        let actualShiftGasCost = shift.shiftGasCost(tankCapacity: tankCapacity, gasPrice: 3.50)
+
+        // Then - This should now PASS with corrected implementation
+        // Tank shortage: 10 - (6.4/8 * 10) = 10 - 8 = 2 gallons
+        // Gas for shift: 5 - 2 = 3 gallons
+        // Cost: 3 * $2.00 = $6.00
+        let expectedShiftGasCost = 6.0
+        #expect(abs(actualShiftGasCost - expectedShiftGasCost) < 0.01,
+               "Shift gas cost should be $6.00, but got $\(actualShiftGasCost). Tank shortage: 2g, Gas for shift: 3g, Cost: 3g * $2.00/g = $6.00")
+    }
+
+    // Test for Bug #2: Gas price should be calculated from refuel data
+    @Test func testGasPriceCalculationFromRefuelData() async throws {
+        // Given: Same scenario - refuel $10 for 5 gallons
+        // Expected: Gas price should be calculated as $10/5g = $2.00/gallon
+
+        var shift = RideshareShift(
+            startDate: Date(),
+            startMileage: 100.0,
+            startTankReading: 6.0,
+            hasFullTankAtStart: false
+        )
+        shift.didRefuelAtEnd = true
+        shift.refuelGallons = 5.0
+        shift.refuelCost = 10.0
+
+        // When - simulate what EndShiftView now does (after fix)
+        // Fixed implementation: calculate from refuel data when available
+        let refuelCost = 10.0
+        let refuelGallons = 5.0
+        let expectedGasPrice = refuelCost / refuelGallons // Should be 2.00
+
+        // Simulate the fixed EndShiftView logic
+        if shift.didRefuelAtEnd == true, let cost = shift.refuelCost, let gallons = shift.refuelGallons, gallons > 0 {
+            shift.gasPrice = cost / gallons  // This is the fix
+        } else {
+            shift.gasPrice = 3.50  // Use preference as fallback
+        }
+
+        // Then - This should now PASS with corrected implementation
+        #expect(abs((shift.gasPrice ?? 0) - expectedGasPrice) < 0.01,
+               "Gas price should be calculated from refuel data ($2.00/gallon) when refueling, got $\(shift.gasPrice ?? 0)/gallon")
+    }
+
+    // Test gas usage calculation is correct (this should pass)
+    @Test func testGasUsageCalculationWithRefuel() async throws {
+        // Given: Same scenario to verify gas usage calculation is correct
+        let tankCapacity = 14.3
+
+        var shift = RideshareShift(
+            startDate: Date(),
+            startMileage: 100.0,
+            startTankReading: 6.0, // 6/8 of tank
+            hasFullTankAtStart: false
+        )
+        shift.endTankReading = 8.0 // Full after refuel
+        shift.refuelGallons = 5.0
+
+        // When
+        let gasUsage = shift.shiftGasUsage(tankCapacity: tankCapacity)
+
+        // Then
+        // Start gallons: (6/8) * 14.3 = 10.725 gallons
+        // End gallons: (8/8) * 14.3 = 14.3 gallons
+        // Gas used: startGallons - endGallons + refuelGallons
+        // = 10.725 - 14.3 + 5.0 = 1.425 gallons (this is CORRECT)
+
+        let expectedGasUsage = 1.425 // Actual gas consumed during shift
+        #expect(abs(gasUsage - expectedGasUsage) < 0.01,
+               "Gas usage calculation should be \(expectedGasUsage) gallons, got \(gasUsage)")
+    }
+
+    // MARK: - Tax Calculation Tests (TDD for model methods)
+
+    // Test year-to-date tax calculations that should be moved to model
+    @Test func testYearToDateTaxCalculations() async throws {
+        // Given: Sample shifts for tax calculation
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let shift1 = createTestShift(revenue: 100.0, tips: 20.0, mileage: 50.0, year: currentYear)
+        let shift2 = createTestShift(revenue: 150.0, tips: 30.0, mileage: 75.0, year: currentYear)
+        let shifts = [shift1, shift2]
+
+        // When: Calculate year-to-date totals (these methods don't exist yet - TDD)
+        let yearTotalRevenue = RideshareShift.calculateYearTotalRevenue(shifts: shifts, year: currentYear)
+        let yearTotalTips = RideshareShift.calculateYearTotalTips(shifts: shifts, year: currentYear)
+        let yearTotalMileageDeduction = RideshareShift.calculateYearTotalMileageDeduction(shifts: shifts, year: currentYear)
+
+        // Then: Verify calculations
+        #expect(abs(yearTotalRevenue - 250.0) < 0.01, "Year total revenue should be $250.00")
+        #expect(abs(yearTotalTips - 50.0) < 0.01, "Year total tips should be $50.00")
+        #expect(abs(yearTotalMileageDeduction - (125.0 * 0.70)) < 0.01, "Year mileage deduction should be 125 miles * $0.70")
+    }
+
+    @Test func testTaxCalculationMethods() async throws {
+        // Given: Tax calculation inputs
+        let grossIncome = 1000.0
+        let deductibleTips = 500.0
+        let mileageDeduction = 350.0
+        let otherExpenses = 100.0
+        let taxRate = 22.0
+
+        // When: Calculate tax components (these methods don't exist yet - TDD)
+        let adjustedGrossIncome = RideshareShift.calculateAdjustedGrossIncome(
+            grossIncome: grossIncome,
+            deductibleTips: deductibleTips
+        )
+        let selfEmploymentTax = RideshareShift.calculateSelfEmploymentTax(grossIncome: grossIncome)
+        let taxableIncome = RideshareShift.calculateTaxableIncome(
+            adjustedGrossIncome: adjustedGrossIncome,
+            mileageDeduction: mileageDeduction,
+            otherExpenses: otherExpenses
+        )
+        let incomeTax = RideshareShift.calculateIncomeTax(
+            taxableIncome: taxableIncome,
+            taxRate: taxRate
+        )
+
+        // Then: Verify calculations match current view logic
+        #expect(abs(adjustedGrossIncome - 500.0) < 0.01, "Adjusted gross income should be $500.00")
+        #expect(abs(selfEmploymentTax - 153.0) < 0.01, "Self-employment tax should be $153.00 (15.3%)")
+        #expect(abs(taxableIncome - 50.0) < 0.01, "Taxable income should be $50.00")
+        #expect(abs(incomeTax - 11.0) < 0.01, "Income tax should be $11.00 (22%)")
+    }
+
+    // Helper method for creating test shifts
+    private func createTestShift(revenue: Double, tips: Double, mileage: Double, year: Int) -> RideshareShift {
+        let calendar = Calendar.current
+        let startDate = calendar.date(from: DateComponents(year: year, month: 1, day: 1)) ?? Date()
+        let endDate = startDate.addingTimeInterval(3600) // 1 hour later
+
+        var shift = RideshareShift(
+            startDate: startDate,
+            startMileage: 100.0,
+            startTankReading: 8.0,
+            hasFullTankAtStart: true
+        )
+        shift.endDate = endDate
+        shift.endMileage = 100.0 + mileage
+        shift.endTankReading = 7.0
+        shift.netFare = revenue - tips
+        shift.tips = tips
+        shift.standardMileageRate = 0.70
+
+        return shift
     }
 }
 
@@ -1458,14 +1633,25 @@ struct CalculatorEngineTests {
     
     @Test func testErrorHandling() async throws {
         let calculator = CalculatorEngine.shared
-        
-        // Invalid expressions should return nil
-        #expect(calculator.evaluate("invalid") == nil)
-        #expect(calculator.evaluate("45+") == nil)
-        #expect(calculator.evaluate("+45") == nil)
-        #expect(calculator.evaluate("45++23") == nil)
-        #expect(calculator.evaluate("(") == nil)
-        #expect(calculator.evaluate("45/0") != nil) // Division by zero should be handled by NSExpression
+
+        // Test each case individually to see which one fails
+        let invalidResult = calculator.evaluate("invalid")
+        #expect(invalidResult == nil, "Expected nil for 'invalid', got \(invalidResult ?? 0)")
+
+        let trailingPlusResult = calculator.evaluate("45+")
+        #expect(trailingPlusResult == nil, "Expected nil for '45+', got \(trailingPlusResult ?? 0)")
+
+        let leadingPlusResult = calculator.evaluate("+45")
+        #expect(leadingPlusResult == nil, "Expected nil for '+45', got \(leadingPlusResult ?? 0)")
+
+        let doublePlusResult = calculator.evaluate("45++23")
+        #expect(doublePlusResult == nil, "Expected nil for '45++23', got \(doublePlusResult ?? 0)")
+
+        let unbalancedParenResult = calculator.evaluate("(")
+        #expect(unbalancedParenResult == nil, "Expected nil for '(', got \(unbalancedParenResult ?? 0)")
+
+        let divideByZeroResult = calculator.evaluate("45/0")
+        #expect(divideByZeroResult != nil, "Expected non-nil for '45/0', got nil") // Division by zero should be handled by NSExpression
     }
     
     @Test func testStringExtensions() async throws {

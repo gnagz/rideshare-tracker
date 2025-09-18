@@ -107,11 +107,26 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     }
     
     func shiftGasCost(tankCapacity: Double, gasPrice: Double) -> Double {
-        if let refuelCost = refuelCost {
-            return refuelCost
+        if let refuelCost = refuelCost, let refuelGallons = refuelGallons, refuelGallons > 0 {
+            // Calculate actual gas price from refuel data
+            let actualGasPrice = refuelCost / refuelGallons
+
+            // When refueling, the total gallons pumped includes:
+            // 1. Gas used during the shift
+            // 2. Gas to "top off" the tank (shortage at start)
+            let tankShortageAtStart = tankCapacityShortageAtStart(tankCapacity: tankCapacity)
+            let gasUsedForShift = refuelGallons - tankShortageAtStart
+
+            return max(gasUsedForShift * actualGasPrice, 0)
         } else {
             return shiftGasUsage(tankCapacity: tankCapacity) * gasPrice
         }
+    }
+
+    private func tankCapacityShortageAtStart(tankCapacity: Double) -> Double {
+        let fullTankGallons = tankCapacity
+        let startGallons = (startTankReading / 8.0) * tankCapacity
+        return max(fullTankGallons - startGallons, 0)
     }
     
     func shiftMPG(tankCapacity: Double) -> Double {
@@ -215,6 +230,56 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     
     func profitPerHour(tankCapacity: Double) -> Double {
         return profitPerHour(tankCapacity: tankCapacity, gasPrice: gasPrice ?? AppPreferences.shared.gasPrice)
+    }
+
+    // MARK: - Tax Calculation Methods (moved from view layer)
+
+    static func calculateYearTotalRevenue(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + $1.revenue }
+    }
+
+    static func calculateYearTotalTips(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + $1.totalTips }
+    }
+
+    static func calculateYearTotalMileageDeduction(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + $1.deductibleExpenses() }
+    }
+
+    static func calculateYearTotalDeductibleTips(shifts: [RideshareShift], year: Int) -> Double {
+        guard AppPreferences.shared.tipDeductionEnabled else { return 0 }
+        let totalTips = calculateYearTotalTips(shifts: shifts, year: year)
+        // Apply $25,000 cap on deductible tip income
+        return min(totalTips, 25000.0)
+    }
+
+    static func calculateAdjustedGrossIncome(grossIncome: Double, deductibleTips: Double) -> Double {
+        return grossIncome - deductibleTips
+    }
+
+    static func calculateSelfEmploymentTax(grossIncome: Double) -> Double {
+        return grossIncome * 0.153
+    }
+
+    static func calculateTaxableIncome(adjustedGrossIncome: Double, mileageDeduction: Double, otherExpenses: Double) -> Double {
+        return max(0, adjustedGrossIncome - mileageDeduction - otherExpenses)
+    }
+
+    static func calculateIncomeTax(taxableIncome: Double, taxRate: Double) -> Double {
+        return taxableIncome * (taxRate / 100.0)
+    }
+
+    static func calculateTotalTax(incomeTax: Double, selfEmploymentTax: Double) -> Double {
+        return incomeTax + selfEmploymentTax
     }
 }
 

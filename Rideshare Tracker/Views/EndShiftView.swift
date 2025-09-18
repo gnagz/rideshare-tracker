@@ -351,8 +351,14 @@ struct EndShiftView: View {
         shift.parkingFees = parkingFees
         shift.miscFees = miscFees
         
-        // Always capture current preference values when ending shift (when calculations become meaningful)
-        shift.gasPrice = preferences.gasPrice
+        // Set gas price from refuel data if available, otherwise use preferences
+        if didRefuel, let cost = refuelCost, let gallons = Double(refuelGallons), gallons > 0 {
+            shift.gasPrice = cost / gallons  // Calculate from actual refuel
+        } else {
+            shift.gasPrice = preferences.gasPrice  // Use preference as fallback
+        }
+
+        // Always capture current mileage rate when ending shift
         shift.standardMileageRate = preferences.standardMileageRate
         
         dataManager.updateShift(shift)

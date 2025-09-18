@@ -70,10 +70,17 @@ class CalculatorEngine {
         guard !trimmed.isEmpty else { return false }
         
         // Must not start or end with operators (except parentheses and minus for negatives)
-        let invalidStartEnd = CharacterSet(charactersIn: "+*/")
-        if let firstChar = trimmed.first, let lastChar = trimmed.last {
-            if invalidStartEnd.contains(Unicode.Scalar(String(firstChar))!) ||
-               invalidStartEnd.contains(Unicode.Scalar(String(lastChar))!) {
+        let invalidStartChars = CharacterSet(charactersIn: "+*/")
+        let invalidEndChars = CharacterSet(charactersIn: "+*/")
+
+        if let firstChar = trimmed.first {
+            if let scalar = Unicode.Scalar(String(firstChar)), invalidStartChars.contains(scalar) {
+                return false
+            }
+        }
+
+        if let lastChar = trimmed.last {
+            if let scalar = Unicode.Scalar(String(lastChar)), invalidEndChars.contains(scalar) {
                 return false
             }
         }
@@ -97,34 +104,43 @@ class CalculatorEngine {
     /// - Returns: Sanitized expression safe for NSExpression, or nil if invalid
     private func sanitizeExpression(_ expression: String) -> String? {
         let trimmed = expression.trimmingCharacters(in: .whitespaces)
-        
+
         // Replace common math symbols with NSExpression-compatible operators
         var sanitized = trimmed
             .replacingOccurrences(of: "×", with: "*")
             .replacingOccurrences(of: "÷", with: "/")
             .replacingOccurrences(of: "−", with: "-") // En-dash to hyphen
             .replacingOccurrences(of: ",", with: "") // Remove thousand separators
-        
+
         // Remove equals sign if present at the end (user might type "5+5=")
         if sanitized.hasSuffix("=") {
             sanitized = String(sanitized.dropLast())
         }
-        
+
+        // Check for consecutive operators that cause NSExpression to crash
+        let consecutiveOperatorPatterns = ["++", "--", "**", "//", "+-", "-+", "*+", "/+", "*-", "/-", "*/", "/*"]
+        for pattern in consecutiveOperatorPatterns {
+            if sanitized.contains(pattern) {
+                debugPrint("Expression contains consecutive operators: \(pattern)")
+                return nil
+            }
+        }
+
         // Validate that we only have allowed characters
         let allowedCharacters = CharacterSet(charactersIn: "0123456789+-*/.() ")
         let sanitizedSet = CharacterSet(charactersIn: sanitized)
-        
+
         guard allowedCharacters.isSuperset(of: sanitizedSet) else {
             debugPrint("Expression contains invalid characters")
             return nil
         }
-        
+
         // Basic structure validation
         guard isValidExpression(sanitized) else {
             debugPrint("Expression failed basic validation")
             return nil
         }
-        
+
         return sanitized
     }
     
