@@ -15,6 +15,9 @@ struct ShiftDetailView: View {
     @EnvironmentObject var preferences: AppPreferences
     @State private var showingEndShift = false
     @State private var showingEditShift = false
+    @State private var showingImageViewer = false
+    @State private var selectedImageIndex = 0
+    @State private var loadedImages: [UIImage] = []
     
     private func formatDateTime(_ date: Date) -> String {
         return "\(preferences.formatDate(date)) \(preferences.formatTime(date))"
@@ -99,6 +102,9 @@ struct ShiftDetailView: View {
                                 if shift.endDate != nil {
                                     tripDataSection
                                 }
+                                if !shift.imageAttachments.isEmpty {
+                                    photosSection
+                                }
                             }
                             
                             // Right Column
@@ -120,6 +126,9 @@ struct ShiftDetailView: View {
                                 expensesSection
                                 cashFlowSummarySection
                                 taxSummarySection
+                            }
+                            if !shift.imageAttachments.isEmpty {
+                                photosSection
                             }
                         }
                         .padding(.horizontal)
@@ -148,6 +157,13 @@ struct ShiftDetailView: View {
         }
         .sheet(isPresented: $showingEditShift) {
             EditShiftView(shift: $shift)
+        }
+        .sheet(isPresented: $showingImageViewer) {
+            ImageViewerView(
+                images: loadedImages,
+                startingIndex: selectedImageIndex,
+                isPresented: $showingImageViewer
+            )
         }
     }
     
@@ -352,7 +368,82 @@ struct ShiftDetailView: View {
             )
         }
     }
-    
+
+    private var photosSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Photos")
+                .font(.headline)
+                .foregroundColor(.primary)
+
+            if shift.imageAttachments.isEmpty {
+                Text("No photos attached")
+                    .foregroundColor(.secondary)
+                    .font(.body)
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.gray, lineWidth: 1.0)
+                    )
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                    ForEach(shift.imageAttachments, id: \.id) { attachment in
+                        AsyncImage(url: attachment.fileURL(for: shift.id, parentType: .shift)) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 80, height: 80)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.gray, lineWidth: 1.0)
+                                )
+                        } placeholder: {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(.systemGray5))
+                                .frame(width: 80, height: 80)
+                                .overlay(
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                )
+                        }
+                        .onTapGesture {
+                            selectedImageIndex = shift.imageAttachments.firstIndex(of: attachment) ?? 0
+                            Task {
+                                await loadImagesForViewer()
+                            }
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.gray, lineWidth: 1.0)
+                )
+            }
+        }
+    }
+
+    @MainActor
+    private func loadImagesForViewer() async {
+        loadedImages.removeAll()
+
+        for attachment in shift.imageAttachments {
+            let url = attachment.fileURL(for: shift.id, parentType: .shift)
+            if let data = try? Data(contentsOf: url),
+               let image = UIImage(data: data) {
+                loadedImages.append(image)
+            }
+        }
+
+        if !loadedImages.isEmpty {
+            showingImageViewer = true
+        }
+    }
+
     private func tankLevelText(_ reading: Double) -> String {
         switch reading {
         case 0.0: return "E"

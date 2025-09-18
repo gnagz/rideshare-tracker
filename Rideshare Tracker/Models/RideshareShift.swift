@@ -49,8 +49,11 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     // Shift-specific rates (captured at shift creation)
     var gasPrice: Double?
     var standardMileageRate: Double?
-    
-    
+
+    // Photo attachments (Phase 2)
+    var imageAttachments: [ImageAttachment] = []
+
+
     // Computed properties
     var shiftMileage: Double {
         guard let endMileage = endMileage else { return 0 }

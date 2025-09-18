@@ -6,7 +6,9 @@
 //
 
 import SwiftUI
+import PhotosUI
 
+@MainActor
 struct EditShiftView: View {
     @Binding var shift: RideshareShift
     @EnvironmentObject var dataManager: ShiftDataManager
@@ -45,6 +47,11 @@ struct EditShiftView: View {
     @State private var showEndDatePicker = false
     @State private var showEndTimePicker = false
     @State private var odometerError = ""
+
+    // Photo attachment state
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var photoImages: [UIImage] = []
+    @State private var existingAttachments: [ImageAttachment] = []
     
     init(shift: Binding<RideshareShift>) {
         self._shift = shift
@@ -71,6 +78,9 @@ struct EditShiftView: View {
         self._miscFees = State(initialValue: shift.wrappedValue.miscFees)
         self._gasPrice = State(initialValue: shift.wrappedValue.gasPrice)
         self._standardMileageRate = State(initialValue: shift.wrappedValue.standardMileageRate)
+
+        // Initialize photo attachments
+        self._existingAttachments = State(initialValue: shift.wrappedValue.imageAttachments)
     }
     
     private var availableTankLevels: [(label: String, value: Double)] {
@@ -124,6 +134,8 @@ struct EditShiftView: View {
                 earningsSection
                 expensesSection
             }
+
+            photosSection
         }
     }
     
@@ -467,8 +479,92 @@ struct EditShiftView: View {
             }
         }
     }
-    
-    
+
+    private var photosSection: some View {
+        Section("Photos") {
+            PhotosPicker(
+                selection: $selectedPhotos,
+                maxSelectionCount: 10,
+                matching: .images
+            ) {
+                Label("Add Photos", systemImage: "camera.fill")
+                    .foregroundColor(.accentColor)
+            }
+            .onChange(of: selectedPhotos) { oldItems, newItems in
+                Task {
+                    await loadSelectedPhotos(from: newItems)
+                }
+            }
+
+            if !photoImages.isEmpty {
+                Text("\(photoImages.count) photo\(photoImages.count == 1 ? "" : "s") selected")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            // Display existing photos
+            if !existingAttachments.isEmpty {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                    ForEach(existingAttachments, id: \.id) { attachment in
+                        AsyncImage(url: attachment.fileURL(for: shift.id, parentType: .shift)) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 80, height: 80)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.gray, lineWidth: 1.0)
+                                )
+                        } placeholder: {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(.systemGray5))
+                                .frame(width: 80, height: 80)
+                                .overlay(
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                )
+                        }
+                        .overlay(
+                            Button(action: { removeExistingPhoto(attachment) }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.red)
+                                    .background(Color.white, in: Circle())
+                            }
+                            .offset(x: 8, y: -8),
+                            alignment: .topTrailing
+                        )
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            // Display new photos
+            if !photoImages.isEmpty {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                    ForEach(Array(photoImages.enumerated()), id: \.offset) { index, image in
+                        Image(uiImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 80, height: 80)
+                            .clipped()
+                            .cornerRadius(8)
+                            .overlay(
+                                Button(action: { removeNewPhoto(at: index) }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.red)
+                                        .background(Color.white, in: Circle())
+                                }
+                                .offset(x: 8, y: -8),
+                                alignment: .topTrailing
+                            )
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
     private func validateOdometerReading() {
         guard let endMiles = Double(endMileage), endMiles > 0 else {
             odometerError = ""
@@ -515,14 +611,60 @@ struct EditShiftView: View {
             shift.gasPrice = gasPrice
             shift.standardMileageRate = standardMileageRate
         }
-        
+
+        // Handle photo changes
+        // Remove deleted photos and update the shift's attachments
+        shift.imageAttachments = existingAttachments
+
+        // Save new photos and add them to the shift
+        for (index, image) in photoImages.enumerated() {
+            do {
+                let attachment = try ImageManager.shared.saveImage(
+                    image,
+                    for: shift.id,
+                    parentType: .shift,
+                    type: .screenshot // Default to screenshot for now - could add type selection later
+                )
+                shift.imageAttachments.append(attachment)
+            } catch {
+                print("Failed to save shift photo \(index): \(error)")
+                // Continue with other photos even if one fails
+            }
+        }
+
         dataManager.updateShift(shift)
         presentationMode.wrappedValue.dismiss()
     }
     
     private func hideKeyboard() {
-        
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        
+    }
+
+    private func loadSelectedPhotos(from items: [PhotosPickerItem]) async {
+        await MainActor.run {
+            photoImages.removeAll()
+        }
+
+        for item in items {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+                await MainActor.run {
+                    photoImages.append(image)
+                }
+            }
+        }
+    }
+
+    private func removeExistingPhoto(_ attachment: ImageAttachment) {
+        // Remove from existing attachments
+        existingAttachments.removeAll { $0.id == attachment.id }
+
+        // Also remove the physical file
+        ImageManager.shared.deleteImage(attachment, for: shift.id, parentType: .shift)
+    }
+
+    private func removeNewPhoto(at index: Int) {
+        photoImages.remove(at: index)
+        selectedPhotos.remove(at: index)
     }
 }

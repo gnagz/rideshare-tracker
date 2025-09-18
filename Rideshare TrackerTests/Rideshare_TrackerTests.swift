@@ -2133,5 +2133,141 @@ final class RideshareShiftTests: XCTestCase {
      UIGraphicsEndImageContext()
      return image
      }
-    
+
+    // MARK: - Shift Photo Attachment Tests (Phase 2)
+
+    @MainActor
+    struct ShiftPhotoAttachmentTests {
+
+        // MARK: - RideshareShift Model Photo Support Tests
+
+        func testShiftImageAttachmentsProperty() async throws {
+            // Given: New shift without photos
+            let shift = RideshareShift(
+                startDate: Date(),
+                startMileage: 100000,
+                startTankReading: 8.0,
+                hasFullTankAtStart: true
+            )
+
+            // When: Checking imageAttachments property exists
+            // This will fail initially because RideshareShift doesn't have imageAttachments yet
+            let attachments = shift.imageAttachments
+
+            // Then: Should have empty imageAttachments array by default
+            XCTAssertNotNil(attachments, "Shift should have imageAttachments property")
+            XCTAssertTrue(attachments.isEmpty, "New shift should start with empty photo array")
+        }
+
+        func testShiftWithMultiplePhotos() async throws {
+            // Given: Shift with multiple photo types (realistic usage)
+            var shift = RideshareShift(
+                startDate: Date(),
+                startMileage: 100000,
+                startTankReading: 8.0,
+                hasFullTankAtStart: true
+            )
+
+            // Create shift-specific photo attachments
+            let attachments = [
+                ImageAttachment(filename: "gas_pump.jpg", type: .gasPump, description: "Gas station pump display"),
+                ImageAttachment(filename: "earnings.jpg", type: .screenshot, description: "Earnings screenshot"),
+                ImageAttachment(filename: "gas_receipt.jpg", type: .receipt, description: "Fuel receipt"),
+                ImageAttachment(filename: "car_damage.jpg", type: .damage, description: "Minor scratch found"),
+                ImageAttachment(filename: "cleaning_needed.jpg", type: .cleaning, description: "Interior mess")
+            ]
+
+            // When: Adding photos to shift
+            shift.imageAttachments = attachments
+
+            // Then: Shift should store all photos correctly
+            XCTAssertEqual(shift.imageAttachments.count, 5, "Should store all 5 photos")
+            XCTAssertEqual(shift.imageAttachments[0].type, .gasPump, "Should maintain photo types")
+            XCTAssertEqual(shift.imageAttachments[1].description, "Earnings screenshot", "Should maintain descriptions")
+        }
+
+        func testShiftPhotoAttachmentPersistence() async throws {
+            // Given: Shift with photos saved to data manager
+            var shift = RideshareShift(
+                startDate: Date(),
+                startMileage: 100000,
+                startTankReading: 8.0,
+                hasFullTankAtStart: true
+            )
+
+            let attachment = ImageAttachment(
+                filename: "test_shift_photo.jpg",
+                type: .screenshot,
+                description: "Test earnings screenshot"
+            )
+            shift.imageAttachments = [attachment]
+
+            let shiftManager = ShiftDataManager.shared
+
+            // When: Saving and reloading shift
+            shiftManager.addShift(shift)
+            let savedShifts = shiftManager.shifts
+            let reloadedShift = savedShifts.first { $0.id == shift.id }
+
+            // Then: Photos should persist
+            XCTAssertNotNil(reloadedShift, "Shift should be saved and reloadable")
+            XCTAssertEqual(reloadedShift?.imageAttachments.count, 1, "Photo attachment should persist")
+            XCTAssertEqual(reloadedShift?.imageAttachments.first?.filename, "test_shift_photo.jpg", "Filename should match")
+            XCTAssertEqual(reloadedShift?.imageAttachments.first?.type, .screenshot, "Type should match")
+        }
+
+        func testShiftPhotoFileDeletion() async throws {
+            // Given: Shift with photos that need cleanup when shift is deleted
+            let testImage = createTestUIImage()
+            let imageManager = ImageManager.shared
+            let testShiftID = UUID()
+
+            var shift = RideshareShift(
+                startDate: Date(),
+                startMileage: 100000,
+                startTankReading: 8.0,
+                hasFullTankAtStart: true
+            )
+            shift.id = testShiftID
+
+            // Save test image to disk
+            let attachment = try imageManager.saveImage(
+                testImage,
+                for: testShiftID,
+                parentType: .shift,  // This will fail initially - need to add .shift case
+                type: .screenshot
+            )
+
+            shift.imageAttachments = [attachment]
+            let shiftManager = ShiftDataManager.shared
+            shiftManager.addShift(shift)
+
+            // Verify image exists
+            XCTAssertNotNil(imageManager.loadImage(for: testShiftID, parentType: .shift, filename: attachment.filename),
+                           "Image should exist before shift deletion")
+
+            // When: Deleting shift (hard delete)
+            let originalSyncEnabled = AppPreferences.shared.incrementalSyncEnabled
+            AppPreferences.shared.incrementalSyncEnabled = false // Force hard delete
+            shiftManager.deleteShift(shift)
+
+            // Then: Associated images should be cleaned up
+            let deletedImage = imageManager.loadImage(for: testShiftID, parentType: .shift, filename: attachment.filename)
+            XCTAssertNil(deletedImage, "Image should be deleted when shift is hard-deleted")
+
+            // Restore original sync setting
+            AppPreferences.shared.incrementalSyncEnabled = originalSyncEnabled
+        }
+
+        // Helper method to create test images
+        private func createTestUIImage(size: CGSize = CGSize(width: 100, height: 100), color: UIColor = .blue) -> UIImage {
+            UIGraphicsBeginImageContextWithOptions(size, false, 0)
+            color.setFill()
+            UIRectFill(CGRect(origin: .zero, size: size))
+            let image = UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
+            UIGraphicsEndImageContext()
+            return image
+        }
+    }
+
 }
