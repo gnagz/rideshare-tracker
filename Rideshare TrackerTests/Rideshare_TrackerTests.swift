@@ -2259,6 +2259,36 @@ final class RideshareShiftTests: XCTestCase {
             AppPreferences.shared.incrementalSyncEnabled = originalSyncEnabled
         }
 
+        // MARK: - Critical Calculation Bug Tests
+
+        func testRefuelCalculationBug() async throws {
+            // Critical bug: When refueling, the shift gas cost should only charge for
+            // gas used during the shift, not including gas needed to top off tank shortage
+
+            // Given: Shift starts with tank 2 gallons short, refuels 5 gallons for $10
+            var shift = RideshareShift(
+                startDate: Date(),
+                startMileage: 100.0,
+                startTankReading: 6.0, // 3/4 tank (6/8) = 2 gallons short of full 8-gallon tank
+                hasFullTankAtStart: false
+            )
+            shift.endDate = Date().addingTimeInterval(3600)
+            shift.endMileage = 150.0
+            shift.endTankReading = 8.0 // Full tank after refuel
+            shift.refuelGallons = 5.0 // Pumped 5 gallons total
+            shift.refuelCost = 10.0 // Cost $10 total
+
+            let tankCapacity = 8.0
+
+            // When calculating shift gas cost
+            let shiftGasCost = shift.shiftGasCost(tankCapacity: tankCapacity, gasPrice: 2.50)
+
+            // Then: Should only charge for 3 gallons used for shift (5 pumped - 2 shortage)
+            // Gas price = $10/5g = $2/gallon
+            // Shift cost = 3 gallons * $2/gallon = $6 (NOT the full $10 refuel cost)
+            XCTAssertEqual(shiftGasCost, 6.0, accuracy: 0.01, "Should charge only for gas used during shift, not tank shortage")
+        }
+
         // Helper method to create test images
         private func createTestUIImage(size: CGSize = CGSize(width: 100, height: 100), color: UIColor = .blue) -> UIImage {
             UIGraphicsBeginImageContextWithOptions(size, false, 0)

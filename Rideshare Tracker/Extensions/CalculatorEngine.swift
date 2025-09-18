@@ -109,7 +109,16 @@ class CalculatorEngine: @unchecked Sendable {
         if sanitized.hasSuffix("=") {
             sanitized = String(sanitized.dropLast())
         }
-        
+
+        // Check for consecutive operators that cause NSExpression to crash
+        let consecutiveOperatorPatterns = ["++", "--", "**", "//", "+-", "-+", "*+", "/+", "*-", "/-", "*/", "/*"]
+        for pattern in consecutiveOperatorPatterns {
+            if sanitized.contains(pattern) {
+                debugPrint("Expression contains consecutive operators: \(pattern)")
+                return nil
+            }
+        }
+
         // Validate that we only have allowed characters
         let allowedCharacters = CharacterSet(charactersIn: "0123456789+-*/.() ")
         let sanitizedSet = CharacterSet(charactersIn: sanitized)
