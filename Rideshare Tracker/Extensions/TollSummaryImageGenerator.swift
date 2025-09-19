@@ -8,13 +8,6 @@
 import UIKit
 import CoreGraphics
 
-struct TollTransaction {
-    let date: Date
-    let location: String
-    let plate: String
-    let amount: Double
-}
-
 struct TollSummaryImageGenerator {
 
     static func generateTollSummaryImage(
