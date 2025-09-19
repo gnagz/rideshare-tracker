@@ -65,11 +65,13 @@ struct ImportView: View {
     enum ImportType: String, CaseIterable {
         case shifts = "Shifts"
         case expenses = "Expenses"
-        
+        case tolls = "Tolls"
+
         var icon: String {
             switch self {
             case .shifts: return "car.fill"
             case .expenses: return "receipt.fill"
+            case .tolls: return "road.lanes.curved.left"
             }
         }
     }
@@ -91,6 +93,17 @@ struct ImportView: View {
     struct PendingImportData {
         let url: URL
         let type: ImportType
+    }
+
+    private func getImportDescription(for type: ImportType) -> String {
+        switch type {
+        case .shifts:
+            return "Import shift data from CSV files with trip details, earnings, and expenses."
+        case .expenses:
+            return "Import business expense records with categories, descriptions, and amounts."
+        case .tolls:
+            return "Import toll transaction data and automatically match tolls to existing shifts by date and time."
+        }
     }
     
     var body: some View {
@@ -124,9 +137,7 @@ struct ImportView: View {
                         .font(.title2)
                         .fontWeight(.semibold)
                     
-                    Text(importType == .shifts ? 
-                         "Import shift data from CSV files with trip details, earnings, and expenses." :
-                         "Import business expense records with categories, descriptions, and amounts.")
+                    Text(getImportDescription(for: importType))
                         .font(.body)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -157,6 +168,11 @@ struct ImportView: View {
                     Text("• Required columns: Date, Category, Description, Amount")
                     Text("• Categories: Vehicle, Equipment, Supplies, Amenities")
                     Text("• Flexible date format detection")
+                case .tolls:
+                    Text("• Toll authority CSV exports")
+                    Text("• Automatically matches transactions to shifts by time")
+                    Text("• Updates existing shift toll amounts")
+                    Text("• Requires: Transaction Date/Time, Transaction Amount")
                 }
                 
                 Text("• Duplicate handling options available")
@@ -210,14 +226,19 @@ struct ImportView: View {
             
             pendingImportData = PendingImportData(url: url, type: importType)
             
-            // Check if we have existing data that might cause duplicates
-            let hasExistingData = importType == .shifts ? !dataManager.shifts.isEmpty : !expenseManager.expenses.isEmpty
-            
-            if hasExistingData {
-                showingDuplicateOptions = true
-            } else {
-                duplicateAction = .merge
+            // Check if we have existing data that might cause duplicates (not applicable for tolls)
+            if importType == .tolls {
+                // Tolls update existing shifts, no duplicate handling needed
                 performImport()
+            } else {
+                let hasExistingData = importType == .shifts ? !dataManager.shifts.isEmpty : !expenseManager.expenses.isEmpty
+
+                if hasExistingData {
+                    showingDuplicateOptions = true
+                } else {
+                    duplicateAction = .merge
+                    performImport()
+                }
             }
             
         case .failure(let error):
@@ -235,6 +256,8 @@ struct ImportView: View {
             importShifts(from: pendingData.url)
         case .expenses:
             importExpenses(from: pendingData.url)
+        case .tolls:
+            importTolls(from: pendingData.url)
         }
         
         pendingImportData = nil
@@ -404,7 +427,103 @@ struct ImportView: View {
             showingImportAlert = true
         }
     }
-    
+
+    private func importTolls(from url: URL) {
+        do {
+            let content = try String(contentsOf: url)
+            let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
+
+            guard lines.count > 1 else {
+                importAlertTitle = "Import Failed"
+                importMessage = "CSV file is empty or has no data rows"
+                showingImportAlert = true
+                return
+            }
+
+            let headerLine = lines[0]
+            let headers = parseCSVLine(headerLine)
+
+            // Find required column indices
+            var transactionDateIndex = -1
+            var transactionAmountIndex = -1
+
+            for (index, header) in headers.enumerated() {
+                let lowercased = header.lowercased()
+                if lowercased.contains("transaction entry date") || lowercased.contains("entry date") {
+                    transactionDateIndex = index
+                } else if lowercased.contains("transaction amount") || lowercased.contains("amount") {
+                    transactionAmountIndex = index
+                }
+            }
+
+            guard transactionDateIndex >= 0, transactionAmountIndex >= 0 else {
+                importAlertTitle = "Import Failed"
+                importMessage = "Required columns not found. Need 'Transaction Entry Date/Time' and 'Transaction Amount' columns."
+                showingImportAlert = true
+                return
+            }
+
+            var updatedShiftsCount = 0
+            var totalTollsProcessed = 0
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "MM/dd/yyyy HH:mm:ss"
+
+            // Process each toll transaction
+            for line in lines.dropFirst() {
+                let values = parseCSVLine(line)
+                guard transactionDateIndex < values.count, transactionAmountIndex < values.count else { continue }
+
+                // Parse transaction date
+                let dateString = values[transactionDateIndex]
+                    .replacingOccurrences(of: "=Text(\"", with: "")
+                    .replacingOccurrences(of: "\",\"mm/dd/yyyy HH:mm:SS\")", with: "")
+                    .trimmingCharacters(in: .whitespaces)
+
+                guard let transactionDate = dateFormatter.date(from: dateString) else { continue }
+
+                // Parse transaction amount (remove $ and negative sign, convert to positive)
+                let amountString = values[transactionAmountIndex]
+                    .replacingOccurrences(of: "-$", with: "")
+                    .replacingOccurrences(of: "$", with: "")
+                    .trimmingCharacters(in: .whitespaces)
+
+                guard let tollAmount = Double(amountString) else { continue }
+
+                // Find matching shift(s) - transaction time should be between shift start and end
+                let matchingShifts = dataManager.shifts.filter { shift in
+                    guard let endDate = shift.endDate else { return false }
+                    return transactionDate >= shift.startDate && transactionDate <= endDate
+                }
+
+                // Update shifts with toll data
+                for matchingShift in matchingShifts {
+                    let shiftIndex = dataManager.shifts.firstIndex { $0.id == matchingShift.id }
+                    guard let index = shiftIndex else { continue }
+
+                    let currentTolls = dataManager.shifts[index].tolls ?? 0
+                    dataManager.shifts[index].tolls = currentTolls + tollAmount
+                }
+
+                if !matchingShifts.isEmpty {
+                    updatedShiftsCount += matchingShifts.count
+                    totalTollsProcessed += 1
+                }
+            }
+
+            // Update data manager to trigger saves
+            dataManager.objectWillChange.send()
+
+            importAlertTitle = "Toll Import Successful"
+            importMessage = "Import completed:\n\n• Processed: \(totalTollsProcessed) toll transactions\n• Updated: \(updatedShiftsCount) shifts"
+            showingImportAlert = true
+
+        } catch {
+            importAlertTitle = "Import Failed"
+            importMessage = "Failed to read file: \(error.localizedDescription)"
+            showingImportAlert = true
+        }
+    }
+
     private func parseCSVLine(_ line: String) -> [String] {
         var result: [String] = []
         var currentField = ""
