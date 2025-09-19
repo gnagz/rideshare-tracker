@@ -270,8 +270,11 @@ struct ShiftDetailView: View {
             
             VStack(spacing: 8) {
                 
-                let adjustedGrossIncome = yearTotalRevenue - yearTotalDeductibleTips
-                let selfEmploymentTax = yearTotalRevenue * 0.153
+                let adjustedGrossIncome = RideshareShift.calculateAdjustedGrossIncome(
+                    grossIncome: yearTotalRevenue,
+                    deductibleTips: yearTotalDeductibleTips
+                )
+                let selfEmploymentTax = RideshareShift.calculateSelfEmploymentTax(grossIncome: yearTotalRevenue)
                 
                 DetailRow("Gross Income", String(format: "$%.2f", yearTotalRevenue))
                 
@@ -293,12 +296,22 @@ struct ShiftDetailView: View {
                 DetailRow("Total Mileage Deduction", String(format: "$%.2f", yearTotalMileageDeduction))
                 DetailRow("Total Expenses (Mileage)", String(format: "$%.2f", yearTotalExpensesWithoutVehicle))
                 
-                let taxableIncomeUsingMileage = max(0, adjustedGrossIncome - yearTotalMileageDeduction - yearTotalExpensesWithoutVehicle)
+                let taxableIncomeUsingMileage = RideshareShift.calculateTaxableIncome(
+                    adjustedGrossIncome: adjustedGrossIncome,
+                    mileageDeduction: yearTotalMileageDeduction,
+                    otherExpenses: yearTotalExpensesWithoutVehicle
+                )
                 DetailRow("Taxable Income (Mileage)", String(format: "$%.2f", taxableIncomeUsingMileage))
                 
                 // Standard Mileage Method Tax Calculations
-                let incomeTaxMileage = taxableIncomeUsingMileage * (AppPreferences.shared.effectivePersonalTaxRate / 100.0)
-                let totalTaxMileage = incomeTaxMileage + selfEmploymentTax
+                let incomeTaxMileage = RideshareShift.calculateIncomeTax(
+                    taxableIncome: taxableIncomeUsingMileage,
+                    taxRate: AppPreferences.shared.effectivePersonalTaxRate
+                )
+                let totalTaxMileage = RideshareShift.calculateTotalTax(
+                    incomeTax: incomeTaxMileage,
+                    selfEmploymentTax: selfEmploymentTax
+                )
                 
                 DetailRow("Income Tax (Mileage)", String(format: "$%.2f", incomeTaxMileage))
                 DetailRow("Self-Employment Tax", String(format: "$%.2f", selfEmploymentTax))
@@ -313,12 +326,23 @@ struct ShiftDetailView: View {
                 DetailRow("Total Trip Fees", String(format: "$%.2f", yearTotalTripFees))
                 DetailRow("Total Expenses (Actual)", String(format: "$%.2f", yearTotalExpensesWithVehicle))
                 
-                let taxableIncomeWithActualExpenses = max(0, adjustedGrossIncome - yearTotalFuelExpenses - yearTotalTollExpenses - yearTotalTripFees - yearTotalExpensesWithVehicle)
+                let actualExpensesTotal = yearTotalFuelExpenses + yearTotalTollExpenses + yearTotalTripFees + yearTotalExpensesWithVehicle
+                let taxableIncomeWithActualExpenses = RideshareShift.calculateTaxableIncome(
+                    adjustedGrossIncome: adjustedGrossIncome,
+                    mileageDeduction: 0, // No mileage deduction in actual expenses method
+                    otherExpenses: actualExpensesTotal
+                )
                 DetailRow("Taxable Income (Actual)", String(format: "$%.2f", taxableIncomeWithActualExpenses))
                 
                 // Actual Expenses Method Tax Calculations
-                let incomeTaxActual = taxableIncomeWithActualExpenses * (AppPreferences.shared.effectivePersonalTaxRate / 100.0)
-                let totalTaxActual = incomeTaxActual + selfEmploymentTax
+                let incomeTaxActual = RideshareShift.calculateIncomeTax(
+                    taxableIncome: taxableIncomeWithActualExpenses,
+                    taxRate: AppPreferences.shared.effectivePersonalTaxRate
+                )
+                let totalTaxActual = RideshareShift.calculateTotalTax(
+                    incomeTax: incomeTaxActual,
+                    selfEmploymentTax: selfEmploymentTax
+                )
                 
                 DetailRow("Income Tax (Actual)", String(format: "$%.2f", incomeTaxActual))
                 DetailRow("Self-Employment Tax", String(format: "$%.2f", selfEmploymentTax))
