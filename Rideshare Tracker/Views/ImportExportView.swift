@@ -446,6 +446,8 @@ struct ImportView: View {
             // Find required column indices
             var transactionDateIndex = -1
             var transactionAmountIndex = -1
+            var locationIndex = -1
+            var plateIndex = -1
 
             for (index, header) in headers.enumerated() {
                 let lowercased = header.lowercased()
@@ -453,6 +455,10 @@ struct ImportView: View {
                     transactionDateIndex = index
                 } else if lowercased.contains("transaction amount") || lowercased.contains("amount") {
                     transactionAmountIndex = index
+                } else if lowercased.contains("location") {
+                    locationIndex = index
+                } else if lowercased.contains("plate") {
+                    plateIndex = index
                 }
             }
 
@@ -467,6 +473,9 @@ struct ImportView: View {
             var totalTollsProcessed = 0
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "MM/dd/yyyy HH:mm:ss"
+
+            // Track transactions per shift for image generation
+            var shiftTollTransactions: [UUID: [TollTransaction]] = [:]
 
             // Process each toll transaction
             for line in lines.dropFirst() {
@@ -489,19 +498,39 @@ struct ImportView: View {
 
                 guard let tollAmount = Double(amountString) else { continue }
 
+                // Parse location and plate (optional)
+                let location = locationIndex >= 0 && locationIndex < values.count ?
+                    values[locationIndex].trimmingCharacters(in: .whitespaces) : "Unknown Location"
+                let plate = plateIndex >= 0 && plateIndex < values.count ?
+                    values[plateIndex].trimmingCharacters(in: .whitespaces) : "Unknown Plate"
+
+                // Create toll transaction record
+                let tollTransaction = TollTransaction(
+                    date: transactionDate,
+                    location: location,
+                    plate: plate,
+                    amount: tollAmount
+                )
+
                 // Find matching shift(s) - transaction time should be between shift start and end
                 let matchingShifts = dataManager.shifts.filter { shift in
                     guard let endDate = shift.endDate else { return false }
                     return transactionDate >= shift.startDate && transactionDate <= endDate
                 }
 
-                // Update shifts with toll data
+                // Update shifts with toll data and collect transactions
                 for matchingShift in matchingShifts {
                     let shiftIndex = dataManager.shifts.firstIndex { $0.id == matchingShift.id }
                     guard let index = shiftIndex else { continue }
 
                     let currentTolls = dataManager.shifts[index].tolls ?? 0
                     dataManager.shifts[index].tolls = currentTolls + tollAmount
+
+                    // Collect transaction for image generation
+                    if shiftTollTransactions[matchingShift.id] == nil {
+                        shiftTollTransactions[matchingShift.id] = []
+                    }
+                    shiftTollTransactions[matchingShift.id]?.append(tollTransaction)
                 }
 
                 if !matchingShifts.isEmpty {
@@ -510,11 +539,44 @@ struct ImportView: View {
                 }
             }
 
+            // Generate and attach toll summary images to shifts
+            var imagesGenerated = 0
+            for (shiftId, transactions) in shiftTollTransactions {
+                guard let shiftIndex = dataManager.shifts.firstIndex(where: { $0.id == shiftId }) else { continue }
+                let shift = dataManager.shifts[shiftIndex]
+
+                let totalTollsForShift = transactions.reduce(0) { $0 + $1.amount }
+
+                if let summaryImage = TollSummaryImageGenerator.generateTollSummaryImage(
+                    shiftDate: shift.startDate,
+                    transactions: transactions,
+                    totalAmount: totalTollsForShift
+                ) {
+                    do {
+                        let attachment = try ImageManager.shared.saveImage(
+                            summaryImage,
+                            for: shift.id,
+                            parentType: .shift,
+                            type: .receipt,
+                            description: "Toll Summary - \(transactions.count) transactions"
+                        )
+                        dataManager.shifts[shiftIndex].imageAttachments.append(attachment)
+                        imagesGenerated += 1
+                    } catch {
+                        print("Failed to save toll summary image for shift: \(error)")
+                    }
+                }
+            }
+
             // Update data manager to trigger saves
             dataManager.objectWillChange.send()
 
             importAlertTitle = "Toll Import Successful"
-            importMessage = "Import completed:\n\n• Processed: \(totalTollsProcessed) toll transactions\n• Updated: \(updatedShiftsCount) shifts"
+            var message = "Import completed:\n\n• Processed: \(totalTollsProcessed) toll transactions\n• Updated: \(updatedShiftsCount) shifts"
+            if imagesGenerated > 0 {
+                message += "\n• Generated: \(imagesGenerated) toll summary images"
+            }
+            importMessage = message
             showingImportAlert = true
 
         } catch {
