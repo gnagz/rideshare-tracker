@@ -7,6 +7,7 @@
 
 import Foundation
 
+@MainActor
 class ShiftDataManager: ObservableObject {
     static let shared = ShiftDataManager()
     

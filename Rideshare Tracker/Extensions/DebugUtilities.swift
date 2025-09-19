@@ -24,7 +24,7 @@ func debugPrint(_ message: String, function: String = #function, file: String = 
 func visualDebugPause(_ seconds: UInt32 = 2) {
     let visualDebugEnabled = ProcessInfo.processInfo.environment["VISUAL_DEBUG"] != nil ||
                             ProcessInfo.processInfo.arguments.contains("-visual-debug")
-    
+
     if visualDebugEnabled {
         sleep(seconds)
     }

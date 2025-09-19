@@ -6,7 +6,9 @@
 //
 
 import SwiftUI
+import PhotosUI
 
+@MainActor
 struct EndShiftView: View {
     @Binding var shift: RideshareShift
     @EnvironmentObject var dataManager: ShiftDataManager
@@ -31,6 +33,10 @@ struct EndShiftView: View {
     @State private var showEndDatePicker = false
     @State private var showEndTimePicker = false
     @FocusState private var focusedField: FocusedField?
+
+    // Photo attachment state
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var photoImages: [UIImage] = []
     
     enum FocusedField {
         case endMileage, refuelGallons, refuelCost, trips, netFare, tips, promotions, totalTolls, tollsReimbursed, parkingFees, miscFees
@@ -288,6 +294,47 @@ struct EndShiftView: View {
                             )
                     }
                 }
+
+                Section("Photos") {
+                    PhotosPicker(
+                        selection: $selectedPhotos,
+                        maxSelectionCount: 10,
+                        matching: .images
+                    ) {
+                        Label("Add Photos", systemImage: "camera.fill")
+                            .foregroundColor(.accentColor)
+                    }
+                    .onChange(of: selectedPhotos) { oldItems, newItems in
+                        Task {
+                            await loadSelectedPhotos(from: newItems)
+                        }
+                    }
+
+                    if !photoImages.isEmpty {
+                        Text("\(photoImages.count) photo\(photoImages.count == 1 ? "" : "s") selected")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    if !photoImages.isEmpty {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                            ForEach(Array(photoImages.enumerated()), id: \.offset) { index, image in
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 80, height: 80)
+                                    .clipped()
+                                    .cornerRadius(8)
+                                    .onTapGesture {
+                                        // Remove photo on tap
+                                        photoImages.remove(at: index)
+                                        selectedPhotos.remove(at: index)
+                                    }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
             }
             .navigationTitle("End Shift")
             #if os(iOS)
@@ -351,21 +398,50 @@ struct EndShiftView: View {
         shift.parkingFees = parkingFees
         shift.miscFees = miscFees
         
-        // Set gas price from refuel data if available, otherwise use preferences
+        // Always capture current preference values when ending shift (when calculations become meaningful)
         if didRefuel, let cost = refuelCost, let gallons = Double(refuelGallons), gallons > 0 {
-            shift.gasPrice = cost / gallons  // Calculate from actual refuel
+            shift.gasPrice = cost / gallons  // Calculate from actual refuel data
         } else {
             shift.gasPrice = preferences.gasPrice  // Use preference as fallback
         }
-
-        // Always capture current mileage rate when ending shift
         shift.standardMileageRate = preferences.standardMileageRate
-        
+
+        // Save photos and create attachments
+        for (index, image) in photoImages.enumerated() {
+            do {
+                let attachment = try ImageManager.shared.saveImage(
+                    image,
+                    for: shift.id,
+                    parentType: .shift,
+                    type: .screenshot // Default to screenshot for now - could add type selection later
+                )
+                shift.imageAttachments.append(attachment)
+            } catch {
+                print("Failed to save shift photo \(index): \(error)")
+                // Continue with other photos even if one fails
+            }
+        }
+
         dataManager.updateShift(shift)
         presentationMode.wrappedValue.dismiss()
     }
     
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func loadSelectedPhotos(from items: [PhotosPickerItem]) async {
+        await MainActor.run {
+            photoImages.removeAll()
+        }
+
+        for item in items {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+                await MainActor.run {
+                    photoImages.append(image)
+                }
+            }
+        }
     }
 }

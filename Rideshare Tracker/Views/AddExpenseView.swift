@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import PhotosUI
 
 struct AddExpenseView: View {
     @EnvironmentObject var expenseManager: ExpenseDataManager
@@ -17,6 +18,12 @@ struct AddExpenseView: View {
     @State private var description = ""
     @State private var amount: Double = 0.0
     @FocusState private var focusedField: FocusedField?
+    
+    // Photo attachment state
+    @State private var selectedPhotoItems: [PhotosPickerItem] = []
+    @State private var attachedImages: [UIImage] = []
+    @State private var showingPhotoTypePicker = false
+    @State private var pendingPhotoType: AttachmentType = .receipt
     
     enum FocusedField {
         case description, amount
@@ -120,19 +127,104 @@ struct AddExpenseView: View {
                         )
                 }
             }
+            
+            Section("Photos") {
+                PhotosPicker(
+                    selection: $selectedPhotoItems,
+                    maxSelectionCount: 5,
+                    matching: .images
+                ) {
+                    Label("Add Receipt Photo", systemImage: "camera.fill")
+                        .foregroundColor(.blue)
+                }
+                .onChange(of: selectedPhotoItems) { oldItems, items in
+                    Task {
+                        await loadSelectedPhotos(from: items)
+                    }
+                }
+                
+                if !attachedImages.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: 12) {
+                            ForEach(0..<attachedImages.count, id: \.self) { index in
+                                ZStack(alignment: .topTrailing) {
+                                    Image(uiImage: attachedImages[index])
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 80, height: 80)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color(.systemGray4), lineWidth: 1)
+                                        )
+                                    
+                                    Button(action: { removeImage(at: index) }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.red)
+                                            .background(Color.white, in: Circle())
+                                    }
+                                    .offset(x: 8, y: -8)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+                
+                if attachedImages.count > 0 {
+                    Text("\(attachedImages.count) photo\(attachedImages.count == 1 ? "" : "s") attached")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
         }
     }
     
     private func saveExpense() {
-        let expense = ExpenseItem(
+        var expense = ExpenseItem(
             date: selectedDate,
             category: selectedCategory,
             description: description,
             amount: amount
         )
         
+        // Save attached images
+        for image in attachedImages {
+            do {
+                let attachment = try ImageManager.shared.saveImage(
+                    image,
+                    for: expense.id,
+                    parentType: .expense,
+                    type: .receipt,
+                    description: nil
+                )
+                expense.imageAttachments.append(attachment)
+            } catch {
+                print("Failed to save image: \(error)")
+                // Continue saving expense even if image fails
+            }
+        }
+        
         expenseManager.addExpense(expense)
         presentationMode.wrappedValue.dismiss()
+    }
+    
+    private func loadSelectedPhotos(from items: [PhotosPickerItem]) async {
+        attachedImages.removeAll()
+        
+        for item in items {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+                await MainActor.run {
+                    attachedImages.append(image)
+                }
+            }
+        }
+    }
+    
+    private func removeImage(at index: Int) {
+        attachedImages.remove(at: index)
+        selectedPhotoItems.remove(at: index)
     }
     
     private func hideKeyboard() {

@@ -9,7 +9,7 @@ import Foundation
 
 /// Mathematical expression evaluator for calculator functionality
 /// Provides safe evaluation of mathematical expressions in text fields
-class CalculatorEngine {
+class CalculatorEngine: @unchecked Sendable {
     static let shared = CalculatorEngine()
     
     private init() {}

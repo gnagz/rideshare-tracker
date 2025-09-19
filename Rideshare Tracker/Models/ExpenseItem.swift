@@ -30,19 +30,21 @@ struct ExpenseItem: Codable, Identifiable, Equatable, Hashable {
     // Sync metadata
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
-    var deviceID: String = UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+    var deviceID: String = "unknown"
     var isDeleted: Bool = false
     
     var date: Date
     var category: ExpenseCategory
     var description: String
     var amount: Double
+    var imageAttachments: [ImageAttachment] = []
     
     init(date: Date = Date(), category: ExpenseCategory, description: String, amount: Double) {
         self.date = date
         self.category = category
         self.description = description
         self.amount = amount
+        self.imageAttachments = []
     }
 }
 
@@ -61,12 +63,15 @@ extension ExpenseItem {
         // Decode sync metadata with backward compatibility
         createdDate = try container.decodeIfPresent(Date.self, forKey: .createdDate) ?? date
         modifiedDate = try container.decodeIfPresent(Date.self, forKey: .modifiedDate) ?? date
-        deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID) ?? UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+        deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID) ?? "unknown"
         isDeleted = try container.decodeIfPresent(Bool.self, forKey: .isDeleted) ?? false
+        
+        // Decode image attachments with backward compatibility
+        imageAttachments = try container.decodeIfPresent([ImageAttachment].self, forKey: .imageAttachments) ?? []
     }
     
     private enum CodingKeys: String, CodingKey {
         case id, createdDate, modifiedDate, deviceID, isDeleted
-        case date, category, description, amount
+        case date, category, description, amount, imageAttachments
     }
 }

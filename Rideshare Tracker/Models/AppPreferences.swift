@@ -117,6 +117,7 @@ struct CSVImportResult {
     let shifts: [RideshareShift]
 }
 
+@MainActor
 class AppPreferences: ObservableObject {
     static let shared = AppPreferences()
     
@@ -453,7 +454,9 @@ class AppPreferences: ObservableObject {
                     startDate: Date(),
                     startMileage: 0,
                     startTankReading: 0,
-                    hasFullTankAtStart: false
+                    hasFullTankAtStart: false,
+                    gasPrice: AppPreferences.shared.gasPrice,
+                    standardMileageRate: AppPreferences.shared.standardMileageRate
                 )
                 
                 // Define which columns to import (data entry fields only, preferences are optional)
@@ -595,11 +598,11 @@ class AppPreferences: ObservableObject {
                         }
                     case "GasPrice":
                         if !value.isEmpty {
-                            shift.gasPrice = Double(value)
+                            shift.gasPrice = Double(value) ?? AppPreferences.shared.gasPrice
                         }
                     case "StandardMileageRate":
                         if !value.isEmpty {
-                            shift.standardMileageRate = Double(value)
+                            shift.standardMileageRate = Double(value) ?? AppPreferences.shared.standardMileageRate
                         }
                     default:
                         break
@@ -749,15 +752,15 @@ class AppPreferences: ObservableObject {
                 String(format: "%.1f", shift.shiftMPG(tankCapacity: tankCapacity)),
                 String(format: "%.2f", shift.totalTips),
                 String(format: "%.2f", shift.taxableIncome),
-                String(format: "%.2f", shift.deductibleExpenses()),
+                String(format: "%.2f", shift.deductibleExpenses(mileageRate: standardMileageRate)),
                 String(format: "%.2f", shift.expectedPayout),
                 String(format: "%.2f", shift.outOfPocketCosts(tankCapacity: tankCapacity)),
                 String(format: "%.2f", shift.cashFlowProfit(tankCapacity: tankCapacity)),
                 String(format: "%.2f", shift.profitPerHour(tankCapacity: tankCapacity)),
                 // Preference fields for context
                 String(tankCapacity),
-                String(format: "%.3f", shift.gasPrice ?? gasPrice),
-                String(format: "%.3f", shift.standardMileageRate ?? standardMileageRate)
+                String(format: "%.3f", shift.gasPrice),
+                String(format: "%.3f", shift.standardMileageRate)
             ]
             
             let escapedRow = row.map { field in

@@ -6,7 +6,9 @@
 //
 
 import SwiftUI
+import PhotosUI
 
+@MainActor
 struct StartShiftView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
     @EnvironmentObject var preferences: AppPreferences
@@ -20,6 +22,10 @@ struct StartShiftView: View {
     @State private var showDatePicker = false
     @State private var showTimePicker = false
     @FocusState private var focusedField: FocusedField?
+
+    // Photo attachment state
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var photoImages: [UIImage] = []
     
     enum FocusedField {
         case mileage, date, time
@@ -144,19 +150,78 @@ struct StartShiftView: View {
                     .pickerStyle(.segmented)
                 }
             }
+
+            Section("Photos") {
+                PhotosPicker(
+                    selection: $selectedPhotos,
+                    maxSelectionCount: 10,
+                    matching: .images
+                ) {
+                    Label("Add Photos", systemImage: "camera.fill")
+                        .foregroundColor(.accentColor)
+                }
+                .onChange(of: selectedPhotos) { oldItems, newItems in
+                    Task {
+                        await loadSelectedPhotos(from: newItems)
+                    }
+                }
+
+                if !photoImages.isEmpty {
+                    Text("\(photoImages.count) photo\(photoImages.count == 1 ? "" : "s") selected")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                if !photoImages.isEmpty {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                        ForEach(Array(photoImages.enumerated()), id: \.offset) { index, image in
+                            Image(uiImage: image)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 80, height: 80)
+                                .clipped()
+                                .cornerRadius(8)
+                                .onTapGesture {
+                                    // Remove photo on tap
+                                    photoImages.remove(at: index)
+                                    selectedPhotos.remove(at: index)
+                                }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
         }
     }
     
     private func startShift() {
         guard let mileage = startMileage else { return }
-        
-        let shift = RideshareShift(
+
+        var shift = RideshareShift(
             startDate: startDate,
             startMileage: mileage,
             startTankReading: tankReading,
-            hasFullTankAtStart: tankReading == 8.0
+            hasFullTankAtStart: tankReading == 8.0,
+            gasPrice: preferences.gasPrice,
+            standardMileageRate: preferences.standardMileageRate
         )
-        
+
+        // Save photos and create attachments
+        for (index, image) in photoImages.enumerated() {
+            do {
+                let attachment = try ImageManager.shared.saveImage(
+                    image,
+                    for: shift.id,
+                    parentType: .shift,
+                    type: .screenshot // Default to screenshot for now - could add type selection later
+                )
+                shift.imageAttachments.append(attachment)
+            } catch {
+                print("Failed to save shift photo \(index): \(error)")
+                // Continue with other photos even if one fails
+            }
+        }
+
         dataManager.addShift(shift)
         onShiftStarted?(startDate)
         presentationMode.wrappedValue.dismiss()
@@ -164,6 +229,21 @@ struct StartShiftView: View {
     
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func loadSelectedPhotos(from items: [PhotosPickerItem]) async {
+        await MainActor.run {
+            photoImages.removeAll()
+        }
+
+        for item in items {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+                await MainActor.run {
+                    photoImages.append(image)
+                }
+            }
+        }
     }
 }
 

@@ -8,6 +8,7 @@
 import SwiftUI
 
 // Global calculator state manager to persist across app lifecycle  
+@MainActor
 class CalculatorStateManager: ObservableObject {
     static let shared = CalculatorStateManager()
     
@@ -117,7 +118,7 @@ struct CalculatorPopupView: View {
             .frame(height: 80)
             .background(Color(.systemGray6))
             .cornerRadius(8)
-            .onChange(of: calculatorState.calculationTape.count) { _ in
+            .onChange(of: calculatorState.calculationTape.count) {
                 if let lastStep = calculatorState.calculationTape.last {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         proxy.scrollTo(lastStep.id, anchor: .bottom)

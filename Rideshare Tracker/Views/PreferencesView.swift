@@ -223,7 +223,9 @@ struct PreferencesView: View {
             currentDate = Date()
             // Update the date every minute to keep examples current
             Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { _ in
-                currentDate = Date()
+                Task { @MainActor in
+                    currentDate = Date()
+                }
             }
         }
     }

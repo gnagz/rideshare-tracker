@@ -510,7 +510,7 @@ struct ExportView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .onChange(of: selectedRange) { newRange in
+                    .onChange(of: selectedRange) { oldRange, newRange in
                         if newRange != .custom {
                             let dateRange = newRange.getDateRange(weekStartDay: preferences.weekStartDay)
                             fromDate = dateRange.start

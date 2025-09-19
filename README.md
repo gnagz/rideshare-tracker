@@ -13,6 +13,7 @@ A comprehensive SwiftUI iOS Universal app (iPhone, iPad, Mac) for rideshare driv
 ### Expense Management
 - **Business Expenses**: Track non-shift related expenses with categorization
 - **Expense Categories**: Vehicle (maintenance, insurance), Equipment (bags, mounts), Supplies (cleaning, safety), Amenities (water, snacks)
+- **Photo Attachments**: Attach receipt photos and images to expenses for better record-keeping
 - **Monthly Filtering**: View expenses by month with automatic totals
 - **Date Range Tracking**: Full calendar support for expense dating
 
@@ -163,6 +164,7 @@ Rideshare Tracker/
 ├── Models/
 │   ├── RideshareShift.swift          # Core shift data model with sync metadata
 │   ├── ExpenseItem.swift             # Business expense data model with sync metadata
+│   ├── ImageAttachment.swift         # Photo attachment model with file management
 │   └── AppPreferences.swift          # User preferences, settings & sync configuration
 ├── Views/
 │   ├── MainTabView.swift             # Main tab navigation (Shifts/Expenses)
@@ -175,6 +177,7 @@ Rideshare Tracker/
 │   ├── ExpenseListView.swift         # Expenses dashboard with monthly filtering
 │   ├── AddExpenseView.swift          # Add new business expenses
 │   ├── EditExpenseView.swift         # Modify existing expenses
+│   ├── ImageViewerView.swift         # Full-screen photo viewer with zoom/share
 │   ├── PreferencesView.swift         # App settings
 │   ├── IncrementalSyncView.swift     # Cloud sync settings and education
 │   ├── MainMenuView.swift            # Settings menu with sync integration
@@ -184,6 +187,7 @@ Rideshare Tracker/
 ├── Managers/
 │   ├── ShiftDataManager.swift        # Shift data persistence (singleton)
 │   ├── ExpenseDataManager.swift      # Expense data persistence (singleton)
+│   ├── ImageManager.swift            # Photo storage and file management (singleton)
 │   ├── CloudSyncManager.swift        # iCloud sync operations & conflict resolution
 │   └── SyncLifecycleManager.swift    # Automatic sync triggers on app lifecycle
 ├── Extensions/
@@ -308,6 +312,38 @@ All date/time formatting uses the user's preferences via `AppPreferences.formatD
 - **File Context**: Debug output includes source file and function names for easy tracing
 - **No Code Changes**: Debug behavior controlled entirely via Xcode scheme settings
 
+## Photo Attachments System
+
+The app features a comprehensive photo attachment system for expense documentation and record-keeping:
+
+### Core Features
+- **Photo Capture/Selection**: Use device camera or select from photo library
+- **Multiple Photos**: Attach up to 5 photos per expense with horizontal scrolling preview
+- **Automatic Processing**: Images automatically compressed and thumbnails generated
+- **Local Storage**: Photos stored securely in app's Documents directory
+- **Full-Screen Viewer**: Tap thumbnails to view full-screen with zoom, pan, and share capabilities
+- **Photo Management**: Add, remove, and organize photos with visual feedback
+
+### Technical Architecture
+- **ImageManager**: Singleton utility handling all photo operations (save, load, delete, compress)
+- **ImageAttachment**: Data model linking photos to expenses with metadata
+- **Local File System**: Organized storage in Documents/Images/{expense-id}/ structure
+- **PhotosUI Integration**: Native iOS photo picker with cross-platform compatibility
+- **Memory Optimized**: Automatic image compression (2048px max) and thumbnail generation (150px)
+
+### User Experience
+- **Visual Previews**: Thumbnail images displayed in expense list for quick identification
+- **Touch Interaction**: Tap to view full-screen, pinch to zoom, drag to pan
+- **Share Integration**: Native share sheet for exporting photos
+- **Deletion Feedback**: Visual confirmation and proper file cleanup
+- **Progress Indicators**: Loading states during photo processing
+
+### Storage & Performance
+- **Efficient Storage**: JPEG compression (80% quality) balances quality and file size
+- **Fast Loading**: Thumbnail caching for smooth list scrolling
+- **Error Handling**: Graceful handling of photo loading failures with fallback UI
+- **File Organization**: Hierarchical structure prevents conflicts and enables easy cleanup
+
 ## Expense Tracking System
 
 The app includes a comprehensive business expense tracking system separate from shift-specific expenses:
@@ -321,7 +357,8 @@ The app includes a comprehensive business expense tracking system separate from 
 ### Key Features
 - **Monthly View**: Navigate by month with previous/next controls or date picker
 - **Automatic Totals**: Month and year totals displayed prominently
-- **Full CRUD Operations**: Add, view, edit, and delete expenses
+- **Photo Attachments**: Attach receipt photos to expenses with full-screen viewing
+- **Full CRUD Operations**: Add, view, edit, and delete expenses with photo management
 - **Date Flexibility**: Set any date for expenses with calendar picker
 - **Export Ready**: Separate CSV export for business expense records
 - **Cross-Platform**: Consistent interface across iPhone, iPad, and Mac
@@ -330,9 +367,11 @@ The app includes a comprehensive business expense tracking system separate from 
 1. **Navigate to Expenses Tab**: Switch from Shifts to Expenses in the main tab bar
 2. **Select Month**: Use arrow buttons or tap the month header to change time period  
 3. **Add Expenses**: Tap + button to add new business expenses
-4. **Review Totals**: Month and year totals update automatically
-5. **Edit/Delete**: Tap any expense to edit or swipe to delete
-6. **Export Data**: Use preferences to export expense data to CSV
+4. **Attach Photos**: Use "Add Receipt Photo" to capture or select images from your library
+5. **Review Totals**: Month and year totals update automatically with photo indicators
+6. **View Photos**: Tap photo thumbnails in expense list to view full-screen
+7. **Edit/Delete**: Tap any expense to edit details and manage photos, or swipe to delete
+8. **Export Data**: Use preferences to export expense data to CSV
 
 ## Incremental Cloud Sync Workflow
 
