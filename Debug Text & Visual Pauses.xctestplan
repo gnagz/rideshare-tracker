@@ -1,0 +1,58 @@
+{
+  "configurations" : [
+    {
+      "id" : "2D8B00BF-6EB6-4FD0-BF76-1D6CE090619D",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "commandLineArgumentEntries" : [
+      {
+        "argument" : "-testing"
+      },
+      {
+        "argument" : "-debug"
+      },
+      {
+        "argument" : "-visual-debug"
+      }
+    ],
+    "environmentVariableEntries" : [
+      {
+        "key" : "DEBUG",
+        "value" : "1"
+      },
+      {
+        "key" : "UI_TEST_VISUAL_DEBUG",
+        "value" : "1"
+      }
+    ],
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Rideshare Tracker.xcodeproj",
+      "identifier" : "3531FC232E497ECC000F2CD7",
+      "name" : "Rideshare Tracker"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Rideshare Tracker.xcodeproj",
+        "identifier" : "3531FC3A2E497ECD000F2CD7",
+        "name" : "Rideshare TrackerUITests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Rideshare Tracker.xcodeproj",
+        "identifier" : "3531FC302E497ECD000F2CD7",
+        "name" : "Rideshare TrackerTests"
+      }
+    }
+  ],
+  "version" : 1
+}

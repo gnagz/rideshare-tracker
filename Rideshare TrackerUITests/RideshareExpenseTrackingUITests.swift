@@ -443,7 +443,7 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
     /// Consolidates: testExpensePhotoViewerIntegration, testExpensePhotoPermissions
     /// Tests: Photo viewer, permissions, error handling
     @MainActor
-    func testExpensePhotoViewerAndPermissions() throws {
+        func testExpensePhotoViewerAndPermissions() throws {
         debugPrint("Testing photo viewer and permissions handling")
 
         let app = launchApp()

@@ -12,6 +12,7 @@ import XCTest
 extension XCUIElement {
     /// Clear all text from this element
     func clearText() {
+        
         guard let stringValue = value as? String else {
             return
         }
@@ -89,6 +90,7 @@ class RideshareTrackerUITestBase: XCTestCase {
     /// Navigate to a specific tab in the app
     @MainActor
     func navigateToTab(_ tabName: String, in app: XCUIApplication) {
+        debugPrint("Navigate to tab: \(tabName)")
         let tabButton = app.tabBars.buttons[tabName]
         XCTAssertTrue(tabButton.waitForExistence(timeout: 5), "Tab '\(tabName)' should exist")
         // Use waitAndTap for more robust tapping with fallback handling
