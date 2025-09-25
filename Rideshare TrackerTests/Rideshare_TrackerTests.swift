@@ -11,7 +11,7 @@ import SwiftUI
 @testable import Rideshare_Tracker
 
 @MainActor
-final class RideshareShiftTests: XCTestCase {
+final class Rideshare_TrackerTests: XCTestCase {
     
     // Test shift duration calculation
     func testShiftDurationCalculation() async throws {
@@ -63,10 +63,10 @@ final class RideshareShiftTests: XCTestCase {
      // Then
      XCTAssertEqual(revenue, 185.0) // 150 + 25 + 10
      XCTAssertEqual(totalEarnings, revenue) // Should be the same
-     }
+    }
      
      // Test profit calculation with direct costs
-     func testProfitCalculation() async throws {
+    func testProfitCalculation() async throws {
      // Given
      var shift = RideshareShift(
      startDate: Date(),
@@ -78,18 +78,17 @@ final class RideshareShiftTests: XCTestCase {
      )
      shift.endDate = Date().addingTimeInterval(3600) // 1 hour
      shift.endMileage = 200.0
-     shift.endTankReading = 6.0 // Used 2/8ths of tank
+     shift.endTankReading = 8.0 // Refueled Tank
      shift.netFare = 150.0
      shift.tips = 25.0
      shift.tolls = 10.0
      shift.tollsReimbursed = 5.0
      shift.parkingFees = 5.0
      shift.didRefuelAtEnd = true
-     shift.refuelGallons = 4.0 // Only refuel what was used (2/8ths of 16-gallon tank = 4 gallons)
+     shift.refuelGallons = 4.0 // 4 gallons used
      shift.refuelCost = 8.0 // 4 gallons * $2.00/gallon = $8.00
 
      let tankCapacity = 16.0 // gallons
-     let gasPrice = 2.00 // Set to $2.00/gallon to match refuel calculation
      
      // When
      let revenue = shift.revenue
@@ -124,7 +123,7 @@ final class RideshareShiftTests: XCTestCase {
      shift.tollsReimbursed = 0.0
      shift.parkingFees = 0.0
      shift.didRefuelAtEnd = true
-     shift.refuelGallons = 6.0 // 2 gallons for shift + 4 gallons for tank shortage = 6 total
+     shift.refuelGallons = 6.0 // 4 gallons for shift + 4 gallons for tank shortage = 6 total
      shift.refuelCost = 12.0 // 6 gallons * $2.00/gallon = $12.00
 
      let tankCapacity = 16.0 // tank capacity in gallons
@@ -141,6 +140,8 @@ final class RideshareShiftTests: XCTestCase {
      XCTAssertEqual(grossProfit, 46.00) // revenue - directCosts = 50.0 - 4.0 = $46.00
      XCTAssertEqual(cashFlowProfit, grossProfit) // Should be same for this test
      }
+    
+    
 
      // Test gas usage calculation
      func testGasUsageCalculation() async throws {
@@ -264,7 +265,6 @@ final class RideshareShiftTests: XCTestCase {
      shift.tips = 20.0
      
      let tankCapacity = 16.0
-     let gasPrice = 3.50
      
      // When
      let totalProfit = shift.cashFlowProfit(tankCapacity: tankCapacity)

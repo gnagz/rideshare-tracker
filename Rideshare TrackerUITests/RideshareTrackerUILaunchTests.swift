@@ -7,7 +7,7 @@
 
 import XCTest
 
-final class Rideshare_TrackerUITestsLaunchTests: XCTestCase {
+final class RideshareTrackerUILaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

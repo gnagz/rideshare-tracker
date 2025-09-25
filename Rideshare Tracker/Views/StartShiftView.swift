@@ -191,6 +191,7 @@ struct StartShiftView: View {
                     .padding(.vertical, 4)
                 }
             }
+            .accessibilityIdentifier("Photos")
         }
     }
     

@@ -50,6 +50,7 @@ struct AddExpenseView: View {
                             saveExpense()
                         }
                         .disabled(!isFormValid)
+                        .accessibilityIdentifier("save_expense_button")
                     }
                     ToolbarItemGroup(placement: .keyboard) {
                         Spacer()
@@ -137,6 +138,7 @@ struct AddExpenseView: View {
                     Label("Add Receipt Photo", systemImage: "camera.fill")
                         .foregroundColor(.blue)
                 }
+                .accessibilityIdentifier("add_receipt_button")
                 .onChange(of: selectedPhotoItems) { oldItems, items in
                     Task {
                         await loadSelectedPhotos(from: items)
@@ -177,6 +179,7 @@ struct AddExpenseView: View {
                         .foregroundColor(.secondary)
                 }
             }
+            .accessibilityIdentifier("Photos")
         }
     }
     

@@ -65,6 +65,7 @@ struct EditExpenseView: View {
                                 saveChanges()
                             }
                             .disabled(!isFormValid)
+                            .accessibilityIdentifier("save_expense_button")
                         }
                         ToolbarItemGroup(placement: .keyboard) {
                             Spacer()
@@ -84,6 +85,7 @@ struct EditExpenseView: View {
                             saveChanges()
                         }
                         .disabled(!isFormValid)
+                        .accessibilityIdentifier("save_expense_button")
                     }
                     ToolbarItemGroup(placement: .keyboard) {
                         Spacer()

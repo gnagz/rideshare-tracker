@@ -37,11 +37,11 @@ struct ShiftDetailView: View {
     }
 
     private var yearTotalDeductibleTips: Double {
-        RideshareShift.calculateYearTotalDeductibleTips(shifts: dataManager.shifts, year: currentYear)
+        RideshareShift.calculateYearTotalDeductibleTips(shifts: dataManager.shifts, year: currentYear, tipDeductionEnabled: preferences.tipDeductionEnabled)
     }
 
     private var yearTotalMileageDeduction: Double {
-        yearToDateShifts.reduce(0) { $0 + $1.deductibleExpenses(mileageRate: preferences.standardMileageRate) }
+        RideshareShift.calculateYearTotalMileageDeduction(shifts: dataManager.shifts, year: currentYear, mileageRate: preferences.standardMileageRate)
     }
     
     private var yearTotalExpensesWithoutVehicle: Double {

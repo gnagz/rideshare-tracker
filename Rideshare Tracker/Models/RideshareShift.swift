@@ -117,17 +117,25 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
         let startGallons = (startTankReading / 8.0) * tankCapacity
         let endGallons = (endTankReading / 8.0) * tankCapacity
         var gasUsed = startGallons - endGallons
-        
+        debugPrint("shiftGasUsage: startGallons:(startTankReading:\(startTankReading) / 8.0) * tankCapacity:\(tankCapacity))=\(startGallons)")
+        debugPrint("shiftGasUsage: endGallons:(endTankReading:\(endTankReading) / 8.0) * tankCapacity:\(tankCapacity))=\(endGallons)")
+                
         // Add refueled amount if applicable
         if let refuelGallons = refuelGallons {
             gasUsed += refuelGallons
         }
+        debugPrint("shiftGasUsage: gasUsed:startGallons:\(startGallons) - endGallons:\(endGallons) + refuelGallons:\(refuelGallons ?? 0)=\(gasUsed)")
         
-        return max(gasUsed, 0)
+        let shiftGasUsage = max(gasUsed, 0)
+        debugPrint("shiftGasUsage: max(gasUsed:\(gasUsed),0):\(shiftGasUsage)")
+        return shiftGasUsage
     }
     
     func shiftGasCost(tankCapacity: Double) -> Double {
-        return shiftGasUsage(tankCapacity: tankCapacity) * gasPrice
+        let gasUsed = shiftGasUsage(tankCapacity: tankCapacity)
+        let shiftGasCost = gasUsed * gasPrice
+        debugPrint("shiftGasCost: shiftGasUsage(tankCapitalcy:\(tankCapacity)):\(gasUsed) * gasPrice:\(gasPrice)=\(shiftGasCost)")
+        return shiftGasCost
     }
 
     private func tankCapacityShortageAtStart(tankCapacity: Double) -> Double {
@@ -149,7 +157,10 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     
     func deductibleExpenses(mileageRate: Double) -> Double {
         let tollExpense = (tolls ?? 0) - (tollsReimbursed ?? 0)
-        return (shiftMileage * mileageRate) + tollExpense + (parkingFees ?? 0) + (miscFees ?? 0)
+        let deductibleExpenses = (shiftMileage * mileageRate) + tollExpense + (parkingFees ?? 0) + (miscFees ?? 0)
+        debugPrint(
+            "deductibleExpenses(mileageRate:\(mileageRate)): shiftMileage:\(shiftMileage) * mileageRate:\(mileageRate) + tollExpense:\(tollExpense) + parkingFees:\(parkingFees ?? 0) + miscFees:\(miscFees ?? 0)=\(deductibleExpenses)")
+        return deductibleExpenses
     }
     
     // Keep for backward compatibility
@@ -160,7 +171,9 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     func directCosts(tankCapacity: Double) -> Double {
         let gasExpense = shiftGasCost(tankCapacity: tankCapacity)
         let tollExpense = (tolls ?? 0) - (tollsReimbursed ?? 0)
-        return gasExpense + tollExpense + (parkingFees ?? 0) + (miscFees ?? 0)
+        let directCosts = gasExpense + tollExpense + (parkingFees ?? 0) + (miscFees ?? 0)
+        debugPrint("directCosts(tankCapitalcy:\(tankCapacity)): gasExpense:\(gasExpense) + tollExpense:\(tollExpense) + parkingFees:\(parkingFees ?? 0) + miscFees:\(miscFees ?? 0)=\(directCosts)")
+        return directCosts
     }
     
     // Keep for backward compatibility
@@ -180,11 +193,16 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     
     func outOfPocketCosts(tankCapacity: Double) -> Double {
         let gasExpense = shiftGasCost(tankCapacity: tankCapacity)
-        return gasExpense + (tolls ?? 0) + (parkingFees ?? 0) + (miscFees ?? 0)
+        let outOfPocketCosts = gasExpense + (tolls ?? 0) + (parkingFees ?? 0) + (miscFees ?? 0)
+        debugPrint("outOfPocketCosts: gasExpense:\(gasExpense) + tolls:\(tolls ?? 0) + parkingFees:\(parkingFees ?? 0) + miscFees:\(miscFees ?? 0)=\(outOfPocketCosts)")
+        return outOfPocketCosts
     }
     
     func cashFlowProfit(tankCapacity: Double) -> Double {
-        return expectedPayout - outOfPocketCosts(tankCapacity: tankCapacity)
+        let outOfPocketCosts = outOfPocketCosts(tankCapacity: tankCapacity)
+        let cashFlowProfit = expectedPayout - outOfPocketCosts
+        debugPrint("cashFlowProfit: expectedPayout:\(expectedPayout) - outOfPocketCosts:\(outOfPocketCosts)=\(cashFlowProfit)")
+        return cashFlowProfit
     }
     
     // Keep for backward compatibility
@@ -208,7 +226,9 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     }
 
     static func calculateTaxableIncome(adjustedGrossIncome: Double, mileageDeduction: Double, otherExpenses: Double) -> Double {
-        return max(0, adjustedGrossIncome - mileageDeduction - otherExpenses)
+        let taxableIncome = max(0, adjustedGrossIncome - mileageDeduction - otherExpenses)
+        debugPrint("calculateTaxableIncome: max(0, adjustedGrossIncome:\(adjustedGrossIncome) - mileageDeduction:\(mileageDeduction) - otherExpenses:\(otherExpenses)):\(taxableIncome)")
+        return taxableIncome
     }
 
     static func calculateIncomeTax(taxableIncome: Double, taxRate: Double) -> Double {
@@ -218,6 +238,40 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     static func calculateTotalTax(incomeTax: Double, selfEmploymentTax: Double) -> Double {
         return incomeTax + selfEmploymentTax
     }
+    
+    /////
+    
+   
+    
+    static func calculateYearTotalRevenue(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + $1.revenue }
+    }
+
+    static func calculateYearTotalTips(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + $1.totalTips }
+    }
+
+    static func calculateYearTotalMileageDeduction(shifts: [RideshareShift], year: Int, mileageRate: Double) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + $1.deductibleExpenses(mileageRate: mileageRate) }
+    }
+
+    static func calculateYearTotalDeductibleTips(shifts: [RideshareShift], year: Int, tipDeductionEnabled: Bool) -> Double {
+        guard tipDeductionEnabled else { return 0 }
+        let totalTips = calculateYearTotalTips(shifts: shifts, year: year)
+        // Apply $25,000 cap on deductible tip income
+        return min(totalTips, 25000.0)
+    }
+
+    
 
 }
 

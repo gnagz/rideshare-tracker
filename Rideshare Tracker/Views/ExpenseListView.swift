@@ -196,11 +196,15 @@ struct ExpenseListView: View {
                     Button(action: { showingMainMenu = true }) {
                         Image(systemName: "gearshape")
                     }
+                    .accessibilityIdentifier("settings_button")
+                    .accessibilityLabel("Settings")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingAddExpense = true }) {
                         Image(systemName: "plus")
                     }
+                    .accessibilityIdentifier("add_expense_button")
+                    .accessibilityLabel("Add Expense")
                 }
             }
             .sheet(isPresented: $showingAddExpense) {
