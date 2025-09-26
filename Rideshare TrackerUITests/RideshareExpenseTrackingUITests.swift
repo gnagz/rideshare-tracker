@@ -401,7 +401,18 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
         enterText("Receipt Test Expense", in: descriptionField, app: app)
 
         // Test receipt attachment using proper accessibility identifier
-        let addReceiptButton = findButton(keyword: "add_receipt_button", keyword2: "Photos", keyword3: "Add Receipt Photo", in: app)
+        // Scroll down to ensure Photos section is visible
+        if app.scrollViews.firstMatch.exists {
+            app.scrollViews.firstMatch.swipeUp()
+            visualDebugPause(1)
+        }
+
+        // Try multiple ways to find the photo button
+        var addReceiptButton = app.buttons["add_receipt_button"]
+        if !addReceiptButton.exists {
+            addReceiptButton = app.buttons["Add Receipt Photo"]
+        }
+
         if addReceiptButton.exists {
             debugPrint("Found Add Receipt button, testing photo picker...")
             waitAndTap(addReceiptButton)
@@ -443,7 +454,7 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
     /// Consolidates: testExpensePhotoViewerIntegration, testExpensePhotoPermissions
     /// Tests: Photo viewer, permissions, error handling
     @MainActor
-        func testExpensePhotoViewerAndPermissions() throws {
+    func testExpensePhotoViewerAndPermissions() throws {
         debugPrint("Testing photo viewer and permissions handling")
 
         let app = launchApp()
@@ -454,7 +465,23 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
         waitAndTap(addExpenseButton)
 
         if app.navigationBars["Add Expense"].waitForExistence(timeout: 3) {
-            let addPhotoButton = findButton(keyword: "add_receipt_button", keyword2: "Photos", keyword3: "Add Receipt Photo", in: app)
+            // Scroll down to ensure Photos section is visible
+            if app.scrollViews.firstMatch.exists {
+                app.scrollViews.firstMatch.swipeUp()
+                visualDebugPause(1)
+            }
+
+            // Try multiple ways to find the photo button
+            var addPhotoButton = app.buttons["add_receipt_button"]
+            if !addPhotoButton.exists {
+                // Try by section identifier
+                addPhotoButton = app.buttons.containing(.staticText, identifier: "Add Receipt Photo").firstMatch
+            }
+            if !addPhotoButton.exists {
+                // Try by label text
+                addPhotoButton = app.buttons["Add Receipt Photo"]
+            }
+
             if addPhotoButton.exists {
                 waitAndTap(addPhotoButton)
 

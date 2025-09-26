@@ -284,7 +284,7 @@ class RideshareTrackerUITestBase: XCTestCase {
 
     /// Wait for element and tap with timeout, handling scroll failures gracefully
     @MainActor
-    func waitAndTap(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #file, line: UInt = #line) {
+    func waitAndTap(_ element: XCUIElement, timeout: TimeInterval = 5, file: StaticString = #filePath, line: UInt = #line) {
         debugPrint("Waiting for element to exist: identifier='\(element.identifier)', label='\(element.label)', timeout=\(timeout)s")
         let exists = element.waitForExistence(timeout: timeout)
 
