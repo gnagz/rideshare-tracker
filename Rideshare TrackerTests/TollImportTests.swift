@@ -89,7 +89,7 @@ final class TollImportTests: RideshareTrackerTestBase {
         XCTAssertEqual(generatedImage.size.width, 800, "Image should be 800px wide")
         XCTAssertGreaterThan(generatedImage.size.height, 0, "Image should have positive height")
 
-        debugPrint("Generated toll summary image: \(generatedImage.size)")
+        debugMessage("Generated toll summary image: \(generatedImage.size)")
     }
 
     func testTollSummaryImageGenerationWithSingleTransaction() throws {
@@ -248,7 +248,7 @@ final class TollImportTests: RideshareTrackerTestBase {
 
         // Create toll transaction within shift window
         let tollTime = shiftStart.addingTimeInterval(2 * 3600) // 2 hours into shift
-        let tollTransaction = TollTransaction(
+        let _ = TollTransaction(
             date: tollTime,
             location: "183S - Thompson Lane Mainline NB",
             plate: "TX - MKG0738",
@@ -261,8 +261,8 @@ final class TollImportTests: RideshareTrackerTestBase {
         // Then: Should be within the shift window
         XCTAssertTrue(isWithinWindow, "Toll transaction should be within shift time window")
 
-        debugPrint("Shift: \(shiftStart) to \(shiftEnd)")
-        debugPrint("Toll: \(tollTime) - Within window: \(isWithinWindow)")
+        debugMessage("Shift: \(shiftStart) to \(shiftEnd)")
+        debugMessage("Toll: \(tollTime) - Within window: \(isWithinWindow)")
     }
 
     func testShiftMatchingOutsideWindow() throws {
@@ -272,7 +272,7 @@ final class TollImportTests: RideshareTrackerTestBase {
 
         // Create toll transaction outside shift window (before shift)
         let tollTime = shiftStart.addingTimeInterval(-1 * 3600) // 1 hour before shift
-        let tollTransaction = TollTransaction(
+        let _ = TollTransaction(
             date: tollTime,
             location: "183S - Thompson Lane Mainline NB",
             plate: "TX - MKG0738",
@@ -318,11 +318,11 @@ final class TollImportTests: RideshareTrackerTestBase {
     func testShiftMatchingWithIncompleteShift() throws {
         // Given: Incomplete shift (no end date)
         let shiftStart = createTestDate(year: 2025, month: 9, day: 16, hour: 9, minute: 0)
-        var shift = createBasicTestShift(startDate: shiftStart)
+        let _ = createBasicTestShift(startDate: shiftStart)
         // No endDate set - incomplete shift
 
         let tollTime = shiftStart.addingTimeInterval(2 * 3600)
-        let tollTransaction = TollTransaction(
+        let _ = TollTransaction(
             date: tollTime,
             location: "183S - Thompson Lane Mainline NB",
             plate: "TX - MKG0738",
@@ -338,7 +338,7 @@ final class TollImportTests: RideshareTrackerTestBase {
         // Then: Should handle incomplete shifts gracefully
         XCTAssertTrue(isWithinWindow, "Should match tolls to incomplete shifts within reasonable window")
 
-        debugPrint("Incomplete shift matching: \(isWithinWindow)")
+        debugMessage("Incomplete shift matching: \(isWithinWindow)")
     }
 
     // MARK: - Integration Tests
@@ -376,6 +376,137 @@ final class TollImportTests: RideshareTrackerTestBase {
             XCTFail("Shift should have tolls value set")
         }
 
-        debugPrint("Total tolls accumulated: \(totalTolls)")
+        debugMessage("Total tolls accumulated: \(totalTolls)")
+    }
+
+    // MARK: - Toll Import Replacement Tests
+
+    func testTollImportReplacesExistingAmount() async throws {
+        // Given: Create a shift with existing toll amount
+        let shiftStart = createTestDate(year: 2025, month: 9, day: 16, hour: 9, minute: 0)
+        var existingShift = createBasicTestShift(startDate: shiftStart)
+        existingShift.endDate = shiftStart.addingTimeInterval(8 * 3600)
+        existingShift.endMileage = existingShift.startMileage + 150.0
+        existingShift.tolls = 2.71  // Pre-existing toll amount (like user manually entered)
+
+        // Add shift to manager
+        let manager = await MainActor.run {
+            let mgr = ShiftDataManager(forEnvironment: true)
+            mgr.shifts.removeAll()
+            mgr.addShift(existingShift)
+            return mgr
+        }
+
+        // Create CSV with toll transactions that should REPLACE the existing amount
+        let csvContent = """
+        Transaction Entry Date,Location,Plate,Transaction Amount
+        "09/16/2025 10:30:00","183S - Thompson Lane Mainline NB","TX - MKG0738",1.30
+        "09/16/2025 12:45:00","Mopac Express - Cesar Chavez SB","TX - MKG0738",0.75
+        "09/16/2025 15:15:00","183S - Research Blvd NB","TX - MKG0738",0.75
+        """
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let testURL = tempDir.appendingPathComponent("test_toll_replacement.csv")
+        try csvContent.write(to: testURL, atomically: true, encoding: .utf8)
+
+        // When: Import the tolls (this should REPLACE existing tolls)
+        let importResult = await MainActor.run {
+            return CSVImportManager.importTolls(from: testURL, dataManager: manager)
+        }
+
+        // Then: Verify import succeeded
+        switch importResult {
+        case .success(let result):
+            XCTAssertEqual(result.transactions.count, 3, "Should import 3 toll transactions")
+            XCTAssertEqual(result.updatedShifts.count, 1, "Should update 1 shift")
+
+            // Verify the shift toll amount was REPLACED, not added to
+            guard let updatedShift = result.updatedShifts.first else {
+                XCTFail("Should have one updated shift")
+                return
+            }
+
+            let expectedTotalTolls = 1.30 + 0.75 + 0.75 // = 2.80
+            if let actualTolls = updatedShift.tolls {
+                assertCurrency(actualTolls, equals: expectedTotalTolls, "Toll amount should be REPLACED with imported total, not added")
+                XCTAssertNotEqual(actualTolls, 2.71 + expectedTotalTolls, "Should NOT add to existing amount (would be 5.51)")
+            } else {
+                XCTFail("Shift should have tolls set after import")
+            }
+
+            debugMessage("Original tolls: 2.71, Imported tolls: \(expectedTotalTolls), Final tolls: \(updatedShift.tolls ?? 0)")
+
+        case .failure(let error):
+            XCTFail("Toll import should succeed but failed with: \(error.localizedDescription)")
+        }
+
+        // Cleanup
+        try? FileManager.default.removeItem(at: testURL)
+    }
+
+    func testTollImportAttachesImageToShift() async throws {
+        // Given: Create a shift that will match toll transactions
+        let shiftStart = createTestDate(year: 2025, month: 9, day: 16, hour: 9, minute: 0)
+        var testShift = createBasicTestShift(startDate: shiftStart)
+        testShift.endDate = shiftStart.addingTimeInterval(8 * 3600)
+        testShift.endMileage = testShift.startMileage + 150.0
+
+        let manager = await MainActor.run {
+            let mgr = ShiftDataManager(forEnvironment: true)
+            mgr.shifts.removeAll()
+            mgr.addShift(testShift)
+            return mgr
+        }
+
+        // Create CSV with toll transactions
+        let csvContent = """
+        Transaction Entry Date,Location,Plate,Transaction Amount
+        "09/16/2025 10:30:00","183S - Thompson Lane Mainline NB","TX - MKG0738",1.30
+        "09/16/2025 12:45:00","Mopac Express - Cesar Chavez SB","TX - MKG0738",0.75
+        """
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let testURL = tempDir.appendingPathComponent("test_toll_image.csv")
+        try csvContent.write(to: testURL, atomically: true, encoding: .utf8)
+
+        // When: Import the tolls
+        let importResult = await MainActor.run {
+            return CSVImportManager.importTolls(from: testURL, dataManager: manager)
+        }
+
+        // Then: Verify toll summary image was attached to shift
+        switch importResult {
+        case .success(let result):
+            XCTAssertEqual(result.transactions.count, 2, "Should import 2 toll transactions")
+            XCTAssertEqual(result.updatedShifts.count, 1, "Should update 1 shift")
+
+            guard let updatedShift = result.updatedShifts.first else {
+                XCTFail("Should have one updated shift")
+                return
+            }
+
+            // Debug output
+            debugMessage("Toll import result: \(result.imagesGenerated) images generated, \(updatedShift.imageAttachments.count) attachments on shift")
+
+            // Verify toll summary image was attached
+            XCTAssertFalse(updatedShift.imageAttachments.isEmpty, "Shift should have image attachments after toll import")
+            XCTAssertEqual(result.imagesGenerated, 1, "Should generate 1 toll summary image")
+
+            let tollImageAttachments = updatedShift.imageAttachments.filter { $0.type == .receipt }
+            XCTAssertGreaterThanOrEqual(tollImageAttachments.count, 1, "Should have at least one receipt/toll image attachment")
+
+            // Verify the attachment has appropriate description
+            if let tollAttachment = tollImageAttachments.first {
+                XCTAssertTrue(tollAttachment.description?.contains("Toll Summary") == true, "Toll image should have 'Toll Summary' in description")
+            }
+
+            debugMessage("Images generated: \(result.imagesGenerated), Attached images: \(updatedShift.imageAttachments.count)")
+
+        case .failure(let error):
+            XCTFail("Toll import should succeed but failed with: \(error.localizedDescription)")
+        }
+
+        // Cleanup
+        try? FileManager.default.removeItem(at: testURL)
     }
 }

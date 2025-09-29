@@ -8,13 +8,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct TollTransaction {
-    let date: Date
-    let location: String
-    let plate: String
-    let amount: Double
-}
-
 struct ImportExportView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
     @EnvironmentObject var expenseManager: ExpenseDataManager
@@ -272,24 +265,24 @@ struct ImportView: View {
     
     private func importShifts(from url: URL) {
         debugPrint("Starting shift import from UI: \(url.lastPathComponent)")
-        let importResult = AppPreferences.importCSV(from: url)
-        
+        let importResult = CSVImportManager.importShifts(from: url)
+
         switch importResult {
         case .success(let csvResult):
             debugPrint("CSV import successful, processing \(csvResult.shifts.count) shifts with duplicate action: \(duplicateAction)")
             var addedCount = 0
             var updatedCount = 0
             var skippedCount = 0
-            
+
             for shift in csvResult.shifts {
                 let existingShiftIndex = dataManager.shifts.firstIndex { existingShift in
                     Calendar.current.isDate(existingShift.startDate, inSameDayAs: shift.startDate) &&
                     existingShift.startMileage == shift.startMileage
                 }
-                
+
                 let isDuplicate = existingShiftIndex != nil
                 debugPrint("Processing shift \(shift.startDate): duplicate=\(isDuplicate), action=\(duplicateAction)")
-                
+
                 switch duplicateAction {
                 case .merge:
                     dataManager.addShift(shift)
@@ -316,18 +309,18 @@ struct ImportView: View {
                     }
                 }
             }
-            
+
             var message = "Import completed:\n"
             if addedCount > 0 { message += "\n• Added: \(addedCount) shifts" }
             if updatedCount > 0 { message += "\n• Updated: \(updatedCount) shifts" }
             if skippedCount > 0 { message += "\n• Skipped: \(skippedCount) duplicates" }
-            
+
             debugPrint("Import completed: added=\(addedCount), updated=\(updatedCount), skipped=\(skippedCount)")
-            
+
             importAlertTitle = "Import Successful"
             importMessage = message
             showingImportAlert = true
-            
+
         case .failure(let error):
             debugPrint("CSV import failed: \(error.localizedDescription)")
             importAlertTitle = "Import Failed"
@@ -337,66 +330,21 @@ struct ImportView: View {
     }
     
     private func importExpenses(from url: URL) {
-        // For expenses, we need to create a simple CSV parser since AppPreferences only handles shifts
-        do {
-            let csvContent = try String(contentsOf: url, encoding: .utf8)
-            let lines = csvContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
-            
-            guard lines.count > 1 else {
-                importAlertTitle = "Import Failed"
-                importMessage = "CSV file is empty or invalid"
-                showingImportAlert = true
-                return
-            }
-            
-            let headers = parseCSVLine(lines[0])
-            var expenses: [ExpenseItem] = []
-            let dateFormatter = DateFormatter()
-            
-            for i in 1..<lines.count {
-                let values = parseCSVLine(lines[i])
-                guard values.count >= headers.count else { continue }
-                
-                var date: Date?
-                var category: ExpenseCategory?
-                var description: String = ""
-                var amount: Double = 0
-                
-                for (index, header) in headers.enumerated() {
-                    guard index < values.count else { continue }
-                    let value = values[index].trimmingCharacters(in: .whitespaces)
-                    
-                    switch header.lowercased() {
-                    case "date":
-                        date = parseDateFromCSV(value, formatter: dateFormatter)
-                    case "category":
-                        category = ExpenseCategory(rawValue: value)
-                    case "description":
-                        description = value
-                    case "amount":
-                        amount = Double(value.replacingOccurrences(of: "$", with: "")) ?? 0
-                    default:
-                        break
-                    }
-                }
-                
-                if let date = date, let category = category, !description.isEmpty {
-                    let expense = ExpenseItem(date: date, category: category, description: description, amount: amount)
-                    expenses.append(expense)
-                }
-            }
-            
+        let importResult = CSVImportManager.importExpenses(from: url)
+
+        switch importResult {
+        case .success(let csvResult):
             var addedCount = 0
             var updatedCount = 0
             var skippedCount = 0
-            
-            for expense in expenses {
+
+            for expense in csvResult.expenses {
                 let existingExpenseIndex = expenseManager.expenses.firstIndex { existingExpense in
                     Calendar.current.isDate(existingExpense.date, inSameDayAs: expense.date) &&
                     existingExpense.category == expense.category &&
                     existingExpense.description == expense.description
                 }
-                
+
                 switch duplicateAction {
                 case .merge:
                     expenseManager.addExpense(expense)
@@ -418,227 +366,43 @@ struct ImportView: View {
                     }
                 }
             }
-            
+
             var message = "Import completed:\n"
             if addedCount > 0 { message += "\n• Added: \(addedCount) expenses" }
             if updatedCount > 0 { message += "\n• Updated: \(updatedCount) expenses" }
             if skippedCount > 0 { message += "\n• Skipped: \(skippedCount) duplicates" }
-            
+
             importAlertTitle = "Import Successful"
             importMessage = message
             showingImportAlert = true
-            
-        } catch {
+
+        case .failure(let error):
             importAlertTitle = "Import Failed"
-            importMessage = "Failed to read file: \(error.localizedDescription)"
+            importMessage = error.localizedDescription
             showingImportAlert = true
         }
     }
 
     private func importTolls(from url: URL) {
-        do {
-            let content = try String(contentsOf: url, encoding: .utf8)
-            let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        let importResult = CSVImportManager.importTolls(from: url, dataManager: dataManager)
 
-            guard lines.count > 1 else {
-                importAlertTitle = "Import Failed"
-                importMessage = "CSV file is empty or has no data rows"
-                showingImportAlert = true
-                return
-            }
-
-            let headerLine = lines[0]
-            let headers = parseCSVLine(headerLine)
-
-            // Find required column indices
-            var transactionDateIndex = -1
-            var transactionAmountIndex = -1
-            var locationIndex = -1
-            var plateIndex = -1
-
-            for (index, header) in headers.enumerated() {
-                let lowercased = header.lowercased()
-                if lowercased.contains("transaction entry date") || lowercased.contains("entry date") {
-                    transactionDateIndex = index
-                } else if lowercased.contains("transaction amount") || lowercased.contains("amount") {
-                    transactionAmountIndex = index
-                } else if lowercased.contains("location") {
-                    locationIndex = index
-                } else if lowercased.contains("plate") {
-                    plateIndex = index
-                }
-            }
-
-            guard transactionDateIndex >= 0, transactionAmountIndex >= 0 else {
-                importAlertTitle = "Import Failed"
-                importMessage = "Required columns not found. Need 'Transaction Entry Date/Time' and 'Transaction Amount' columns."
-                showingImportAlert = true
-                return
-            }
-
-            var updatedShiftsCount = 0
-            var totalTollsProcessed = 0
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "MM/dd/yyyy HH:mm:ss"
-
-            // Track transactions per shift for image generation
-            var shiftTollTransactions: [UUID: [TollTransaction]] = [:]
-
-            // Process each toll transaction
-            for line in lines.dropFirst() {
-                let values = parseCSVLine(line)
-                guard transactionDateIndex < values.count, transactionAmountIndex < values.count else { continue }
-
-                // Parse transaction date
-                let dateString = values[transactionDateIndex]
-                    .replacingOccurrences(of: "=Text(\"", with: "")
-                    .replacingOccurrences(of: "\",\"mm/dd/yyyy HH:mm:SS\")", with: "")
-                    .trimmingCharacters(in: .whitespaces)
-
-                guard let transactionDate = dateFormatter.date(from: dateString) else { continue }
-
-                // Parse transaction amount (remove $ and negative sign, convert to positive)
-                let amountString = values[transactionAmountIndex]
-                    .replacingOccurrences(of: "-$", with: "")
-                    .replacingOccurrences(of: "$", with: "")
-                    .trimmingCharacters(in: .whitespaces)
-
-                guard let tollAmount = Double(amountString) else { continue }
-
-                // Parse location and plate (optional)
-                let location = locationIndex >= 0 && locationIndex < values.count ?
-                    values[locationIndex].trimmingCharacters(in: .whitespaces) : "Unknown Location"
-                let plate = plateIndex >= 0 && plateIndex < values.count ?
-                    values[plateIndex].trimmingCharacters(in: .whitespaces) : "Unknown Plate"
-
-                // Create toll transaction record
-                let tollTransaction = TollTransaction(
-                    date: transactionDate,
-                    location: location,
-                    plate: plate,
-                    amount: tollAmount
-                )
-
-                // Find matching shift(s) - transaction time should be between shift start and end
-                let matchingShifts = dataManager.shifts.filter { shift in
-                    guard let endDate = shift.endDate else { return false }
-                    return transactionDate >= shift.startDate && transactionDate <= endDate
-                }
-
-                // Update shifts with toll data and collect transactions
-                for matchingShift in matchingShifts {
-                    let shiftIndex = dataManager.shifts.firstIndex { $0.id == matchingShift.id }
-                    guard let index = shiftIndex else { continue }
-
-                    let currentTolls = dataManager.shifts[index].tolls ?? 0
-                    dataManager.shifts[index].tolls = currentTolls + tollAmount
-
-                    // Collect transaction for image generation
-                    if shiftTollTransactions[matchingShift.id] == nil {
-                        shiftTollTransactions[matchingShift.id] = []
-                    }
-                    shiftTollTransactions[matchingShift.id]?.append(tollTransaction)
-                }
-
-                if !matchingShifts.isEmpty {
-                    updatedShiftsCount += matchingShifts.count
-                    totalTollsProcessed += 1
-                }
-            }
-
-            // Generate and attach toll summary images to shifts
-            var imagesGenerated = 0
-            for (shiftId, transactions) in shiftTollTransactions {
-                guard let shiftIndex = dataManager.shifts.firstIndex(where: { $0.id == shiftId }) else { continue }
-                let shift = dataManager.shifts[shiftIndex]
-
-                let totalTollsForShift = transactions.reduce(0) { $0 + $1.amount }
-
-                if let summaryImage = TollSummaryImageGenerator.generateTollSummaryImage(
-                    shiftDate: shift.startDate,
-                    transactions: transactions,
-                    totalAmount: totalTollsForShift
-                ) {
-                    do {
-                        let attachment = try ImageManager.shared.saveImage(
-                            summaryImage,
-                            for: shift.id,
-                            parentType: .shift,
-                            type: .receipt,
-                            description: "Toll Summary - \(transactions.count) transactions"
-                        )
-                        dataManager.shifts[shiftIndex].imageAttachments.append(attachment)
-                        imagesGenerated += 1
-                    } catch {
-                        print("Failed to save toll summary image for shift: \(error)")
-                    }
-                }
-            }
-
-            // Update data manager to trigger saves
-            dataManager.objectWillChange.send()
-
+        switch importResult {
+        case .success(let tollResult):
             importAlertTitle = "Toll Import Successful"
-            var message = "Import completed:\n\n• Processed: \(totalTollsProcessed) toll transactions\n• Updated: \(updatedShiftsCount) shifts"
-            if imagesGenerated > 0 {
-                message += "\n• Generated: \(imagesGenerated) toll summary images"
+            var message = "Import completed:\n\n• Processed: \(tollResult.transactions.count) toll transactions\n• Updated: \(tollResult.updatedShifts.count) shifts"
+            if tollResult.imagesGenerated > 0 {
+                message += "\n• Generated: \(tollResult.imagesGenerated) toll summary images"
             }
             importMessage = message
             showingImportAlert = true
 
-        } catch {
+        case .failure(let error):
             importAlertTitle = "Import Failed"
-            importMessage = "Failed to read file: \(error.localizedDescription)"
+            importMessage = error.localizedDescription
             showingImportAlert = true
         }
     }
 
-    private func parseCSVLine(_ line: String) -> [String] {
-        var result: [String] = []
-        var currentField = ""
-        var inQuotes = false
-        var i = line.startIndex
-        
-        while i < line.endIndex {
-            let char = line[i]
-            
-            if char == "\"" {
-                if inQuotes && i < line.index(before: line.endIndex) && line[line.index(after: i)] == "\"" {
-                    currentField += "\""
-                    i = line.index(after: i)
-                } else {
-                    inQuotes.toggle()
-                }
-            } else if char == "," && !inQuotes {
-                result.append(currentField)
-                currentField = ""
-            } else {
-                currentField += String(char)
-            }
-            
-            i = line.index(after: i)
-        }
-        
-        result.append(currentField)
-        return result
-    }
-    
-    private func parseDateFromCSV(_ dateString: String, formatter: DateFormatter) -> Date? {
-        // Try common date formats, including two-digit years
-        let formats = [
-            "M/d/yy", "MM/dd/yy", "d/M/yy", "dd/MM/yy",  // Two-digit year formats (most common)
-            "M/d/yyyy", "MM/dd/yyyy", "d/M/yyyy", "dd/MM/yyyy",  // Four-digit year formats
-            "yyyy-MM-dd", "MMM d, yyyy", "dd-MM-yyyy", "yyyy/MM/dd"  // Other common formats
-        ]
-        
-        for format in formats {
-            formatter.dateFormat = format
-            if let date = formatter.date(from: dateString) {
-                return date
-            }
-        }
-        return nil
-    }
 }
 
 struct ExportView: View {
@@ -853,190 +617,4 @@ struct ExportView: View {
     }
 }
 
-// Document wrapper for file export
-struct DocumentFile: FileDocument {
-    static var readableContentTypes: [UTType] { [.commaSeparatedText, .json] }
-    
-    let url: URL
-    
-    init(url: URL) {
-        self.url = url
-    }
-    
-    init(configuration: ReadConfiguration) throws {
-        // This shouldn't be called for our use case
-        throw CocoaError(.fileReadCorruptFile)
-    }
-    
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        return try FileWrapper(url: url)
-    }
-}
 
-// MARK: - Toll Summary Image Generator
-
-struct TollSummaryImageGenerator {
-
-    static func generateTollSummaryImage(
-        shiftDate: Date,
-        transactions: [TollTransaction],
-        totalAmount: Double
-    ) -> UIImage? {
-
-        let width: CGFloat = 800
-        let rowHeight: CGFloat = 40
-        let headerHeight: CGFloat = 50
-        let footerHeight: CGFloat = 60
-        let padding: CGFloat = 20
-
-        let height = headerHeight + CGFloat(transactions.count) * rowHeight + footerHeight + (padding * 2)
-
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: width, height: height))
-
-        return renderer.image { context in
-            let ctx = context.cgContext
-
-            // Background
-            ctx.setFillColor(UIColor.systemBackground.cgColor)
-            ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
-
-            // Title
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateStyle = .medium
-            let title = "Toll Summary - \(dateFormatter.string(from: shiftDate))"
-
-            drawText(
-                title,
-                in: CGRect(x: padding, y: padding, width: width - 2*padding, height: 30),
-                font: .boldSystemFont(ofSize: 24),
-                color: .label,
-                alignment: .center,
-                in: ctx
-            )
-
-            let tableY = padding + 40
-
-            // Table header
-            let headerRect = CGRect(x: padding, y: tableY, width: width - 2*padding, height: headerHeight)
-            ctx.setFillColor(UIColor.systemGray5.cgColor)
-            ctx.fill(headerRect)
-            ctx.setStrokeColor(UIColor.systemGray3.cgColor)
-            ctx.setLineWidth(1)
-            ctx.stroke(headerRect)
-
-            // Header columns
-            let col1Width = (width - 2*padding) * 0.25  // Date
-            let col2Width = (width - 2*padding) * 0.45  // Location
-            let col3Width = (width - 2*padding) * 0.15  // Plate
-            let col4Width = (width - 2*padding) * 0.15  // Amount
-
-            drawText("Date/Time", in: CGRect(x: padding, y: tableY + 10, width: col1Width, height: 30),
-                    font: .boldSystemFont(ofSize: 14), color: .label, alignment: .center, in: ctx)
-
-            drawText("Location", in: CGRect(x: padding + col1Width, y: tableY + 10, width: col2Width, height: 30),
-                    font: .boldSystemFont(ofSize: 14), color: .label, alignment: .center, in: ctx)
-
-            drawText("Plate", in: CGRect(x: padding + col1Width + col2Width, y: tableY + 10, width: col3Width, height: 30),
-                    font: .boldSystemFont(ofSize: 14), color: .label, alignment: .center, in: ctx)
-
-            drawText("Amount", in: CGRect(x: padding + col1Width + col2Width + col3Width, y: tableY + 10, width: col4Width, height: 30),
-                    font: .boldSystemFont(ofSize: 14), color: .label, alignment: .center, in: ctx)
-
-            // Draw vertical lines for header
-            ctx.move(to: CGPoint(x: padding + col1Width, y: tableY))
-            ctx.addLine(to: CGPoint(x: padding + col1Width, y: tableY + headerHeight))
-            ctx.move(to: CGPoint(x: padding + col1Width + col2Width, y: tableY))
-            ctx.addLine(to: CGPoint(x: padding + col1Width + col2Width, y: tableY + headerHeight))
-            ctx.move(to: CGPoint(x: padding + col1Width + col2Width + col3Width, y: tableY))
-            ctx.addLine(to: CGPoint(x: padding + col1Width + col2Width + col3Width, y: tableY + headerHeight))
-            ctx.strokePath()
-
-            // Table rows
-            let timeFormatter = DateFormatter()
-            timeFormatter.dateFormat = "MM/dd HH:mm"
-
-            for (index, transaction) in transactions.enumerated() {
-                let rowY = tableY + headerHeight + CGFloat(index) * rowHeight
-                let rowRect = CGRect(x: padding, y: rowY, width: width - 2*padding, height: rowHeight)
-
-                // Alternate row background
-                if index % 2 == 1 {
-                    ctx.setFillColor(UIColor.systemGray6.cgColor)
-                    ctx.fill(rowRect)
-                }
-
-                // Row border
-                ctx.setStrokeColor(UIColor.systemGray4.cgColor)
-                ctx.setLineWidth(0.5)
-                ctx.stroke(rowRect)
-
-                // Row data
-                let dateText = timeFormatter.string(from: transaction.date)
-                drawText(dateText, in: CGRect(x: padding + 5, y: rowY + 10, width: col1Width - 10, height: 20),
-                        font: .systemFont(ofSize: 12), color: .label, alignment: .left, in: ctx)
-
-                let locationText = truncateText(transaction.location, maxLength: 35)
-                drawText(locationText, in: CGRect(x: padding + col1Width + 5, y: rowY + 10, width: col2Width - 10, height: 20),
-                        font: .systemFont(ofSize: 12), color: .label, alignment: .left, in: ctx)
-
-                drawText(transaction.plate, in: CGRect(x: padding + col1Width + col2Width + 5, y: rowY + 10, width: col3Width - 10, height: 20),
-                        font: .systemFont(ofSize: 12), color: .label, alignment: .center, in: ctx)
-
-                let amountText = String(format: "$%.2f", transaction.amount)
-                drawText(amountText, in: CGRect(x: padding + col1Width + col2Width + col3Width + 5, y: rowY + 10, width: col4Width - 10, height: 20),
-                        font: .systemFont(ofSize: 12), color: .label, alignment: .right, in: ctx)
-
-                // Vertical lines for row
-                ctx.move(to: CGPoint(x: padding + col1Width, y: rowY))
-                ctx.addLine(to: CGPoint(x: padding + col1Width, y: rowY + rowHeight))
-                ctx.move(to: CGPoint(x: padding + col1Width + col2Width, y: rowY))
-                ctx.addLine(to: CGPoint(x: padding + col1Width + col2Width, y: rowY + rowHeight))
-                ctx.move(to: CGPoint(x: padding + col1Width + col2Width + col3Width, y: rowY))
-                ctx.addLine(to: CGPoint(x: padding + col1Width + col2Width + col3Width, y: rowY + rowHeight))
-                ctx.strokePath()
-            }
-
-            // Footer/Total
-            let footerY = tableY + headerHeight + CGFloat(transactions.count) * rowHeight
-            let footerRect = CGRect(x: padding, y: footerY, width: width - 2*padding, height: footerHeight)
-            ctx.setFillColor(UIColor.systemBlue.withAlphaComponent(0.1).cgColor)
-            ctx.fill(footerRect)
-            ctx.setStrokeColor(UIColor.systemBlue.cgColor)
-            ctx.setLineWidth(2)
-            ctx.stroke(footerRect)
-
-            let totalText = "Total Tolls: $\(String(format: "%.2f", totalAmount))"
-            drawText(totalText, in: CGRect(x: padding, y: footerY + 15, width: width - 2*padding, height: 30),
-                    font: .boldSystemFont(ofSize: 18), color: .systemBlue, alignment: .center, in: ctx)
-        }
-    }
-
-    private static func drawText(
-        _ text: String,
-        in rect: CGRect,
-        font: UIFont,
-        color: UIColor,
-        alignment: NSTextAlignment,
-        in context: CGContext
-    ) {
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = alignment
-        paragraphStyle.lineBreakMode = .byTruncatingTail
-
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: color,
-            .paragraphStyle: paragraphStyle
-        ]
-
-        let attributedString = NSAttributedString(string: text, attributes: attributes)
-        attributedString.draw(in: rect)
-    }
-
-    private static func truncateText(_ text: String, maxLength: Int) -> String {
-        if text.count <= maxLength {
-            return text
-        }
-        return String(text.prefix(maxLength - 3)) + "..."
-    }
-}

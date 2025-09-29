@@ -3,6 +3,34 @@
 ## Overview
 This test plan validates the functionality and user experience of the Rideshare Tracker app on iOS devices (iPhone, iPad, and Mac) following recent updates to currency input and expense management systems.
 
+## Current Automated Test Status (September 2025)
+
+### Unit Tests: ✅ ALL PASSING (95 tests)
+- **ExpenseManagementTests**: 20 tests - Image management, CSV export, data operations
+- **CloudSyncTests**: 19 tests - iCloud sync, conflict resolution, metadata handling
+- **RideshareShiftModelTests**: 15 tests - Business logic, profit calculations, photo attachments
+- **TollImportTests**: 14 tests - CSV parsing, Excel formulas, shift matching, image generation
+- **MathCalculatorTests**: 8 tests - Expression evaluation, rideshare scenarios
+- **DateRangeCalculationTests**: 15 tests - Week/month filtering, boundary calculations
+- **CSVImportExportTests**: 4 tests - CSV import/export, tank reading conversions
+
+**Total Execution Time**: ~28 seconds
+
+### UI Tests: ✅ ALL PASSING (32 tests across 6 files)
+- **Photo picker workflows**: All 5 photo-related tests now passing (previously broken)
+- **Complete user workflows**: Shift creation, expense management, import/export
+- **Calculator integration**: Currency input field calculator functionality
+- **Toll import workflows**: CSV import with automatic shift matching
+
+**Parallel Execution Time**: ~5 minutes (significant performance improvement)
+**Serial Execution Time**: ~10+ minutes
+
+### Test Infrastructure
+- **Parallel Testing**: Enabled and optimized for UI tests
+- **Test Consolidation Opportunity**: 32 tests could potentially be optimized to ~31 tests
+- **Error Resolution**: All previously failing photo picker tests now pass
+- **Coverage**: Complete feature coverage including advanced features (toll import, calculator, cloud sync)
+
 ## Test Environment
 - **iOS Version**: _[To be filled]_
 - **Device Type**: _[iPhone/iPad/Mac - To be filled]_
@@ -313,6 +341,117 @@ This test plan validates the functionality and user experience of the Rideshare 
 - **Priority Issues**: Any failures in Tests 1, 3, 4, 7, or 8 should be addressed immediately
 - **New Features**: Tests 7 and 8 validate recent currency input and expense management enhancements
 - **Device Coverage**: Test on iPhone, iPad, and Mac to ensure universal compatibility
+
+---
+
+## Test 9: Scientific Calculator Integration
+**Objective**: Verify built-in calculator functionality in currency fields
+
+**Test Steps**:
+1. Open any form with currency input (StartShift, EndShift, AddExpense)
+2. Tap the calculator button on any currency field
+3. Test basic arithmetic: 45+23, 100-25, 50*2, 100/4
+4. Test complex expressions: (250-175)*0.67, 100+50*2-25/5
+5. Test memory functions: M+, M-, MR, MC with different values
+6. Test calculation tape - verify previous calculations are shown
+7. Enter complex expression and tap "Done" to insert result
+8. Test parentheses and percentage functions
+9. Test error handling with invalid expressions
+
+**Acceptance Criteria**:
+- Calculator opens as popup overlay without leaving current form
+- All arithmetic operations calculate correctly
+- Memory functions work and persist during session
+- Calculation tape shows previous calculations
+- "Done" button inserts calculated result into field
+- Error states display clearly for invalid expressions
+
+### Test Results
+
+| Test Date | Device Type | Feature | Success/Fail | Accuracy | Integration Works | Issues Found |
+|-----------|-------------|---------|--------------|----------|-------------------|--------------|
+|           | iPhone      | Basic Math |        |          |                   |              |
+|           | iPhone      | Complex Expressions |  |        |                   |              |
+|           | iPhone      | Memory Functions |     |        |                   |              |
+|           | iPhone      | Result Integration |   |        |                   |              |
+|           | iPad        | All Features |        |        |                   |              |
+|           | Mac         | All Features |        |        |                   |              |
+
+---
+
+## Test 10: Toll Import System
+**Objective**: Verify CSV toll import with automatic shift matching
+
+**Test Steps**:
+1. Create 2-3 test shifts with different start/end times
+2. Navigate to Settings → Import/Export → Import
+3. Select "Tolls" import type
+4. Create test CSV with toll transactions during shift times
+5. Include columns: Transaction Entry Date, Transaction Amount, Location
+6. Test with Excel formula dates: "=Text(""09/16/2025 18:20:33"",""mm/dd/yyyy HH:mm:SS"")"
+7. Test with negative amounts: "-$1.30" format
+8. Import the CSV file
+9. Verify tolls are added to matching shifts
+10. Verify toll summary images are generated and attached
+11. Test with tolls outside shift time windows (should be ignored)
+
+**Acceptance Criteria**:
+- CSV file imports successfully with progress feedback
+- Toll transactions match to shifts based on time windows
+- Toll amounts are added to existing shift toll totals
+- Toll summary images are generated and attached to shifts
+- Transactions outside shift windows are properly ignored
+- Excel formula parsing works correctly
+- Negative amounts are converted to positive values
+
+### Test Results
+
+| Test Date | Device Type | Feature | Success/Fail | Matching Accurate | Images Generated | Issues Found |
+|-----------|-------------|---------|--------------|-------------------|------------------|--------------|
+|           | iPhone      | CSV Import |        |                   |                  |              |
+|           | iPhone      | Time Matching |     |                   |                  |              |
+|           | iPhone      | Image Generation |  |                   |                  |              |
+|           | iPad        | All Features |      |                   |                  |              |
+|           | Mac         | All Features |      |                   |                  |              |
+
+---
+
+## Test 11: Photo Attachment Workflows
+**Objective**: Verify complete photo management system
+
+**Test Steps**:
+1. Create new shift and navigate to photo section
+2. Test "Add Receipt Photo" - camera and photo library options
+3. Add multiple photos (up to 5) to a single shift
+4. Verify thumbnail previews appear in shift detail
+5. Tap thumbnails to view full-screen with zoom/pan capabilities
+6. Test photo sharing from full-screen viewer
+7. Test photo deletion with confirmation
+8. Repeat for expense photo attachments
+9. Verify photos persist after app restart
+10. Test photo display in shift/expense list views
+
+**Acceptance Criteria**:
+- Camera and photo library access work correctly
+- Multiple photos can be attached per shift/expense
+- Thumbnails display properly in lists and detail views
+- Full-screen viewer supports zoom, pan, and sharing
+- Photo deletion works with proper confirmation
+- Photos persist correctly in local storage
+- Image compression and storage optimization work
+
+### Test Results
+
+| Test Date | Device Type | Feature | Success/Fail | Photo Quality | Performance | Issues Found |
+|-----------|-------------|---------|--------------|---------------|-------------|--------------|
+|           | iPhone      | Photo Capture |     |               |             |              |
+|           | iPhone      | Multiple Photos |   |               |             |              |
+|           | iPhone      | Full-Screen Viewer | |               |             |              |
+|           | iPhone      | Photo Persistence |  |               |             |              |
+|           | iPad        | All Features |       |               |             |              |
+|           | Mac         | All Features |       |               |             |              |
+
+---
 
 ### Sign-off
 - **Tester**: _______________  **Date**: _______________

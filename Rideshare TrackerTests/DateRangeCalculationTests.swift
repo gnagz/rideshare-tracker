@@ -294,7 +294,7 @@ final class DateRangeCalculationTests: RideshareTrackerTestBase {
     }
 
     func testWeekStartDayPreferenceDependency() async throws {
-        let manager = await MainActor.run {
+        let _ = await MainActor.run {
             let mgr = ShiftDataManager(forEnvironment: true)
             mgr.shifts.removeAll() // Clear any existing state
             return mgr

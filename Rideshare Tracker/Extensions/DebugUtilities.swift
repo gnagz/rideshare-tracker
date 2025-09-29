@@ -8,11 +8,11 @@
 import Foundation
 
 /// Global debug printing utility - only outputs when debug flags are set
-/// Can be used throughout the app by calling debugPrint("message")
-func debugPrint(_ message: String, function: String = #function, file: String = #file) {
+/// Can be used throughout the app by calling debugMessage("message")
+func debugMessage(_ message: String, function: String = #function, file: String = #file) {
     let debugEnabled = ProcessInfo.processInfo.environment["DEBUG"] != nil ||
                       ProcessInfo.processInfo.arguments.contains("-debug")
-    
+
     if debugEnabled {
         let fileName = (file as NSString).lastPathComponent
         print("DEBUG [\(fileName):\(function)]: \(message)")

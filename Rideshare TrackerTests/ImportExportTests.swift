@@ -141,7 +141,7 @@ final class CSVImportExportTests: RideshareTrackerTestBase {
 
         // When - Import the CSV
         let importResult = await MainActor.run {
-            return AppPreferences.importCSV(from: testURL)
+            return CSVImportManager.importShifts(from: testURL)
         }
 
         // Debug: Test CSV parsing manually first
@@ -174,7 +174,7 @@ final class CSVImportExportTests: RideshareTrackerTestBase {
             }
 
         case .failure(let error):
-            XCTFail("Import should succeed but failed with: \(error)")
+            XCTFail("Import should succeed but failed with: \(error.localizedDescription)")
         }
 
         // Cleanup
@@ -194,7 +194,7 @@ final class CSVImportExportTests: RideshareTrackerTestBase {
 
         // When - Import the CSV
         let importResult = await MainActor.run {
-            return AppPreferences.importCSV(from: testURL)
+            return CSVImportManager.importShifts(from: testURL)
         }
 
         // Then
@@ -206,10 +206,10 @@ final class CSVImportExportTests: RideshareTrackerTestBase {
             XCTAssertEqual(shift.startTankReading, 8.0, "Should convert 1.000 to 8/8ths (full)")
             XCTAssertEqual(shift.endTankReading, 4.0, "Should convert 0.500 to 4/8ths (half)")
 
-            debugPrint("Tank readings - Start: \(shift.startTankReading), End: \(shift.endTankReading)")
+            debugPrint("Tank readings - Start: \(shift.startTankReading), End: \(shift.endTankReading ?? 0.0)")
 
         case .failure(let error):
-            XCTFail("Import should succeed but failed with: \(error)")
+            XCTFail("Import should succeed but failed with: \(error.localizedDescription)")
         }
 
         // Cleanup

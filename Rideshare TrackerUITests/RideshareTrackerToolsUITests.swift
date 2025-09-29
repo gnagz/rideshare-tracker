@@ -638,7 +638,7 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
         debugPrint("Testing performance and launch characteristics")
 
         // Measure launch performance
-        let launchMetric = XCTOSSignpostMetric.applicationLaunch
+        let launchMetric = XCTApplicationLaunchMetric()
 
         measure(metrics: [launchMetric]) {
             let testApp = XCUIApplication()

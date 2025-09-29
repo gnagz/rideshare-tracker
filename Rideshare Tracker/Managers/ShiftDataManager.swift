@@ -89,21 +89,21 @@ class ShiftDataManager: ObservableObject {
     }
     
     func importShifts(_ importedShifts: [RideshareShift], replaceExisting: Bool) {
-        debugPrint("ShiftDataManager importShifts: \(importedShifts.count) shifts, replaceExisting=\(replaceExisting)")
+        debugMessage("ShiftDataManager importShifts: \(importedShifts.count) shifts, replaceExisting=\(replaceExisting)")
         
         if replaceExisting {
             let oldCount = shifts.count
             shifts = importedShifts
-            debugPrint("REPLACE: Replaced \(oldCount) existing shifts with \(importedShifts.count) imported shifts")
+            debugMessage("REPLACE: Replaced \(oldCount) existing shifts with \(importedShifts.count) imported shifts")
         } else {
             // Add only new shifts (avoid duplicates by ID)
             let existingIDs = Set(shifts.map { $0.id })
             let newShifts = importedShifts.filter { !existingIDs.contains($0.id) }
             shifts.append(contentsOf: newShifts)
-            debugPrint("MERGE: Added \(newShifts.count) new shifts (filtered \(importedShifts.count - newShifts.count) duplicates by ID)")
+            debugMessage("MERGE: Added \(newShifts.count) new shifts (filtered \(importedShifts.count - newShifts.count) duplicates by ID)")
         }
         
-        debugPrint("Final shift count: \(shifts.count) total shifts")
+        debugMessage("Final shift count: \(shifts.count) total shifts")
         saveShifts()
     }
 }

@@ -30,7 +30,7 @@ class RideshareTrackerTestBase: XCTestCase {
     // MARK: - Debug Utilities
 
     /// Unit test debug printing - only outputs when test debug flags are set
-    func debugPrint(_ message: String, function: String = #function, file: String = #file) {
+    func debugMessage(_ message: String, function: String = #function, file: String = #file) {
         let debugEnabled = ProcessInfo.processInfo.environment["TEST_DEBUG"] != nil ||
                           ProcessInfo.processInfo.arguments.contains("-test-debug")
 
@@ -51,7 +51,7 @@ class RideshareTrackerTestBase: XCTestCase {
         gasPrice: Double = TestConstants.defaultGasPrice,
         standardMileageRate: Double = TestConstants.defaultMileageRate
     ) -> RideshareShift {
-        debugPrint("Creating basic test shift with startMileage: \(startMileage)")
+        debugMessage("Creating basic test shift with startMileage: \(startMileage)")
         return RideshareShift(
             startDate: startDate,
             startMileage: startMileage,
@@ -81,7 +81,7 @@ class RideshareTrackerTestBase: XCTestCase {
         shift.tips = tips
         shift.tolls = tolls
 
-        debugPrint("Creating completed shift: \(shiftHours)h, \(milesDriven) miles, revenue: $\(netFare + tips)")
+        debugMessage("Creating completed shift: \(shiftHours)h, \(milesDriven) miles, revenue: $\(netFare + tips)")
         return shift
     }
 
@@ -92,7 +92,7 @@ class RideshareTrackerTestBase: XCTestCase {
         description: String = "Test Expense",
         amount: Double = 25.00
     ) -> ExpenseItem {
-        debugPrint("Creating test expense: \(description) - $\(amount)")
+        debugMessage("Creating test expense: \(description) - $\(amount)")
         return ExpenseItem(
             date: date,
             category: category,
@@ -112,7 +112,7 @@ class RideshareTrackerTestBase: XCTestCase {
         let image = UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
         UIGraphicsEndImageContext()
 
-        debugPrint("Created test image: \(size)")
+        debugMessage("Created test image: \(size)")
         return image
     }
 
@@ -175,12 +175,12 @@ class RideshareTrackerTestBase: XCTestCase {
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        debugPrint("Starting test: \(name)")
+        debugMessage("Starting test: \(name)")
         continueAfterFailure = false
     }
 
     override func tearDownWithError() throws {
-        debugPrint("Completed test: \(name)")
+        debugMessage("Completed test: \(name)")
         try super.tearDownWithError()
     }
 }
