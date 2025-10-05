@@ -21,11 +21,27 @@ struct StartShiftView: View {
     @State private var tankReading = 8.0 // Default to full tank (8/8)
     @State private var showDatePicker = false
     @State private var showTimePicker = false
+    @State private var showDateTextInput = false
+    @State private var dateText = ""
+    @State private var showTimeTextInput = false
+    @State private var timeText = ""
+    @State private var showTankTextInput = false
+    @State private var tankText = ""
     @FocusState private var focusedField: FocusedField?
 
     // Photo attachment state
     @State private var selectedPhotos: [PhotosPickerItem] = []
     @State private var photoImages: [UIImage] = []
+
+    // UIImagePickerController state (NEW IMPLEMENTATION)
+    @State private var showingCameraPicker = false
+    @State private var showingPhotoLibraryPicker = false
+    @State private var showingImageSourceActionSheet = false
+
+    // Image viewer state
+    @State private var showingImageViewer = false
+    @State private var viewerImages: [UIImage] = []
+    @State private var viewerStartIndex: Int = 0
     
     enum FocusedField {
         case mileage, date, time
@@ -57,14 +73,64 @@ struct StartShiftView: View {
                     }
                 }
         }
+        .sheet(isPresented: $showingImageViewer) {
+            ImageViewerView(
+                images: photoImages,
+                startingIndex: viewerStartIndex,
+                isPresented: $showingImageViewer
+            )
+        }
+        .imagePickerSheets(
+            showingCameraPicker: $showingCameraPicker,
+            showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
+            onImageSelected: { image in
+                photoImages.append(image)
+            }
+        )
+        .alert("Enter Date", isPresented: $showDateTextInput) {
+            TextField(preferences.formatDate(Date()), text: $dateText)
+                .keyboardType(.numbersAndPunctuation)
+            Button("Set Date") {
+                setDateFromText()
+            }
+            Button("Cancel", role: .cancel) {
+                dateText = ""
+            }
+        } message: {
+            Text("Format: \(preferences.formatDate(Date()))")
+        }
+        .alert("Enter Time", isPresented: $showTimeTextInput) {
+            TextField(preferences.formatTime(Date()), text: $timeText)
+                .keyboardType(.numbersAndPunctuation)
+            Button("Set Time") {
+                setTimeFromText()
+            }
+            Button("Cancel", role: .cancel) {
+                timeText = ""
+            }
+        } message: {
+            Text("Format: \(preferences.formatTime(Date()))")
+        }
+        .alert("Enter Tank Level", isPresented: $showTankTextInput) {
+            TextField("0 to 8", text: $tankText)
+                .keyboardType(.decimalPad)
+            Button("Set Level") {
+                setTankFromText()
+            }
+            Button("Cancel", role: .cancel) {
+                tankText = ""
+            }
+        } message: {
+            Text("Enter: 0 (Empty) to 8 (Full)")
+        }
     }
     
     private var formContent: some View {
         Form {
             Section("Shift Start Time") {
-                Button(action: { 
+                Button(action: {
                     focusedField = .date
-                    showDatePicker.toggle() 
+                    showDatePicker.toggle()
                 }) {
                     HStack {
                         Text("Date")
@@ -78,20 +144,31 @@ struct StartShiftView: View {
                             .cornerRadius(8)
                     }
                 }
+                .accessibilityIdentifier("start_date_button")
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(focusedField == .date ? Color.accentColor : Color.clear, lineWidth: 2)
                 )
                 
                 if showDatePicker {
-                    DatePicker("", selection: $startDate, displayedComponents: .date)
-                        .datePickerStyle(.graphical)
-                        .labelsHidden()
+                    VStack {
+                        DatePicker("", selection: $startDate, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .labelsHidden()
+
+                        KeyboardInputUtility.keyboardInputButton(
+                            currentValue: preferences.formatDate(startDate),
+                            showingAlert: $showDateTextInput,
+                            inputText: $dateText,
+                            accessibilityId: "start_date_text_input_button",
+                            accessibilityLabel: "Enter start date as text"
+                        )
+                    }
                 }
                 
-                Button(action: { 
+                Button(action: {
                     focusedField = .time
-                    showTimePicker.toggle() 
+                    showTimePicker.toggle()
                 }) {
                     HStack {
                         Text("Time")
@@ -105,15 +182,26 @@ struct StartShiftView: View {
                             .cornerRadius(8)
                     }
                 }
+                .accessibilityIdentifier("start_time_button")
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(focusedField == .time ? Color.accentColor : Color.clear, lineWidth: 2)
                 )
                 
                 if showTimePicker {
-                    DatePicker("", selection: $startDate, displayedComponents: .hourAndMinute)
-                        .datePickerStyle(.wheel)
-                        .labelsHidden()
+                    VStack {
+                        DatePicker("", selection: $startDate, displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+
+                        KeyboardInputUtility.keyboardInputButton(
+                            currentValue: preferences.formatTime(startDate),
+                            showingAlert: $showTimeTextInput,
+                            inputText: $timeText,
+                            accessibilityId: "start_time_text_input_button",
+                            accessibilityLabel: "Enter start time as text"
+                        )
+                    }
                 }
             }
             
@@ -133,9 +221,23 @@ struct StartShiftView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Tank Level")
-                        .font(.headline)
-                    
+                    HStack {
+                        Text("Tank Level")
+                            .font(.headline)
+                        Spacer()
+                        Button(action: {
+                            tankText = String(format: "%.0f", tankReading)
+                            showTankTextInput = true
+                        }) {
+                            Image(systemName: "keyboard")
+                                .font(.title3)
+                                .foregroundColor(.blue)
+                        }
+                        .accessibilityIdentifier("start_tank_text_input_button")
+                        .accessibilityLabel("Enter tank level as number")
+                        .padding(.trailing, 8)
+                    }
+
                     Picker("Tank Reading", selection: $tankReading) {
                         Text("E").tag(0.0)
                         Text("1/8").tag(1.0)
@@ -151,47 +253,15 @@ struct StartShiftView: View {
                 }
             }
 
-            Section("Photos") {
-                PhotosPicker(
-                    selection: $selectedPhotos,
-                    maxSelectionCount: 10,
-                    matching: .images
-                ) {
-                    Label("Add Photos", systemImage: "camera.fill")
-                        .foregroundColor(.accentColor)
-                }
-                .onChange(of: selectedPhotos) { oldItems, newItems in
-                    Task {
-                        await loadSelectedPhotos(from: newItems)
-                    }
-                }
-
-                if !photoImages.isEmpty {
-                    Text("\(photoImages.count) photo\(photoImages.count == 1 ? "" : "s") selected")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                if !photoImages.isEmpty {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
-                        ForEach(Array(photoImages.enumerated()), id: \.offset) { index, image in
-                            Image(uiImage: image)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 80, height: 80)
-                                .clipped()
-                                .cornerRadius(8)
-                                .onTapGesture {
-                                    // Remove photo on tap
-                                    photoImages.remove(at: index)
-                                    selectedPhotos.remove(at: index)
-                                }
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-            }
-            .accessibilityIdentifier("Photos")
+            PhotosSection(
+                photoImages: $photoImages,
+                showingImageSourceActionSheet: $showingImageSourceActionSheet,
+                showingCameraPicker: $showingCameraPicker,
+                showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
+                showingImageViewer: $showingImageViewer,
+                viewerImages: $viewerImages,
+                viewerStartIndex: $viewerStartIndex
+            )
         }
     }
     
@@ -244,6 +314,73 @@ struct StartShiftView: View {
                     photoImages.append(image)
                 }
             }
+        }
+    }
+
+    private func setDateFromText() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = preferences.dateFormat
+
+        if let date = formatter.date(from: dateText) {
+            // Preserve the time from current startDate, only update the date part
+            let calendar = Calendar.current
+            let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+            let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: startDate)
+
+            var combinedComponents = DateComponents()
+            combinedComponents.year = dateComponents.year
+            combinedComponents.month = dateComponents.month
+            combinedComponents.day = dateComponents.day
+            combinedComponents.hour = timeComponents.hour
+            combinedComponents.minute = timeComponents.minute
+            combinedComponents.second = timeComponents.second
+
+            if let combinedDate = calendar.date(from: combinedComponents) {
+                startDate = combinedDate
+                showDatePicker = false // Close the date picker after setting
+                dateText = "" // Clear the text field
+            }
+        } else {
+            // Could add an error alert here, but for now just keep the picker open
+            // so user can try again or use the graphical picker
+        }
+    }
+
+    private func setTimeFromText() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = preferences.timeFormat
+
+        if let time = formatter.date(from: timeText) {
+            // Combine the date part from startDate with the time part from the input
+            let calendar = Calendar.current
+            let dateComponents = calendar.dateComponents([.year, .month, .day], from: startDate)
+            let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
+
+            var combinedComponents = DateComponents()
+            combinedComponents.year = dateComponents.year
+            combinedComponents.month = dateComponents.month
+            combinedComponents.day = dateComponents.day
+            combinedComponents.hour = timeComponents.hour
+            combinedComponents.minute = timeComponents.minute
+
+            if let combinedDate = calendar.date(from: combinedComponents) {
+                startDate = combinedDate
+                showTimePicker = false // Close the time picker after setting
+                timeText = "" // Clear the text field
+            }
+        } else {
+            // Could add an error alert here, but for now just keep the picker open
+            // so user can try again or use the graphical picker
+        }
+    }
+
+    private func setTankFromText() {
+        if let tankValue = Double(tankText), tankValue >= 0 && tankValue <= 8 {
+            tankReading = tankValue
+            tankText = "" // Clear the text field
+        } else {
+            // Could add an error alert here, but for now just keep the input open
+            // so user can try again
         }
     }
 }

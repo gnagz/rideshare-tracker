@@ -144,6 +144,7 @@ struct ImportView: View {
                         .padding(.horizontal)
                     
                     Button("Select CSV File") {
+                        debugMessage("CSV file picker button pressed for import type: \(importType.rawValue)")
                         showingFilePicker = true
                     }
                     .buttonStyle(.borderedProminent)
@@ -222,8 +223,14 @@ struct ImportView: View {
     private func handleFileSelection(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
-            guard let url = urls.first else { return }
-            
+            debugMessage("File picker succeeded with \(urls.count) URLs")
+            guard let url = urls.first else {
+                debugMessage("File picker success but no URLs returned")
+                return
+            }
+            debugMessage("Selected file: \(url.lastPathComponent)")
+            debugMessage("File URL: \(url)")
+
             pendingImportData = PendingImportData(url: url, type: importType)
             
             // Check if we have existing data that might cause duplicates (not applicable for tolls)
@@ -242,6 +249,12 @@ struct ImportView: View {
             }
             
         case .failure(let error):
+            debugMessage("File picker failed with error: \(error.localizedDescription)")
+            debugMessage("File picker error type: \(type(of: error))")
+            if let nsError = error as NSError? {
+                debugMessage("File picker error domain: \(nsError.domain), code: \(nsError.code)")
+                debugMessage("File picker error userInfo: \(nsError.userInfo)")
+            }
             importAlertTitle = "Import Failed"
             importMessage = "Failed to access file: \(error.localizedDescription)"
             showingImportAlert = true
@@ -322,7 +335,7 @@ struct ImportView: View {
             showingImportAlert = true
 
         case .failure(let error):
-            debugPrint("CSV import failed: \(error.localizedDescription)")
+            debugMessage("CSV import failed: \(error.localizedDescription)")
             importAlertTitle = "Import Failed"
             importMessage = error.localizedDescription
             showingImportAlert = true

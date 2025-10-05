@@ -42,15 +42,36 @@ class ExpenseDataManager: ObservableObject {
     }
     
     func addExpense(_ expense: ExpenseItem) {
+        debugMessage("=== ADDING EXPENSE ===")
+        debugMessage("Expense ID: \(expense.id)")
+        debugMessage("Image attachments count: \(expense.imageAttachments.count)")
+        for (index, attachment) in expense.imageAttachments.enumerated() {
+            debugMessage("  Attachment \(index): \(attachment.filename) (\(attachment.type.rawValue))")
+        }
+
         expenses.append(expense)
         saveExpenses()
+
+        debugMessage("Expense added and saved. Total expenses: \(expenses.count)")
+        debugMessage("=== EXPENSE ADD COMPLETE ===")
     }
     
     func updateExpense(_ expense: ExpenseItem) {
+        debugMessage("=== UPDATING EXPENSE ===")
+        debugMessage("Expense ID: \(expense.id)")
+        debugMessage("Image attachments count: \(expense.imageAttachments.count)")
+        for (index, attachment) in expense.imageAttachments.enumerated() {
+            debugMessage("  Attachment \(index): \(attachment.filename) (\(attachment.type.rawValue))")
+        }
+
         if let index = expenses.firstIndex(where: { $0.id == expense.id }) {
             expenses[index] = expense
             saveExpenses()
+            debugMessage("Expense updated and saved at index \(index)")
+        } else {
+            debugMessage("ERROR: Could not find expense to update")
         }
+        debugMessage("=== EXPENSE UPDATE COMPLETE ===")
     }
     
     func deleteExpense(_ expense: ExpenseItem) {

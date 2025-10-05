@@ -18,6 +18,8 @@ struct ShiftDetailView: View {
     @State private var showingImageViewer = false
     @State private var selectedImageIndex = 0
     @State private var loadedImages: [UIImage] = []
+    @State private var isLoadingImages = false
+    @State private var viewerImages: [UIImage] = []
     
     private func formatDateTime(_ date: Date) -> String {
         return "\(preferences.formatDate(date)) \(preferences.formatTime(date))"
@@ -162,7 +164,7 @@ struct ShiftDetailView: View {
         }
         .sheet(isPresented: $showingImageViewer) {
             ImageViewerView(
-                images: loadedImages,
+                images: loadShiftImages(),
                 startingIndex: selectedImageIndex,
                 isPresented: $showingImageViewer
             )
@@ -431,9 +433,11 @@ struct ShiftDetailView: View {
                                 )
                         }
                         .onTapGesture {
-                            selectedImageIndex = shift.imageAttachments.firstIndex(of: attachment) ?? 0
-                            Task {
-                                await loadImagesForViewer()
+                            // Prevent multiple taps while sheet is already showing
+                            guard !showingImageViewer else { return }
+
+                            if let attachmentIndex = shift.imageAttachments.firstIndex(of: attachment) {
+                                showImage(at: attachmentIndex)
                             }
                         }
                     }
@@ -450,20 +454,23 @@ struct ShiftDetailView: View {
     }
 
     @MainActor
-    private func loadImagesForViewer() async {
-        loadedImages.removeAll()
+    private func loadShiftImages() -> [UIImage] {
 
-        for attachment in shift.imageAttachments {
-            let url = attachment.fileURL(for: shift.id, parentType: .shift)
-            if let data = try? Data(contentsOf: url),
-               let image = UIImage(data: data) {
-                loadedImages.append(image)
+        var images: [UIImage] = []
+
+        for (_, attachment) in shift.imageAttachments.enumerated() {
+
+            if let image = ImageManager.shared.loadImage(
+                for: shift.id,
+                parentType: .shift,
+                filename: attachment.filename
+            ) {
+                images.append(image)
+            } else {
             }
         }
 
-        if !loadedImages.isEmpty {
-            showingImageViewer = true
-        }
+        return images
     }
 
     private func tankLevelText(_ reading: Double) -> String {
@@ -479,6 +486,17 @@ struct ShiftDetailView: View {
         case 8.0: return "F"
         default: return "\(Int(reading))/8"
         }
+    }
+
+    private func showImage(at index: Int) {
+        let shiftImages = loadShiftImages()
+        ImageViewingUtilities.showImageViewer(
+            images: shiftImages,
+            startIndex: index,
+            viewerImages: $viewerImages,
+            viewerStartIndex: $selectedImageIndex,
+            showingImageViewer: $showingImageViewer
+        )
     }
 }
 

@@ -104,28 +104,42 @@ class ImageManager: ObservableObject {
     
     func saveImage(_ image: UIImage, for parentID: UUID, parentType: AttachmentParentType, type: AttachmentType, description: String? = nil) throws -> ImageAttachment {
         let filename = "\(UUID().uuidString).jpg"
-        
+
+        debugMessage("=== SAVING IMAGE ===")
+        debugMessage("Parent ID: \(parentID)")
+        debugMessage("Parent Type: \(parentType.rawValue)")
+        debugMessage("Filename: \(filename)")
+        debugMessage("Type: \(type.rawValue)")
+        debugMessage("Description: \(description ?? "nil")")
+
         // Create directories if needed
         try createDirectories(for: parentID, parentType: parentType)
-        
+
         // Process image
         let (fullSizeData, thumbnailData) = processImage(image)
-        
+
         guard let fullSizeData = fullSizeData,
               let thumbnailData = thumbnailData else {
+            debugMessage("ERROR: Image processing failed")
             throw ImageManagerError.imageProcessingFailed
         }
-        
+
         // Save full-size image
         let imageURL = self.imageURL(for: parentID, parentType: parentType, filename: filename)
         try fullSizeData.write(to: imageURL)
-        
+        debugMessage("Saved full image: \(imageURL.path)")
+
         // Save thumbnail
         let thumbnailURL = self.thumbnailURL(for: parentID, parentType: parentType, filename: filename)
         try thumbnailData.write(to: thumbnailURL)
-        
+        debugMessage("Saved thumbnail: \(thumbnailURL.path)")
+
         // Create attachment
-        return ImageAttachment(filename: filename, type: type, description: description)
+        let attachment = ImageAttachment(filename: filename, type: type, description: description)
+        debugMessage("Created ImageAttachment: ID=\(attachment.id)")
+        debugMessage("=== IMAGE SAVE COMPLETE ===")
+
+        return attachment
     }
     
     // MARK: - Load Images
@@ -161,11 +175,73 @@ class ImageManager: ObservableObject {
     }
     
     // MARK: - Storage Info
-    
+
     func calculateStorageUsage() -> (images: Int64, thumbnails: Int64) {
         let imagesDirSize = directorySize(imagesDirectory)
         let thumbnailsDirSize = directorySize(thumbnailsDirectory)
         return (imagesDirSize, thumbnailsDirSize)
+    }
+
+    // MARK: - Diagnostics
+
+    func debugImageStorage() {
+        debugMessage("=== IMAGE STORAGE DEBUG ===")
+        debugMessage("Documents Directory: \(documentsDirectory.path)")
+        debugMessage("Images Directory: \(imagesDirectory.path)")
+        debugMessage("Thumbnails Directory: \(thumbnailsDirectory.path)")
+
+        debugMessage("Images Directory Exists: \(fileManager.fileExists(atPath: imagesDirectory.path))")
+        debugMessage("Thumbnails Directory Exists: \(fileManager.fileExists(atPath: thumbnailsDirectory.path))")
+
+        if fileManager.fileExists(atPath: imagesDirectory.path) {
+            if let contents = try? fileManager.contentsOfDirectory(atPath: imagesDirectory.path) {
+                debugMessage("Images Directory Contents: \(contents)")
+            } else {
+                debugMessage("Could not read Images Directory contents")
+            }
+        }
+
+        if fileManager.fileExists(atPath: thumbnailsDirectory.path) {
+            if let contents = try? fileManager.contentsOfDirectory(atPath: thumbnailsDirectory.path) {
+                debugMessage("Thumbnails Directory Contents: \(contents)")
+            } else {
+                debugMessage("Could not read Thumbnails Directory contents")
+            }
+        }
+
+        let (imagesSize, thumbnailsSize) = calculateStorageUsage()
+        debugMessage("Images Storage: \(imagesSize) bytes")
+        debugMessage("Thumbnails Storage: \(thumbnailsSize) bytes")
+        debugMessage("=== END IMAGE STORAGE DEBUG ===")
+    }
+
+    func debugImageAttachment(_ attachment: ImageAttachment, for parentID: UUID, parentType: AttachmentParentType) {
+        let imageURL = self.imageURL(for: parentID, parentType: parentType, filename: attachment.filename)
+        let thumbnailURL = self.thumbnailURL(for: parentID, parentType: parentType, filename: attachment.filename)
+
+        debugMessage("=== IMAGE ATTACHMENT DEBUG ===")
+        debugMessage("Parent ID: \(parentID)")
+        debugMessage("Parent Type: \(parentType.rawValue)")
+        debugMessage("Filename: \(attachment.filename)")
+        debugMessage("Full Image Path: \(imageURL.path)")
+        debugMessage("Thumbnail Path: \(thumbnailURL.path)")
+        debugMessage("Full Image Exists: \(fileManager.fileExists(atPath: imageURL.path))")
+        debugMessage("Thumbnail Exists: \(fileManager.fileExists(atPath: thumbnailURL.path))")
+
+        if fileManager.fileExists(atPath: imageURL.path) {
+            if let attributes = try? fileManager.attributesOfItem(atPath: imageURL.path) {
+                debugMessage("Full Image Size: \(attributes[.size] ?? "unknown") bytes")
+                debugMessage("Full Image Modified: \(attributes[.modificationDate] ?? "unknown")")
+            }
+        }
+
+        if fileManager.fileExists(atPath: thumbnailURL.path) {
+            if let attributes = try? fileManager.attributesOfItem(atPath: thumbnailURL.path) {
+                debugMessage("Thumbnail Size: \(attributes[.size] ?? "unknown") bytes")
+                debugMessage("Thumbnail Modified: \(attributes[.modificationDate] ?? "unknown")")
+            }
+        }
+        debugMessage("=== END IMAGE ATTACHMENT DEBUG ===")
     }
     
     private func directorySize(_ url: URL) -> Int64 {

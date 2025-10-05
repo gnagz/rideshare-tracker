@@ -28,7 +28,7 @@ struct ImageViewerView: View {
         NavigationView {
             ZStack {
                 Color.black.ignoresSafeArea()
-                
+
                 if !images.isEmpty && currentIndex < images.count {
                     TabView(selection: $currentIndex) {
                         ForEach(0..<images.count, id: \.self) { index in
@@ -38,6 +38,18 @@ struct ImageViewerView: View {
                     }
                     .tabViewStyle(.page(indexDisplayMode: images.count > 1 ? .automatic : .never))
                     .indexViewStyle(.page(backgroundDisplayMode: .always))
+                } else {
+                    // Debug: Show why content is not displaying
+                    VStack {
+                        Text("Debug Info:")
+                            .foregroundColor(.white)
+                        Text("Images count: \(images.count)")
+                            .foregroundColor(.white)
+                        Text("Current index: \(currentIndex)")
+                            .foregroundColor(.white)
+                        Text("Starting index: \(startingIndex)")
+                            .foregroundColor(.white)
+                    }
                 }
             }
             .navigationTitle("Photo \(currentIndex + 1) of \(images.count)")
@@ -62,7 +74,7 @@ struct ImageViewerView: View {
             }
         }
         .onAppear {
-            currentIndex = startingIndex
+            debugMessage("ImageViewerView onAppear: images.count=\(images.count), startingIndex=\(startingIndex), currentIndex=\(currentIndex)")
         }
     }
     
@@ -90,37 +102,39 @@ struct ImageViewerView: View {
 
 struct ZoomableImageView: View {
     let image: UIImage
-    
+
     @State private var scale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
-    
+
     var body: some View {
         GeometryReader { geometry in
             Image(uiImage: image)
                 .resizable()
-                .scaledToFit()
+                .aspectRatio(contentMode: .fit)
                 .scaleEffect(scale)
                 .offset(offset)
+                .animation(.interactiveSpring(), value: scale)
+                .animation(.interactiveSpring(), value: offset)
                 .gesture(
                     SimultaneousGesture(
                         MagnificationGesture()
                             .onChanged { value in
-                                scale = value
+                                scale = max(0.5, min(value, 10.0))
                             }
                             .onEnded { value in
-                                // Constrain scale
-                                scale = max(1.0, min(scale, 5.0))
-                                
-                                // Reset offset if zoomed out completely
-                                if scale <= 1.0 {
+                                // Snap to reasonable scale levels
+                                if scale < 1.0 {
                                     withAnimation(.easeInOut(duration: 0.3)) {
+                                        scale = 1.0
                                         offset = .zero
                                         lastOffset = .zero
                                     }
+                                } else if scale > 5.0 {
+                                    scale = 5.0
                                 }
                             },
-                        
+
                         DragGesture()
                             .onChanged { value in
                                 if scale > 1.0 {
@@ -131,21 +145,18 @@ struct ZoomableImageView: View {
                                 }
                             }
                             .onEnded { value in
-                                if scale > 1.0 {
-                                    lastOffset = offset
-                                    
-                                    // Constrain offset to keep image visible
-                                    let maxOffsetX = (geometry.size.width * (scale - 1)) / 2
-                                    let maxOffsetY = (geometry.size.height * (scale - 1)) / 2
-                                    
-                                    let constrainedOffsetX = max(-maxOffsetX, min(maxOffsetX, offset.width))
-                                    let constrainedOffsetY = max(-maxOffsetY, min(maxOffsetY, offset.height))
-                                    
-                                    if constrainedOffsetX != offset.width || constrainedOffsetY != offset.height {
-                                        withAnimation(.easeInOut(duration: 0.3)) {
-                                            offset = CGSize(width: constrainedOffsetX, height: constrainedOffsetY)
-                                            lastOffset = offset
-                                        }
+                                lastOffset = offset
+
+                                // Simple bounds checking - allow generous panning
+                                let maxOffset: CGFloat = geometry.size.width * scale * 0.5
+
+                                let constrainedOffsetX = max(-maxOffset, min(maxOffset, offset.width))
+                                let constrainedOffsetY = max(-maxOffset, min(maxOffset, offset.height))
+
+                                if constrainedOffsetX != offset.width || constrainedOffsetY != offset.height {
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        offset = CGSize(width: constrainedOffsetX, height: constrainedOffsetY)
+                                        lastOffset = offset
                                     }
                                 }
                             }
@@ -154,15 +165,16 @@ struct ZoomableImageView: View {
                 .onTapGesture(count: 2) {
                     // Double tap to zoom
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        if scale > 1.0 {
+                        if scale > 1.5 {
                             scale = 1.0
                             offset = .zero
                             lastOffset = .zero
                         } else {
-                            scale = 2.0
+                            scale = 3.0
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
         }
     }

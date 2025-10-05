@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		352826D42E6BBA4A000A426E /* DebugUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352826D32E6BBA4A000A426E /* DebugUtilities.swift */; };
 		352827002E6D40A5000A426E /* CalculatorEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352826FF2E6D40A5000A426E /* CalculatorEngine.swift */; };
 		352827022E6D4170000A426E /* CalculatorTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352827012E6D4170000A426E /* CalculatorTextField.swift */; };
 		3528271C2E6E1AA5000A426E /* CurrencyTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3528271B2E6E1AA5000A426E /* CurrencyTextField.swift */; };
@@ -25,8 +24,21 @@
 		3531FC6C2E498E2F000F2CD7 /* DateFormatter+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3531FC6A2E498C66000F2CD7 /* DateFormatter+Extensions.swift */; };
 		3531FC6E2E49AF78000F2CD7 /* EditShiftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3531FC6D2E49AF78000F2CD7 /* EditShiftView.swift */; };
 		353424962E5286FF00B86346 /* NumberFormatter+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 353424952E5286FF00B86346 /* NumberFormatter+Extensions.swift */; };
-		3535C7852E8A46BC007FBC60 /* DebugUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352826D32E6BBA4A000A426E /* DebugUtilities.swift */; };
-		3535C7862E8A46BC007FBC60 /* DebugUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352826D32E6BBA4A000A426E /* DebugUtilities.swift */; };
+		3538E63A2E9021CC00D18302 /* DebugUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3538E6372E9021CC00D18302 /* DebugUtilities.swift */; };
+		3538E63B2E9021CC00D18302 /* ImageViewingUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3538E6382E9021CC00D18302 /* ImageViewingUtilities.swift */; };
+		3538E63C2E9021D600D18302 /* DebugUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3538E6372E9021CC00D18302 /* DebugUtilities.swift */; };
+		3538E63D2E9021D600D18302 /* DebugUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3538E6372E9021CC00D18302 /* DebugUtilities.swift */; };
+		3538E63E2E9021FA00D18302 /* ImageViewingUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3538E6382E9021CC00D18302 /* ImageViewingUtilities.swift */; };
+		3538E63F2E9021FA00D18302 /* ImageViewingUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3538E6382E9021CC00D18302 /* ImageViewingUtilities.swift */; };
+		3538E6442E90656100D18302 /* ImageAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841832E711EE60050192C /* ImageAttachment.swift */; };
+		3538E6452E9066AD00D18302 /* ImageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841872E711EFF0050192C /* ImageManager.swift */; };
+		3538E6462E9066C500D18302 /* ImageViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841852E711EF30050192C /* ImageViewerView.swift */; };
+		3538E6472E9067EC00D18302 /* ImageViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841852E711EF30050192C /* ImageViewerView.swift */; };
+		3538E6482E90B77A00D18302 /* RideshareShift.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3531FC5A2E498828000F2CD7 /* RideshareShift.swift */; };
+		3538E6492E90B79400D18302 /* ShiftDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3531FC5E2E498854000F2CD7 /* ShiftDataManager.swift */; };
+		3538E64A2E90B7A100D18302 /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3531FC5C2E498840000F2CD7 /* AppPreferences.swift */; };
+		3538E64B2E90B7A800D18302 /* ExpenseItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3597BA5F2E5A2E8B003DA956 /* ExpenseItem.swift */; };
+		3538E64D2E918D9D00D18302 /* KeyboardInputUtility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3538E64C2E918D9D00D18302 /* KeyboardInputUtility.swift */; };
 		355BB9052E62CB4C00028172 /* SyncLifecycleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 355BB9042E62CB4C00028172 /* SyncLifecycleManager.swift */; };
 		355BB9082E62CB7400028172 /* IncrementalSyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 355BB9072E62CB7400028172 /* IncrementalSyncView.swift */; };
 		357F178B2E89F0BC00262CFA /* CSVImportManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357F178A2E89F0BC00262CFA /* CSVImportManager.swift */; };
@@ -84,7 +96,6 @@
 
 /* Begin PBXFileReference section */
 		352826D22E6B943A000A426E /* UI_AUTOMATED_TESTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = UI_AUTOMATED_TESTING.md; sourceTree = "<group>"; };
-		352826D32E6BBA4A000A426E /* DebugUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugUtilities.swift; sourceTree = "<group>"; };
 		352826FF2E6D40A5000A426E /* CalculatorEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorEngine.swift; sourceTree = "<group>"; };
 		352827012E6D4170000A426E /* CalculatorTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorTextField.swift; sourceTree = "<group>"; };
 		3528271B2E6E1AA5000A426E /* CurrencyTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyTextField.swift; sourceTree = "<group>"; };
@@ -108,6 +119,9 @@
 		353424952E5286FF00B86346 /* NumberFormatter+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberFormatter+Extensions.swift"; sourceTree = "<group>"; };
 		353424982E52935300B86346 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
 		353424992E52935300B86346 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		3538E6372E9021CC00D18302 /* DebugUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugUtilities.swift; sourceTree = "<group>"; };
+		3538E6382E9021CC00D18302 /* ImageViewingUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViewingUtilities.swift; sourceTree = "<group>"; };
+		3538E64C2E918D9D00D18302 /* KeyboardInputUtility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardInputUtility.swift; sourceTree = "<group>"; };
 		35424BD22E77F190000E739E /* Testing.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Testing.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/Testing.framework; sourceTree = DEVELOPER_DIR; };
 		355BB9042E62CB4C00028172 /* SyncLifecycleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncLifecycleManager.swift; sourceTree = "<group>"; };
 		355BB9072E62CB7400028172 /* IncrementalSyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncrementalSyncView.swift; sourceTree = "<group>"; };
@@ -207,6 +221,7 @@
 				3531FC592E498777000F2CD7 /* Views */,
 				3531FC582E498770000F2CD7 /* Managers */,
 				3531FC572E498762000F2CD7 /* Extensions */,
+				3538E6392E9021CC00D18302 /* Utilities */,
 				3531FC512E498727000F2CD7 /* Rideshare_TrackerApp.swift */,
 				35F840682E56D56B00AA3EBD /* Media.xcassets */,
 			);
@@ -233,7 +248,6 @@
 				3528271B2E6E1AA5000A426E /* CurrencyTextField.swift */,
 				352827012E6D4170000A426E /* CalculatorTextField.swift */,
 				352826FF2E6D40A5000A426E /* CalculatorEngine.swift */,
-				352826D32E6BBA4A000A426E /* DebugUtilities.swift */,
 				353424952E5286FF00B86346 /* NumberFormatter+Extensions.swift */,
 				3531FC6A2E498C66000F2CD7 /* DateFormatter+Extensions.swift */,
 			);
@@ -277,6 +291,16 @@
 				3531FC502E498727000F2CD7 /* ContentView.swift */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		3538E6392E9021CC00D18302 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				3538E64C2E918D9D00D18302 /* KeyboardInputUtility.swift */,
+				3538E6372E9021CC00D18302 /* DebugUtilities.swift */,
+				3538E6382E9021CC00D18302 /* ImageViewingUtilities.swift */,
+			);
+			path = Utilities;
 			sourceTree = "<group>";
 		};
 		35424BD12E77F190000E739E /* Frameworks */ = {
@@ -462,10 +486,10 @@
 				352827002E6D40A5000A426E /* CalculatorEngine.swift in Sources */,
 				35A841862E711EF30050192C /* ImageViewerView.swift in Sources */,
 				3531FC6C2E498E2F000F2CD7 /* DateFormatter+Extensions.swift in Sources */,
+				3538E64D2E918D9D00D18302 /* KeyboardInputUtility.swift in Sources */,
 				357F17972E8A258B00262CFA /* TollSummaryImageGenerator.swift in Sources */,
 				357F17982E8A258B00262CFA /* DocumentFile.swift in Sources */,
 				353424962E5286FF00B86346 /* NumberFormatter+Extensions.swift in Sources */,
-				352826D42E6BBA4A000A426E /* DebugUtilities.swift in Sources */,
 				3531FC6E2E49AF78000F2CD7 /* EditShiftView.swift in Sources */,
 				352828082E6E8194000A426E /* CalculatorPopupView.swift in Sources */,
 				357F178E2E8A1CC800262CFA /* TollTransaction.swift in Sources */,
@@ -491,6 +515,8 @@
 				35A841842E711EE60050192C /* ImageAttachment.swift in Sources */,
 				3531FC612E49887F000F2CD7 /* ShiftRowView.swift in Sources */,
 				3531FC632E498890000F2CD7 /* StartShiftView.swift in Sources */,
+				3538E63A2E9021CC00D18302 /* DebugUtilities.swift in Sources */,
+				3538E63B2E9021CC00D18302 /* ImageViewingUtilities.swift in Sources */,
 				3531FC5B2E498828000F2CD7 /* RideshareShift.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -503,11 +529,13 @@
 				357F17992E8A258B00262CFA /* TollSummaryImageGenerator.swift in Sources */,
 				357F179A2E8A258B00262CFA /* DocumentFile.swift in Sources */,
 				357F179E2E8A269900262CFA /* CloudSyncManager.swift in Sources */,
-				3535C7852E8A46BC007FBC60 /* DebugUtilities.swift in Sources */,
+				3538E63C2E9021D600D18302 /* DebugUtilities.swift in Sources */,
 				357F179D2E8A269300262CFA /* ImageManager.swift in Sources */,
+				3538E6472E9067EC00D18302 /* ImageViewerView.swift in Sources */,
 				357F179C2E8A268200262CFA /* AppPreferences.swift in Sources */,
 				357F179F2E8A26A100262CFA /* SyncLifecycleManager.swift in Sources */,
 				357F178F2E8A1CC800262CFA /* TollTransaction.swift in Sources */,
+				3538E63E2E9021FA00D18302 /* ImageViewingUtilities.swift in Sources */,
 				357F17A12E8A26AC00262CFA /* ShiftDataManager.swift in Sources */,
 				357F17912E8A1FEF00262CFA /* ExpenseItem.swift in Sources */,
 				357F17942E8A257F00262CFA /* CalculatorStateManager.swift in Sources */,
@@ -521,7 +549,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3535C7862E8A46BC007FBC60 /* DebugUtilities.swift in Sources */,
+				3538E6462E9066C500D18302 /* ImageViewerView.swift in Sources */,
+				3538E64A2E90B7A100D18302 /* AppPreferences.swift in Sources */,
+				3538E6442E90656100D18302 /* ImageAttachment.swift in Sources */,
+				3538E64B2E90B7A800D18302 /* ExpenseItem.swift in Sources */,
+				3538E63D2E9021D600D18302 /* DebugUtilities.swift in Sources */,
+				3538E6482E90B77A00D18302 /* RideshareShift.swift in Sources */,
+				3538E63F2E9021FA00D18302 /* ImageViewingUtilities.swift in Sources */,
+				3538E6492E90B79400D18302 /* ShiftDataManager.swift in Sources */,
+				3538E6452E9066AD00D18302 /* ImageManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -678,6 +714,8 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to take photos of receipts, odometer readings, and other shift-related documentation for expense tracking and record keeping.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app accesses your photo library to attach existing photos to your shift records for documentation and expense tracking purposes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -713,6 +751,8 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to take photos of receipts, odometer readings, and other shift-related documentation for expense tracking and record keeping.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app accesses your photo library to attach existing photos to your shift records for documentation and expense tracking purposes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

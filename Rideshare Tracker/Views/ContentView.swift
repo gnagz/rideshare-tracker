@@ -131,6 +131,9 @@ struct ContentView: View {
                     .environmentObject(preferences)
             }
         }
+        .onAppear {
+            debugShiftData()
+        }
     }
     
     private var summaryCardsView: some View {
@@ -307,6 +310,28 @@ struct ContentView: View {
     
     private func navigateToWeekContaining(_ date: Date) {
         selectedDate = date
+    }
+}
+
+// MARK: - ContentView Extensions for Debugging
+
+extension ContentView {
+    private func debugShiftData() {
+        debugMessage("=== SHIFT DATA DEBUG ===")
+        debugMessage("Total shifts in manager: \(dataManager.shifts.count)")
+        debugMessage("Active shifts count: \(dataManager.activeShifts.count)")
+
+        for (index, shift) in dataManager.activeShifts.prefix(5).enumerated() {
+            debugMessage("Shift \(index): ID=\(shift.id), attachments=\(shift.imageAttachments.count)")
+            for (attIndex, attachment) in shift.imageAttachments.enumerated() {
+                debugMessage("  Attachment \(attIndex): \(attachment.filename)")
+            }
+            if !shift.imageAttachments.isEmpty {
+                debugMessage("  Start Date: \(shift.startDate)")
+                debugMessage("  Tolls: \(shift.tolls ?? 0)")
+            }
+        }
+        debugMessage("=== END SHIFT DATA DEBUG ===")
     }
 }
 

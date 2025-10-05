@@ -27,11 +27,27 @@ class ShiftDataManager: ObservableObject {
     }
     
     private func loadShifts() {
+        debugMessage("=== LOADING SHIFTS FROM USERDEFAULTS ===")
         if let data = UserDefaults.standard.data(forKey: "shifts") {
+            debugMessage("Found shifts data in UserDefaults: \(data.count) bytes")
             if let decodedShifts = try? JSONDecoder().decode([RideshareShift].self, from: data) {
                 shifts = decodedShifts
+                debugMessage("Successfully decoded \(decodedShifts.count) shifts")
+
+                var totalAttachments = 0
+                for (index, shift) in decodedShifts.enumerated().prefix(5) {
+                    let attachmentCount = shift.imageAttachments.count
+                    totalAttachments += attachmentCount
+                    debugMessage("  Shift \(index): ID=\(shift.id), attachments=\(attachmentCount)")
+                }
+                debugMessage("Total attachments loaded: \(totalAttachments)")
+            } else {
+                debugMessage("ERROR: Failed to decode shifts from UserDefaults data")
             }
+        } else {
+            debugMessage("No shifts data found in UserDefaults")
         }
+        debugMessage("=== SHIFT LOADING COMPLETE ===")
     }
     
     
@@ -42,15 +58,36 @@ class ShiftDataManager: ObservableObject {
     }
     
     func addShift(_ shift: RideshareShift) {
+        debugMessage("=== ADDING SHIFT ===")
+        debugMessage("Shift ID: \(shift.id)")
+        debugMessage("Image attachments count: \(shift.imageAttachments.count)")
+        for (index, attachment) in shift.imageAttachments.enumerated() {
+            debugMessage("  Attachment \(index): \(attachment.filename) (\(attachment.type.rawValue))")
+        }
+
         shifts.append(shift)
         saveShifts()
+
+        debugMessage("Shift added and saved. Total shifts: \(shifts.count)")
+        debugMessage("=== SHIFT ADD COMPLETE ===")
     }
     
     func updateShift(_ shift: RideshareShift) {
+        debugMessage("=== UPDATING SHIFT ===")
+        debugMessage("Shift ID: \(shift.id)")
+        debugMessage("Image attachments count: \(shift.imageAttachments.count)")
+        for (index, attachment) in shift.imageAttachments.enumerated() {
+            debugMessage("  Attachment \(index): \(attachment.filename) (\(attachment.type.rawValue))")
+        }
+
         if let index = shifts.firstIndex(where: { $0.id == shift.id }) {
             shifts[index] = shift
             saveShifts()
+            debugMessage("Shift updated and saved at index \(index)")
+        } else {
+            debugMessage("ERROR: Could not find shift to update")
         }
+        debugMessage("=== SHIFT UPDATE COMPLETE ===")
     }
     
     func deleteShift(_ shift: RideshareShift) {

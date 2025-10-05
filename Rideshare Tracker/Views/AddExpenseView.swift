@@ -24,6 +24,11 @@ struct AddExpenseView: View {
     @State private var attachedImages: [UIImage] = []
     @State private var showingPhotoTypePicker = false
     @State private var pendingPhotoType: AttachmentType = .receipt
+
+    // Image viewer state
+    @State private var showingImageViewer = false
+    @State private var viewerImages: [UIImage] = []
+    @State private var viewerStartIndex: Int = 0
     
     enum FocusedField {
         case description, amount
@@ -59,6 +64,13 @@ struct AddExpenseView: View {
                         }
                     }
                 }
+        }
+        .sheet(isPresented: $showingImageViewer) {
+            ImageViewerView(
+                images: attachedImages,
+                startingIndex: viewerStartIndex,
+                isPresented: $showingImageViewer
+            )
         }
     }
     
@@ -150,16 +162,19 @@ struct AddExpenseView: View {
                         LazyHStack(spacing: 12) {
                             ForEach(0..<attachedImages.count, id: \.self) { index in
                                 ZStack(alignment: .topTrailing) {
-                                    Image(uiImage: attachedImages[index])
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 80, height: 80)
-                                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .stroke(Color(.systemGray4), lineWidth: 1)
-                                        )
-                                    
+                                    Button(action: { showImage(at: index) }) {
+                                        Image(uiImage: attachedImages[index])
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 80, height: 80)
+                                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .stroke(Color(.systemGray4), lineWidth: 1)
+                                            )
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+
                                     Button(action: { removeImage(at: index) }) {
                                         Image(systemName: "xmark.circle.fill")
                                             .foregroundColor(.red)
@@ -232,5 +247,17 @@ struct AddExpenseView: View {
     
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func showImage(at index: Int) {
+        guard !showingImageViewer else { return }
+
+        ImageViewingUtilities.showImageViewer(
+            images: attachedImages,
+            startIndex: index,
+            viewerImages: $viewerImages,
+            viewerStartIndex: $viewerStartIndex,
+            showingImageViewer: $showingImageViewer
+        )
     }
 }

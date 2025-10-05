@@ -218,6 +218,21 @@ struct ExpenseListView: View {
             }
         }
         .navigationViewStyle(.columns)
+        .onAppear {
+            debugMessage("ExpenseListView: View appeared, running image storage debug")
+            ImageManager.shared.debugImageStorage()
+
+            // Debug: Check what's actually in our expense data
+            debugMessage("=== EXPENSE DATA DEBUG ===")
+            debugMessage("Total expenses in manager: \(expenseManager.expenses.count)")
+            for (index, expense) in expenseManager.expenses.prefix(5).enumerated() {
+                debugMessage("Expense \(index): ID=\(expense.id), attachments=\(expense.imageAttachments.count)")
+                for (attIndex, attachment) in expense.imageAttachments.enumerated() {
+                    debugMessage("  Attachment \(attIndex): \(attachment.filename)")
+                }
+            }
+            debugMessage("=== END EXPENSE DATA DEBUG ===")
+        }
     }
     
     private func deleteExpenses(offsets: IndexSet) {
@@ -329,25 +344,40 @@ struct ExpenseRowView: View {
     }
     
     private func loadThumbnails() {
+        debugMessage("ExpenseRowView: Loading thumbnails for expense \(expense.id)")
+        debugMessage("ExpenseRowView: Found \(expense.imageAttachments.count) image attachments")
+
         thumbnailImages.removeAll()
-        
-        for attachment in expense.imageAttachments {
+
+        for (index, attachment) in expense.imageAttachments.enumerated() {
+            debugMessage("ExpenseRowView: Processing attachment \(index + 1): \(attachment.filename)")
+
+            // Debug the attachment first
+            ImageManager.shared.debugImageAttachment(attachment, for: expense.id, parentType: .expense)
+
             if let thumbnail = ImageManager.shared.loadThumbnail(
                 for: expense.id,
                 parentType: .expense,
                 filename: attachment.filename
             ) {
+                debugMessage("ExpenseRowView: Successfully loaded thumbnail for \(attachment.filename)")
                 thumbnailImages.append(thumbnail)
             } else {
+                debugMessage("ExpenseRowView: Failed to load thumbnail for \(attachment.filename), trying full image")
                 // Fallback to full image if thumbnail not available
                 if let fullImage = ImageManager.shared.loadImage(
                     for: expense.id,
                     parentType: .expense,
                     filename: attachment.filename
                 ) {
+                    debugMessage("ExpenseRowView: Successfully loaded full image for \(attachment.filename)")
                     thumbnailImages.append(fullImage)
+                } else {
+                    debugMessage("ExpenseRowView: Failed to load any image for \(attachment.filename)")
                 }
             }
         }
+
+        debugMessage("ExpenseRowView: Final loaded thumbnail count: \(thumbnailImages.count)")
     }
 }

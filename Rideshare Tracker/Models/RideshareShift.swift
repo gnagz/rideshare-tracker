@@ -117,24 +117,24 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
         let startGallons = (startTankReading / 8.0) * tankCapacity
         let endGallons = (endTankReading / 8.0) * tankCapacity
         var gasUsed = startGallons - endGallons
-        debugPrint("shiftGasUsage: startGallons:(startTankReading:\(startTankReading) / 8.0) * tankCapacity:\(tankCapacity))=\(startGallons)")
-        debugPrint("shiftGasUsage: endGallons:(endTankReading:\(endTankReading) / 8.0) * tankCapacity:\(tankCapacity))=\(endGallons)")
+        // debugPrint("shiftGasUsage: startGallons:(startTankReading:\(startTankReading) / 8.0) * tankCapacity:\(tankCapacity))=\(startGallons)")
+        // debugPrint("shiftGasUsage: endGallons:(endTankReading:\(endTankReading) / 8.0) * tankCapacity:\(tankCapacity))=\(endGallons)")
                 
         // Add refueled amount if applicable
         if let refuelGallons = refuelGallons {
             gasUsed += refuelGallons
         }
-        debugPrint("shiftGasUsage: gasUsed:startGallons:\(startGallons) - endGallons:\(endGallons) + refuelGallons:\(refuelGallons ?? 0)=\(gasUsed)")
-        
+        // debugPrint("shiftGasUsage: gasUsed:startGallons:\(startGallons) - endGallons:\(endGallons) + refuelGallons:\(refuelGallons ?? 0)=\(gasUsed)")
+
         let shiftGasUsage = max(gasUsed, 0)
-        debugPrint("shiftGasUsage: max(gasUsed:\(gasUsed),0):\(shiftGasUsage)")
+        // debugPrint("shiftGasUsage: max(gasUsed:\(gasUsed),0):\(shiftGasUsage)")
         return shiftGasUsage
     }
     
     func shiftGasCost(tankCapacity: Double) -> Double {
         let gasUsed = shiftGasUsage(tankCapacity: tankCapacity)
         let shiftGasCost = gasUsed * gasPrice
-        debugPrint("shiftGasCost: shiftGasUsage(tankCapitalcy:\(tankCapacity)):\(gasUsed) * gasPrice:\(gasPrice)=\(shiftGasCost)")
+        // debugPrint("shiftGasCost: shiftGasUsage(tankCapitalcy:\(tankCapacity)):\(gasUsed) * gasPrice:\(gasPrice)=\(shiftGasCost)")
         return shiftGasCost
     }
 
@@ -158,8 +158,8 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     func deductibleExpenses(mileageRate: Double) -> Double {
         let tollExpense = (tolls ?? 0) - (tollsReimbursed ?? 0)
         let deductibleExpenses = (shiftMileage * mileageRate) + tollExpense + (parkingFees ?? 0) + (miscFees ?? 0)
-        debugPrint(
-            "deductibleExpenses(mileageRate:\(mileageRate)): shiftMileage:\(shiftMileage) * mileageRate:\(mileageRate) + tollExpense:\(tollExpense) + parkingFees:\(parkingFees ?? 0) + miscFees:\(miscFees ?? 0)=\(deductibleExpenses)")
+        // debugPrint(
+        //     "deductibleExpenses(mileageRate:\(mileageRate)): shiftMileage:\(shiftMileage) * mileageRate:\(mileageRate) + tollExpense:\(tollExpense) + parkingFees:\(parkingFees ?? 0) + miscFees:\(miscFees ?? 0)=\(deductibleExpenses)")
         return deductibleExpenses
     }
     
@@ -172,7 +172,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
         let gasExpense = shiftGasCost(tankCapacity: tankCapacity)
         let tollExpense = (tolls ?? 0) - (tollsReimbursed ?? 0)
         let directCosts = gasExpense + tollExpense + (parkingFees ?? 0) + (miscFees ?? 0)
-        debugPrint("directCosts(tankCapitalcy:\(tankCapacity)): gasExpense:\(gasExpense) + tollExpense:\(tollExpense) + parkingFees:\(parkingFees ?? 0) + miscFees:\(miscFees ?? 0)=\(directCosts)")
+        // debugPrint("directCosts(tankCapitalcy:\(tankCapacity)): gasExpense:\(gasExpense) + tollExpense:\(tollExpense) + parkingFees:\(parkingFees ?? 0) + miscFees:\(miscFees ?? 0)=\(directCosts)")
         return directCosts
     }
     
@@ -194,14 +194,14 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     func outOfPocketCosts(tankCapacity: Double) -> Double {
         let gasExpense = shiftGasCost(tankCapacity: tankCapacity)
         let outOfPocketCosts = gasExpense + (tolls ?? 0) + (parkingFees ?? 0) + (miscFees ?? 0)
-        debugPrint("outOfPocketCosts: gasExpense:\(gasExpense) + tolls:\(tolls ?? 0) + parkingFees:\(parkingFees ?? 0) + miscFees:\(miscFees ?? 0)=\(outOfPocketCosts)")
+        // debugPrint("outOfPocketCosts: gasExpense:\(gasExpense) + tolls:\(tolls ?? 0) + parkingFees:\(parkingFees ?? 0) + miscFees:\(miscFees ?? 0)=\(outOfPocketCosts)")
         return outOfPocketCosts
     }
     
     func cashFlowProfit(tankCapacity: Double) -> Double {
         let outOfPocketCosts = outOfPocketCosts(tankCapacity: tankCapacity)
         let cashFlowProfit = expectedPayout - outOfPocketCosts
-        debugPrint("cashFlowProfit: expectedPayout:\(expectedPayout) - outOfPocketCosts:\(outOfPocketCosts)=\(cashFlowProfit)")
+        // debugPrint("cashFlowProfit: expectedPayout:\(expectedPayout) - outOfPocketCosts:\(outOfPocketCosts)=\(cashFlowProfit)")
         return cashFlowProfit
     }
     
@@ -227,7 +227,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
 
     static func calculateTaxableIncome(adjustedGrossIncome: Double, mileageDeduction: Double, otherExpenses: Double) -> Double {
         let taxableIncome = max(0, adjustedGrossIncome - mileageDeduction - otherExpenses)
-        debugPrint("calculateTaxableIncome: max(0, adjustedGrossIncome:\(adjustedGrossIncome) - mileageDeduction:\(mileageDeduction) - otherExpenses:\(otherExpenses)):\(taxableIncome)")
+        // debugPrint("calculateTaxableIncome: max(0, adjustedGrossIncome:\(adjustedGrossIncome) - mileageDeduction:\(mileageDeduction) - otherExpenses:\(otherExpenses)):\(taxableIncome)")
         return taxableIncome
     }
 
@@ -312,6 +312,9 @@ extension RideshareShift {
         modifiedDate = try container.decodeIfPresent(Date.self, forKey: .modifiedDate) ?? endDate ?? startDate
         deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID) ?? "unknown"
         isDeleted = try container.decodeIfPresent(Bool.self, forKey: .isDeleted) ?? false
+
+        // Decode image attachments with backward compatibility
+        imageAttachments = try container.decodeIfPresent([ImageAttachment].self, forKey: .imageAttachments) ?? []
     }
     
     private enum CodingKeys: String, CodingKey {
@@ -319,6 +322,6 @@ extension RideshareShift {
         case startDate, startMileage, startTankReading, hasFullTankAtStart
         case endDate, endMileage, endTankReading, didRefuelAtEnd, refuelGallons, refuelCost
         case trips, netFare, tips, promotions, tolls, tollsReimbursed, parkingFees, miscFees
-        case gasPrice, standardMileageRate
+        case gasPrice, standardMileageRate, imageAttachments
     }
 }

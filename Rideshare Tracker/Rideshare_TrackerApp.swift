@@ -14,7 +14,7 @@ struct RideshareTrackerApp: App {
     @StateObject private var dataManager = ShiftDataManager.shared
     @StateObject private var expenseManager = ExpenseDataManager.shared
     @StateObject private var syncLifecycleManager = SyncLifecycleManager.shared
-    
+
     var body: some Scene {
         WindowGroup {
             MainTabView()

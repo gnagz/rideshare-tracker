@@ -21,6 +21,12 @@ struct EditShiftView: View {
     @State private var startTankReading: Double
     @State private var showStartDatePicker = false
     @State private var showStartTimePicker = false
+    @State private var showStartDateTextInput = false
+    @State private var startDateText = ""
+    @State private var showStartTimeTextInput = false
+    @State private var startTimeText = ""
+    @State private var showStartTankTextInput = false
+    @State private var startTankText = ""
     @FocusState private var focusedField: FocusedField?
     
     enum FocusedField {
@@ -46,12 +52,28 @@ struct EditShiftView: View {
     @State private var standardMileageRate: Double?
     @State private var showEndDatePicker = false
     @State private var showEndTimePicker = false
+    @State private var showEndDateTextInput = false
+    @State private var endDateText = ""
+    @State private var showEndTimeTextInput = false
+    @State private var endTimeText = ""
+    @State private var showEndTankTextInput = false
+    @State private var endTankText = ""
     @State private var odometerError = ""
 
     // Photo attachment state
-    @State private var selectedPhotos: [PhotosPickerItem] = []
     @State private var photoImages: [UIImage] = []
     @State private var existingAttachments: [ImageAttachment] = []
+    @State private var existingImages: [UIImage] = []
+
+    // UIImagePickerController state
+    @State private var showingCameraPicker = false
+    @State private var showingPhotoLibraryPicker = false
+    @State private var showingImageSourceActionSheet = false
+
+    // Image viewer state
+    @State private var showingImageViewer = false
+    @State private var viewerImages: [UIImage] = []
+    @State private var viewerStartIndex: Int = 0
     
     init(shift: Binding<RideshareShift>) {
         self._shift = shift
@@ -123,12 +145,98 @@ struct EditShiftView: View {
                     }
                 }
         }
+        .sheet(isPresented: $showingImageViewer) {
+            ImageViewerView(
+                images: loadAllImages(),
+                startingIndex: viewerStartIndex,
+                isPresented: $showingImageViewer
+            )
+        }
+        .imagePickerSheets(
+            showingCameraPicker: $showingCameraPicker,
+            showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
+            onImageSelected: { image in
+                photoImages.append(image)
+            }
+        )
+        .alert("Enter Start Date", isPresented: $showStartDateTextInput) {
+            TextField(preferences.formatDate(Date()), text: $startDateText)
+                .keyboardType(.numbersAndPunctuation)
+            Button("Set Date") {
+                setStartDateFromText()
+            }
+            Button("Cancel", role: .cancel) {
+                startDateText = ""
+            }
+        } message: {
+            Text("Format: \(preferences.formatDate(Date()))")
+        }
+        .alert("Enter Start Time", isPresented: $showStartTimeTextInput) {
+            TextField(preferences.formatTime(Date()), text: $startTimeText)
+                .keyboardType(.numbersAndPunctuation)
+            Button("Set Time") {
+                setStartTimeFromText()
+            }
+            Button("Cancel", role: .cancel) {
+                startTimeText = ""
+            }
+        } message: {
+            Text("Format: \(preferences.formatTime(Date()))")
+        }
+        .alert("Enter Start Tank Level", isPresented: $showStartTankTextInput) {
+            TextField("0 to 8", text: $startTankText)
+                .keyboardType(.decimalPad)
+            Button("Set Level") {
+                setStartTankFromText()
+            }
+            Button("Cancel", role: .cancel) {
+                startTankText = ""
+            }
+        } message: {
+            Text("Enter: 0 (Empty) to 8 (Full)")
+        }
+        .alert("Enter End Date", isPresented: $showEndDateTextInput) {
+            TextField(preferences.formatDate(Date()), text: $endDateText)
+                .keyboardType(.numbersAndPunctuation)
+            Button("Set Date") {
+                setEndDateFromText()
+            }
+            Button("Cancel", role: .cancel) {
+                endDateText = ""
+            }
+        } message: {
+            Text("Format: \(preferences.formatDate(Date()))")
+        }
+        .alert("Enter End Time", isPresented: $showEndTimeTextInput) {
+            TextField(preferences.formatTime(Date()), text: $endTimeText)
+                .keyboardType(.numbersAndPunctuation)
+            Button("Set Time") {
+                setEndTimeFromText()
+            }
+            Button("Cancel", role: .cancel) {
+                endTimeText = ""
+            }
+        } message: {
+            Text("Format: \(preferences.formatTime(Date()))")
+        }
+        .alert("Enter End Tank Level", isPresented: $showEndTankTextInput) {
+            TextField("0 to 8", text: $endTankText)
+                .keyboardType(.decimalPad)
+            Button("Set Level") {
+                setEndTankFromText()
+            }
+            Button("Cancel", role: .cancel) {
+                endTankText = ""
+            }
+        } message: {
+            Text("Enter: 0 (Empty) to 8 (Full)")
+        }
     }
     
     private var mainContent: some View {
         Form {
             startSection
-            
+
             if shift.endDate != nil {
                 endSection
                 earningsSection
@@ -136,6 +244,9 @@ struct EditShiftView: View {
             }
 
             photosSection
+        }
+        .onAppear {
+            loadExistingImages()
         }
     }
     
@@ -156,11 +267,22 @@ struct EditShiftView: View {
                             .cornerRadius(8)
                     }
                 }
+                .accessibilityIdentifier("start_date_button")
                 
                 if showStartDatePicker {
-                    DatePicker("", selection: $startDate, displayedComponents: .date)
-                        .datePickerStyle(.graphical)
-                        .labelsHidden()
+                    VStack {
+                        DatePicker("", selection: $startDate, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .labelsHidden()
+
+                        KeyboardInputUtility.keyboardInputButton(
+                            currentValue: preferences.formatDate(startDate),
+                            showingAlert: $showStartDateTextInput,
+                            inputText: $startDateText,
+                            accessibilityId: "start_date_text_input_button",
+                            accessibilityLabel: "Enter start date as text"
+                        )
+                    }
                 }
                 
                 Button(action: { showStartTimePicker.toggle() }) {
@@ -176,11 +298,22 @@ struct EditShiftView: View {
                             .cornerRadius(8)
                     }
                 }
+                .accessibilityIdentifier("start_time_button")
                 
                 if showStartTimePicker {
-                    DatePicker("", selection: $startDate, displayedComponents: .hourAndMinute)
-                        .datePickerStyle(.wheel)
-                        .labelsHidden()
+                    VStack {
+                        DatePicker("", selection: $startDate, displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+
+                        KeyboardInputUtility.keyboardInputButton(
+                            currentValue: preferences.formatTime(startDate),
+                            showingAlert: $showStartTimeTextInput,
+                            inputText: $startTimeText,
+                            accessibilityId: "start_time_text_input_button",
+                            accessibilityLabel: "Enter start time as text"
+                        )
+                    }
                 }
             }
             
@@ -202,9 +335,23 @@ struct EditShiftView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Tank Level")
-                        .font(.headline)
-                    
+                    HStack {
+                        Text("Tank Level")
+                            .font(.headline)
+                        Spacer()
+                        Button(action: {
+                            startTankText = String(format: "%.0f", startTankReading)
+                            showStartTankTextInput = true
+                        }) {
+                            Image(systemName: "keyboard")
+                                .font(.title3)
+                                .foregroundColor(.blue)
+                        }
+                        .accessibilityIdentifier("start_tank_text_input_button")
+                        .accessibilityLabel("Enter start tank level as number")
+                        .padding(.trailing, 8)
+                    }
+
                     Picker("Tank Reading", selection: $startTankReading) {
                         Text("E").tag(0.0)
                         Text("1/8").tag(1.0)
@@ -238,11 +385,22 @@ struct EditShiftView: View {
                             .cornerRadius(8)
                     }
                 }
+                .accessibilityIdentifier("end_date_button")
                 
                 if showEndDatePicker {
-                    DatePicker("", selection: $endDate, displayedComponents: .date)
-                        .datePickerStyle(.graphical)
-                        .labelsHidden()
+                    VStack {
+                        DatePicker("", selection: $endDate, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .labelsHidden()
+
+                        KeyboardInputUtility.keyboardInputButton(
+                            currentValue: preferences.formatDate(endDate),
+                            showingAlert: $showEndDateTextInput,
+                            inputText: $endDateText,
+                            accessibilityId: "end_date_text_input_button",
+                            accessibilityLabel: "Enter end date as text"
+                        )
+                    }
                 }
                 
                 Button(action: { showEndTimePicker.toggle() }) {
@@ -258,11 +416,22 @@ struct EditShiftView: View {
                             .cornerRadius(8)
                     }
                 }
+                .accessibilityIdentifier("end_time_button")
                 
                 if showEndTimePicker {
-                    DatePicker("", selection: $endDate, displayedComponents: .hourAndMinute)
-                        .datePickerStyle(.wheel)
-                        .labelsHidden()
+                    VStack {
+                        DatePicker("", selection: $endDate, displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+
+                        KeyboardInputUtility.keyboardInputButton(
+                            currentValue: preferences.formatTime(endDate),
+                            showingAlert: $showEndTimeTextInput,
+                            inputText: $endTimeText,
+                            accessibilityId: "end_time_text_input_button",
+                            accessibilityLabel: "Enter end time as text"
+                        )
+                    }
                 }
             }
             
@@ -329,8 +498,23 @@ struct EditShiftView: View {
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Tank Level")
-                            .font(.headline)
+                        HStack {
+                            Text("Tank Level")
+                                .font(.headline)
+                            Spacer()
+                            Button(action: {
+                                endTankText = String(format: "%.0f", endTankReading)
+                                showEndTankTextInput = true
+                            }) {
+                                Image(systemName: "keyboard")
+                                    .font(.title3)
+                                    .foregroundColor(.blue)
+                            }
+                            .accessibilityIdentifier("end_tank_text_input_button")
+                            .accessibilityLabel("Enter end tank level as number")
+                            .padding(.trailing, 8)
+                        }
+
                         Picker("Tank Reading", selection: $endTankReading) {
                             ForEach(availableTankLevels, id: \.value) { level in
                                 Text(level.label).tag(level.value)
@@ -481,88 +665,25 @@ struct EditShiftView: View {
     }
 
     private var photosSection: some View {
-        Section("Photos") {
-            PhotosPicker(
-                selection: $selectedPhotos,
-                maxSelectionCount: 10,
-                matching: .images
-            ) {
-                Label("Add Photos", systemImage: "camera.fill")
-                    .foregroundColor(.accentColor)
-            }
-            .onChange(of: selectedPhotos) { oldItems, newItems in
-                Task {
-                    await loadSelectedPhotos(from: newItems)
-                }
-            }
+        PhotosSection(
+            photoImages: $photoImages,
+            existingImages: $existingImages,
+            onDeleteExisting: { index in
+                // Remove from existing attachments and images arrays
+                let attachment = existingAttachments[index]
+                existingAttachments.remove(at: index)
+                existingImages.remove(at: index)
 
-            if !photoImages.isEmpty {
-                Text("\(photoImages.count) photo\(photoImages.count == 1 ? "" : "s") selected")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            // Display existing photos
-            if !existingAttachments.isEmpty {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
-                    ForEach(existingAttachments, id: \.id) { attachment in
-                        AsyncImage(url: attachment.fileURL(for: shift.id, parentType: .shift)) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 80, height: 80)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.gray, lineWidth: 1.0)
-                                )
-                        } placeholder: {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color(.systemGray5))
-                                .frame(width: 80, height: 80)
-                                .overlay(
-                                    ProgressView()
-                                        .scaleEffect(0.7)
-                                )
-                        }
-                        .overlay(
-                            Button(action: { removeExistingPhoto(attachment) }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.red)
-                                    .background(Color.white, in: Circle())
-                            }
-                            .offset(x: 8, y: -8),
-                            alignment: .topTrailing
-                        )
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-
-            // Display new photos
-            if !photoImages.isEmpty {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
-                    ForEach(Array(photoImages.enumerated()), id: \.offset) { index, image in
-                        Image(uiImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 80, height: 80)
-                            .clipped()
-                            .cornerRadius(8)
-                            .overlay(
-                                Button(action: { removeNewPhoto(at: index) }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.red)
-                                        .background(Color.white, in: Circle())
-                                }
-                                .offset(x: 8, y: -8),
-                                alignment: .topTrailing
-                            )
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-        }
+                // Delete the physical file
+                ImageManager.shared.deleteImage(attachment, for: shift.id, parentType: .shift)
+            },
+            showingImageSourceActionSheet: $showingImageSourceActionSheet,
+            showingCameraPicker: $showingCameraPicker,
+            showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
+            showingImageViewer: $showingImageViewer,
+            viewerImages: $viewerImages,
+            viewerStartIndex: $viewerStartIndex
+        )
     }
 
     private func validateOdometerReading() {
@@ -640,31 +761,171 @@ struct EditShiftView: View {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
-    private func loadSelectedPhotos(from items: [PhotosPickerItem]) async {
-        await MainActor.run {
-            photoImages.removeAll()
+    private func loadExistingImages() {
+        debugMessage("EditShiftView loadExistingImages: Starting with \(existingAttachments.count) attachments")
+        existingImages.removeAll()
+
+        for (index, attachment) in existingAttachments.enumerated() {
+            debugMessage("EditShiftView loadExistingImages: Loading attachment \(index): \(attachment.filename)")
+            if let image = ImageManager.shared.loadImage(
+                for: shift.id,
+                parentType: .shift,
+                filename: attachment.filename
+            ) {
+                existingImages.append(image)
+                debugMessage("EditShiftView loadExistingImages: Successfully loaded \(attachment.filename)")
+            } else {
+                debugMessage("EditShiftView loadExistingImages: Failed to load \(attachment.filename)")
+            }
         }
 
-        for item in items {
-            if let data = try? await item.loadTransferable(type: Data.self),
-               let image = UIImage(data: data) {
-                await MainActor.run {
-                    photoImages.append(image)
-                }
+        debugMessage("EditShiftView loadExistingImages: Final existingImages.count=\(existingImages.count)")
+    }
+
+    private func loadAllImages() -> [UIImage] {
+        var allImages: [UIImage] = []
+
+        // Load existing attachments
+        for existingAttachment in existingAttachments {
+            if let image = ImageManager.shared.loadImage(
+                for: shift.id,
+                parentType: .shift,
+                filename: existingAttachment.filename
+            ) {
+                allImages.append(image)
+            }
+        }
+
+        // Add new images
+        allImages.append(contentsOf: photoImages)
+
+        return allImages
+    }
+
+    private func showImage(at index: Int) {
+        guard !showingImageViewer else { return }
+
+        let allImages = loadAllImages()
+        ImageViewingUtilities.showImageViewer(
+            images: allImages,
+            startIndex: index,
+            viewerImages: $viewerImages,
+            viewerStartIndex: $viewerStartIndex,
+            showingImageViewer: $showingImageViewer
+        )
+    }
+
+    private func setStartDateFromText() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = preferences.dateFormat
+
+        if let date = formatter.date(from: startDateText) {
+            // Preserve the time from current startDate, only update the date part
+            let calendar = Calendar.current
+            let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+            let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: startDate)
+
+            var combinedComponents = DateComponents()
+            combinedComponents.year = dateComponents.year
+            combinedComponents.month = dateComponents.month
+            combinedComponents.day = dateComponents.day
+            combinedComponents.hour = timeComponents.hour
+            combinedComponents.minute = timeComponents.minute
+            combinedComponents.second = timeComponents.second
+
+            if let combinedDate = calendar.date(from: combinedComponents) {
+                startDate = combinedDate
+                showStartDatePicker = false
+                startDateText = ""
             }
         }
     }
 
-    private func removeExistingPhoto(_ attachment: ImageAttachment) {
-        // Remove from existing attachments
-        existingAttachments.removeAll { $0.id == attachment.id }
+    private func setStartTimeFromText() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = preferences.timeFormat
 
-        // Also remove the physical file
-        ImageManager.shared.deleteImage(attachment, for: shift.id, parentType: .shift)
+        if let time = formatter.date(from: startTimeText) {
+            let calendar = Calendar.current
+            let dateComponents = calendar.dateComponents([.year, .month, .day], from: startDate)
+            let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
+
+            var combinedComponents = DateComponents()
+            combinedComponents.year = dateComponents.year
+            combinedComponents.month = dateComponents.month
+            combinedComponents.day = dateComponents.day
+            combinedComponents.hour = timeComponents.hour
+            combinedComponents.minute = timeComponents.minute
+
+            if let combinedDate = calendar.date(from: combinedComponents) {
+                startDate = combinedDate
+                showStartTimePicker = false
+                startTimeText = ""
+            }
+        }
     }
 
-    private func removeNewPhoto(at index: Int) {
-        photoImages.remove(at: index)
-        selectedPhotos.remove(at: index)
+    private func setStartTankFromText() {
+        if let tankValue = Double(startTankText), tankValue >= 0 && tankValue <= 8 {
+            startTankReading = tankValue
+            startTankText = ""
+        }
+    }
+
+    private func setEndDateFromText() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = preferences.dateFormat
+
+        if let date = formatter.date(from: endDateText) {
+            // Preserve the time from current endDate, only update the date part
+            let calendar = Calendar.current
+            let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+            let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: endDate)
+
+            var combinedComponents = DateComponents()
+            combinedComponents.year = dateComponents.year
+            combinedComponents.month = dateComponents.month
+            combinedComponents.day = dateComponents.day
+            combinedComponents.hour = timeComponents.hour
+            combinedComponents.minute = timeComponents.minute
+            combinedComponents.second = timeComponents.second
+
+            if let combinedDate = calendar.date(from: combinedComponents) {
+                endDate = combinedDate
+                showEndDatePicker = false
+                endDateText = ""
+            }
+        }
+    }
+
+    private func setEndTimeFromText() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = preferences.timeFormat
+
+        if let time = formatter.date(from: endTimeText) {
+            let calendar = Calendar.current
+            let dateComponents = calendar.dateComponents([.year, .month, .day], from: endDate)
+            let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
+
+            var combinedComponents = DateComponents()
+            combinedComponents.year = dateComponents.year
+            combinedComponents.month = dateComponents.month
+            combinedComponents.day = dateComponents.day
+            combinedComponents.hour = timeComponents.hour
+            combinedComponents.minute = timeComponents.minute
+
+            if let combinedDate = calendar.date(from: combinedComponents) {
+                endDate = combinedDate
+                showEndTimePicker = false
+                endTimeText = ""
+            }
+        }
+    }
+
+    private func setEndTankFromText() {
+        if let tankValue = Double(endTankText), tankValue >= 0 && tankValue <= 8 {
+            endTankReading = tankValue
+            endTankText = ""
+        }
     }
 }

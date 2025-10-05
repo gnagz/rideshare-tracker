@@ -53,20 +53,52 @@ enum CSVImportError: LocalizedError {
 @MainActor
 class CSVImportManager {
 
+    // MARK: - Secure File Access Utility
+
+    /// Safely access file contents with security-scoped URL handling
+    /// This handles both local files and document picker files automatically
+    private static func secureFileAccess<T>(
+        url: URL,
+        operation: (URL) throws -> T
+    ) -> Result<T, CSVImportError> {
+
+        debugMessage("Starting secure file access: \(url.lastPathComponent)")
+
+        // Handle security-scoped URLs from document picker
+        let hasAccess = url.startAccessingSecurityScopedResource()
+        debugMessage("Security-scoped URL access: \(hasAccess)")
+
+        defer {
+            if hasAccess {
+                url.stopAccessingSecurityScopedResource()
+                debugMessage("Released security-scoped URL access")
+            }
+        }
+
+        do {
+            let result = try operation(url)
+            debugMessage("Secure file access completed successfully")
+            return .success(result)
+        } catch {
+            debugMessage("ERROR: Secure file access failed: \(error.localizedDescription)")
+            return .failure(.fileReadError)
+        }
+    }
+
     // MARK: - Public Import Methods
 
     /// Import shifts from CSV file
     static func importShifts(from url: URL) -> Result<CSVImportResult, CSVImportError> {
         debugMessage("Starting shift CSV import from: \(url.lastPathComponent)")
 
-        do {
+        return secureFileAccess(url: url) { url in
             let csvContent = try String(contentsOf: url, encoding: .utf8)
             let lines = csvContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
             debugMessage("CSV file loaded: \(lines.count) non-empty lines found")
 
             guard lines.count > 1 else {
                 debugMessage("ERROR: CSV file has insufficient data (\(lines.count) lines)")
-                return .failure(.noDataRows)
+                throw CSVImportError.noDataRows
             }
 
             let headers = parseCSVLine(lines[0])
@@ -94,11 +126,7 @@ class CSVImportManager {
             }
 
             debugMessage("CSV import completed: \(shifts.count) shifts created successfully")
-            return .success(CSVImportResult(shifts: shifts))
-
-        } catch {
-            debugMessage("ERROR: CSV import failed with error: \(error.localizedDescription)")
-            return .failure(.fileReadError)
+            return CSVImportResult(shifts: shifts)
         }
     }
 
@@ -107,12 +135,12 @@ class CSVImportManager {
     static func importTolls(from url: URL, dataManager: ShiftDataManager) -> Result<TollImportResult, CSVImportError> {
         debugMessage("Starting toll CSV import from: \(url.lastPathComponent)")
 
-        do {
+        return secureFileAccess(url: url) { url in
             let content = try String(contentsOf: url, encoding: .utf8)
             let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
 
             guard lines.count > 1 else {
-                return .failure(.noDataRows)
+                throw CSVImportError.noDataRows
             }
 
             let headerLine = lines[0]
@@ -142,7 +170,7 @@ class CSVImportManager {
                     transactionDateIndex < 0 ? "Transaction Entry Date/Time" : nil,
                     transactionAmountIndex < 0 ? "Transaction Amount" : nil
                 ].compactMap { $0 }
-                return .failure(.missingRequiredColumns(missingColumns))
+                throw CSVImportError.missingRequiredColumns(missingColumns)
             }
 
             var transactions: [TollTransaction] = []
@@ -252,15 +280,11 @@ class CSVImportManager {
             dataManager.objectWillChange.send()
 
             debugMessage("Toll import completed: Updated \(updatedShifts.count) shifts, generated \(imagesGenerated) images")
-            return .success(TollImportResult(
+            return TollImportResult(
                 transactions: transactions,
                 updatedShifts: updatedShifts,
                 imagesGenerated: imagesGenerated
-            ))
-
-        } catch {
-            debugMessage("ERROR: Toll CSV import failed with error: \(error.localizedDescription)")
-            return .failure(.fileReadError)
+            )
         }
     }
 
@@ -268,12 +292,12 @@ class CSVImportManager {
     static func importExpenses(from url: URL) -> Result<ExpenseImportResult, CSVImportError> {
         debugMessage("Starting expense CSV import from: \(url.lastPathComponent)")
 
-        do {
+        return secureFileAccess(url: url) { url in
             let csvContent = try String(contentsOf: url, encoding: .utf8)
             let lines = csvContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
 
             guard lines.count > 1 else {
-                return .failure(.noDataRows)
+                throw CSVImportError.noDataRows
             }
 
             let headers = parseCSVLine(lines[0])
@@ -314,11 +338,7 @@ class CSVImportManager {
             }
 
             debugMessage("Expense CSV import completed: \(expenses.count) expenses created")
-            return .success(ExpenseImportResult(expenses: expenses))
-
-        } catch {
-            debugMessage("ERROR: Expense CSV import failed with error: \(error.localizedDescription)")
-            return .failure(.fileReadError)
+            return ExpenseImportResult(expenses: expenses)
         }
     }
 

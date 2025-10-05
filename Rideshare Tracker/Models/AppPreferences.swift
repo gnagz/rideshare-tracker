@@ -296,11 +296,26 @@ class AppPreferences: ObservableObject {
     }
     
     static func importData(from url: URL) -> Result<BackupData, ImportError> {
+        debugMessage("Starting backup restore from: \(url.lastPathComponent)")
+
+        // Handle security-scoped URLs from document picker
+        let hasAccess = url.startAccessingSecurityScopedResource()
+        debugMessage("Security-scoped URL access: \(hasAccess)")
+
+        defer {
+            if hasAccess {
+                url.stopAccessingSecurityScopedResource()
+                debugMessage("Released security-scoped URL access")
+            }
+        }
+
         do {
             let data = try Data(contentsOf: url)
             let backupData = try JSONDecoder().decode(BackupData.self, from: data)
+            debugMessage("Backup restore completed successfully")
             return .success(backupData)
         } catch {
+            debugMessage("ERROR: Backup restore failed: \(error.localizedDescription)")
             if error is DecodingError {
                 return .failure(.invalidFormat)
             } else {
