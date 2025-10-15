@@ -25,6 +25,7 @@ A comprehensive SwiftUI iOS Universal app (iPhone, iPad, Mac) for rideshare driv
 ### Data Management
 - **Export/Import**: JSON backup/restore and CSV export with date range selection
 - **Expense Export**: Separate CSV export for business expenses
+- **Toll Import**: CSV import with automatic toll-to-shift matching and Excel formula parsing
 - **Incremental Cloud Sync**: Real-time iCloud synchronization across all devices
 - **Ultimate Data Protection**: Automatic cloud backup prevents data loss forever
 - **Multi-Device Support**: Start shift on iPhone, end on iPad, view on Mac seamlessly
@@ -32,6 +33,7 @@ A comprehensive SwiftUI iOS Universal app (iPhone, iPad, Mac) for rideshare driv
 ### User Experience
 - **Dual Navigation**: Tab-based interface with Shifts and Expenses sections
 - **Enhanced Currency Input**: User-friendly currency fields without typing interference
+- **Scientific Calculator**: Built-in calculator with memory functions integrated into all number inputs
 - **Customizable Preferences**: Date/time formats, timezone selection, vehicle settings
 - **Universal Design**: Native experience on iPhone, iPad, and Mac
 
@@ -182,7 +184,8 @@ Rideshare Tracker/
 │   ├── IncrementalSyncView.swift     # Cloud sync settings and education
 │   ├── MainMenuView.swift            # Settings menu with sync integration
 │   ├── BackupRestoreView.swift       # Local backup/restore functionality
-│   ├── ImportExportView.swift        # CSV export/import interface
+│   ├── ImportExportView.swift        # CSV export/import interface with toll import
+│   ├── CalculatorPopupView.swift     # Scientific calculator with memory functions
 │   └── AppInfoView.swift             # App information and credits
 ├── Managers/
 │   ├── ShiftDataManager.swift        # Shift data persistence (singleton)
@@ -365,13 +368,59 @@ The app includes a comprehensive business expense tracking system separate from 
 
 ### Usage Workflow
 1. **Navigate to Expenses Tab**: Switch from Shifts to Expenses in the main tab bar
-2. **Select Month**: Use arrow buttons or tap the month header to change time period  
+2. **Select Month**: Use arrow buttons or tap the month header to change time period
 3. **Add Expenses**: Tap + button to add new business expenses
 4. **Attach Photos**: Use "Add Receipt Photo" to capture or select images from your library
 5. **Review Totals**: Month and year totals update automatically with photo indicators
 6. **View Photos**: Tap photo thumbnails in expense list to view full-screen
 7. **Edit/Delete**: Tap any expense to edit details and manage photos, or swipe to delete
 8. **Export Data**: Use preferences to export expense data to CSV
+
+## Scientific Calculator System
+
+The app includes a built-in scientific calculator integrated into all currency and number input fields:
+
+### Core Features
+- **Calculator Button**: Appears on all currency/number input fields for instant access
+- **Scientific Functions**: Basic arithmetic, parentheses, percentage, memory functions (M+, M-, MR, MC)
+- **Calculation History**: Scrollable tape showing previous calculations and results
+- **Expression Evaluation**: Enter complex math expressions like "45+23*2" and get instant results
+- **Memory Persistence**: Calculator state persists across app sessions
+
+### User Experience
+- **Popup Interface**: Calculator opens as overlay without leaving current screen
+- **Result Integration**: Tap "Done" to insert calculated result into the input field
+- **Visual Feedback**: Animated button presses and calculation tape updates
+- **Error Handling**: Clear error display for invalid expressions
+
+### Technical Integration
+- **CalculatorPopupView**: Full-featured calculator interface with professional styling
+- **CalculatorTextField**: Enhanced input field with integrated calculator access
+- **CurrencyTextField**: Currency-specific input with calculator integration
+- **Expression Engine**: Robust math evaluation supporting complex expressions
+
+## Toll Import System
+
+The app supports importing toll transaction data from CSV files with automatic matching to existing shifts:
+
+### Import Process
+1. **Access Import**: Navigate to Settings → Import/Export → Import → Tolls
+2. **Select CSV File**: Choose toll authority CSV export file
+3. **Automatic Processing**: App parses Excel formulas and matches transactions to shifts by date/time
+4. **Shift Updates**: Toll amounts automatically added to matching shifts
+5. **Summary Images**: Toll summary images generated and attached to affected shifts
+
+### Supported Formats
+- **Excel Formula Dates**: Handles complex Excel date formulas from toll authority exports
+- **Negative Amounts**: Converts negative toll amounts (e.g., "-$1.30") to positive values
+- **Multiple Columns**: Flexible column detection for different toll authority formats
+- **Real-World Data**: Tested with actual Austin toll authority CSV exports
+
+### Technical Features
+- **Time Window Matching**: Tolls matched to shifts based on transaction time falling within shift start/end times
+- **Image Generation**: Creates professional 800px toll summary tables with transaction details
+- **Error Handling**: Clear feedback for CSV format issues or parsing errors
+- **Non-Destructive**: Original shift data preserved, only toll amounts updated
 
 ## Incremental Cloud Sync Workflow
 

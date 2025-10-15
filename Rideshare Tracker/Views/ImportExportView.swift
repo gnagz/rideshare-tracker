@@ -65,11 +65,13 @@ struct ImportView: View {
     enum ImportType: String, CaseIterable {
         case shifts = "Shifts"
         case expenses = "Expenses"
-        
+        case tolls = "Tolls"
+
         var icon: String {
             switch self {
             case .shifts: return "car.fill"
             case .expenses: return "receipt.fill"
+            case .tolls: return "road.lanes.curved.left"
             }
         }
     }
@@ -91,6 +93,17 @@ struct ImportView: View {
     struct PendingImportData {
         let url: URL
         let type: ImportType
+    }
+
+    private func getImportDescription(for type: ImportType) -> String {
+        switch type {
+        case .shifts:
+            return "Import shift data from CSV files with trip details, earnings, and expenses."
+        case .expenses:
+            return "Import business expense records with categories, descriptions, and amounts."
+        case .tolls:
+            return "Import toll transaction data and automatically match tolls to existing shifts by date and time."
+        }
     }
     
     var body: some View {
@@ -124,15 +137,14 @@ struct ImportView: View {
                         .font(.title2)
                         .fontWeight(.semibold)
                     
-                    Text(importType == .shifts ? 
-                         "Import shift data from CSV files with trip details, earnings, and expenses." :
-                         "Import business expense records with categories, descriptions, and amounts.")
+                    Text(getImportDescription(for: importType))
                         .font(.body)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                     
                     Button("Select CSV File") {
+                        debugMessage("CSV file picker button pressed for import type: \(importType.rawValue)")
                         showingFilePicker = true
                     }
                     .buttonStyle(.borderedProminent)
@@ -157,6 +169,11 @@ struct ImportView: View {
                     Text("• Required columns: Date, Category, Description, Amount")
                     Text("• Categories: Vehicle, Equipment, Supplies, Amenities")
                     Text("• Flexible date format detection")
+                case .tolls:
+                    Text("• Toll authority CSV exports")
+                    Text("• Automatically matches transactions to shifts by time")
+                    Text("• Updates existing shift toll amounts")
+                    Text("• Requires: Transaction Date/Time, Transaction Amount")
                 }
                 
                 Text("• Duplicate handling options available")
@@ -206,21 +223,38 @@ struct ImportView: View {
     private func handleFileSelection(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
-            guard let url = urls.first else { return }
-            
+            debugMessage("File picker succeeded with \(urls.count) URLs")
+            guard let url = urls.first else {
+                debugMessage("File picker success but no URLs returned")
+                return
+            }
+            debugMessage("Selected file: \(url.lastPathComponent)")
+            debugMessage("File URL: \(url)")
+
             pendingImportData = PendingImportData(url: url, type: importType)
             
-            // Check if we have existing data that might cause duplicates
-            let hasExistingData = importType == .shifts ? !dataManager.shifts.isEmpty : !expenseManager.expenses.isEmpty
-            
-            if hasExistingData {
-                showingDuplicateOptions = true
-            } else {
-                duplicateAction = .merge
+            // Check if we have existing data that might cause duplicates (not applicable for tolls)
+            if importType == .tolls {
+                // Tolls update existing shifts, no duplicate handling needed
                 performImport()
+            } else {
+                let hasExistingData = importType == .shifts ? !dataManager.shifts.isEmpty : !expenseManager.expenses.isEmpty
+
+                if hasExistingData {
+                    showingDuplicateOptions = true
+                } else {
+                    duplicateAction = .merge
+                    performImport()
+                }
             }
             
         case .failure(let error):
+            debugMessage("File picker failed with error: \(error.localizedDescription)")
+            debugMessage("File picker error type: \(type(of: error))")
+            if let nsError = error as NSError? {
+                debugMessage("File picker error domain: \(nsError.domain), code: \(nsError.code)")
+                debugMessage("File picker error userInfo: \(nsError.userInfo)")
+            }
             importAlertTitle = "Import Failed"
             importMessage = "Failed to access file: \(error.localizedDescription)"
             showingImportAlert = true
@@ -235,6 +269,8 @@ struct ImportView: View {
             importShifts(from: pendingData.url)
         case .expenses:
             importExpenses(from: pendingData.url)
+        case .tolls:
+            importTolls(from: pendingData.url)
         }
         
         pendingImportData = nil
@@ -242,24 +278,24 @@ struct ImportView: View {
     
     private func importShifts(from url: URL) {
         debugPrint("Starting shift import from UI: \(url.lastPathComponent)")
-        let importResult = AppPreferences.importCSV(from: url)
-        
+        let importResult = CSVImportManager.importShifts(from: url)
+
         switch importResult {
         case .success(let csvResult):
             debugPrint("CSV import successful, processing \(csvResult.shifts.count) shifts with duplicate action: \(duplicateAction)")
             var addedCount = 0
             var updatedCount = 0
             var skippedCount = 0
-            
+
             for shift in csvResult.shifts {
                 let existingShiftIndex = dataManager.shifts.firstIndex { existingShift in
                     Calendar.current.isDate(existingShift.startDate, inSameDayAs: shift.startDate) &&
                     existingShift.startMileage == shift.startMileage
                 }
-                
+
                 let isDuplicate = existingShiftIndex != nil
                 debugPrint("Processing shift \(shift.startDate): duplicate=\(isDuplicate), action=\(duplicateAction)")
-                
+
                 switch duplicateAction {
                 case .merge:
                     dataManager.addShift(shift)
@@ -286,20 +322,20 @@ struct ImportView: View {
                     }
                 }
             }
-            
+
             var message = "Import completed:\n"
             if addedCount > 0 { message += "\n• Added: \(addedCount) shifts" }
             if updatedCount > 0 { message += "\n• Updated: \(updatedCount) shifts" }
             if skippedCount > 0 { message += "\n• Skipped: \(skippedCount) duplicates" }
-            
+
             debugPrint("Import completed: added=\(addedCount), updated=\(updatedCount), skipped=\(skippedCount)")
-            
+
             importAlertTitle = "Import Successful"
             importMessage = message
             showingImportAlert = true
-            
+
         case .failure(let error):
-            debugPrint("CSV import failed: \(error.localizedDescription)")
+            debugMessage("CSV import failed: \(error.localizedDescription)")
             importAlertTitle = "Import Failed"
             importMessage = error.localizedDescription
             showingImportAlert = true
@@ -307,66 +343,21 @@ struct ImportView: View {
     }
     
     private func importExpenses(from url: URL) {
-        // For expenses, we need to create a simple CSV parser since AppPreferences only handles shifts
-        do {
-            let csvContent = try String(contentsOf: url, encoding: .utf8)
-            let lines = csvContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
-            
-            guard lines.count > 1 else {
-                importAlertTitle = "Import Failed"
-                importMessage = "CSV file is empty or invalid"
-                showingImportAlert = true
-                return
-            }
-            
-            let headers = parseCSVLine(lines[0])
-            var expenses: [ExpenseItem] = []
-            let dateFormatter = DateFormatter()
-            
-            for i in 1..<lines.count {
-                let values = parseCSVLine(lines[i])
-                guard values.count >= headers.count else { continue }
-                
-                var date: Date?
-                var category: ExpenseCategory?
-                var description: String = ""
-                var amount: Double = 0
-                
-                for (index, header) in headers.enumerated() {
-                    guard index < values.count else { continue }
-                    let value = values[index].trimmingCharacters(in: .whitespaces)
-                    
-                    switch header.lowercased() {
-                    case "date":
-                        date = parseDateFromCSV(value, formatter: dateFormatter)
-                    case "category":
-                        category = ExpenseCategory(rawValue: value)
-                    case "description":
-                        description = value
-                    case "amount":
-                        amount = Double(value.replacingOccurrences(of: "$", with: "")) ?? 0
-                    default:
-                        break
-                    }
-                }
-                
-                if let date = date, let category = category, !description.isEmpty {
-                    let expense = ExpenseItem(date: date, category: category, description: description, amount: amount)
-                    expenses.append(expense)
-                }
-            }
-            
+        let importResult = CSVImportManager.importExpenses(from: url)
+
+        switch importResult {
+        case .success(let csvResult):
             var addedCount = 0
             var updatedCount = 0
             var skippedCount = 0
-            
-            for expense in expenses {
+
+            for expense in csvResult.expenses {
                 let existingExpenseIndex = expenseManager.expenses.firstIndex { existingExpense in
                     Calendar.current.isDate(existingExpense.date, inSameDayAs: expense.date) &&
                     existingExpense.category == expense.category &&
                     existingExpense.description == expense.description
                 }
-                
+
                 switch duplicateAction {
                 case .merge:
                     expenseManager.addExpense(expense)
@@ -388,69 +379,43 @@ struct ImportView: View {
                     }
                 }
             }
-            
+
             var message = "Import completed:\n"
             if addedCount > 0 { message += "\n• Added: \(addedCount) expenses" }
             if updatedCount > 0 { message += "\n• Updated: \(updatedCount) expenses" }
             if skippedCount > 0 { message += "\n• Skipped: \(skippedCount) duplicates" }
-            
+
             importAlertTitle = "Import Successful"
             importMessage = message
             showingImportAlert = true
-            
-        } catch {
+
+        case .failure(let error):
             importAlertTitle = "Import Failed"
-            importMessage = "Failed to read file: \(error.localizedDescription)"
+            importMessage = error.localizedDescription
             showingImportAlert = true
         }
     }
-    
-    private func parseCSVLine(_ line: String) -> [String] {
-        var result: [String] = []
-        var currentField = ""
-        var inQuotes = false
-        var i = line.startIndex
-        
-        while i < line.endIndex {
-            let char = line[i]
-            
-            if char == "\"" {
-                if inQuotes && i < line.index(before: line.endIndex) && line[line.index(after: i)] == "\"" {
-                    currentField += "\""
-                    i = line.index(after: i)
-                } else {
-                    inQuotes.toggle()
-                }
-            } else if char == "," && !inQuotes {
-                result.append(currentField)
-                currentField = ""
-            } else {
-                currentField += String(char)
+
+    private func importTolls(from url: URL) {
+        let importResult = CSVImportManager.importTolls(from: url, dataManager: dataManager)
+
+        switch importResult {
+        case .success(let tollResult):
+            importAlertTitle = "Toll Import Successful"
+            var message = "Import completed:\n\n• Processed: \(tollResult.transactions.count) toll transactions\n• Updated: \(tollResult.updatedShifts.count) shifts"
+            if tollResult.imagesGenerated > 0 {
+                message += "\n• Generated: \(tollResult.imagesGenerated) toll summary images"
             }
-            
-            i = line.index(after: i)
+            importMessage = message
+            showingImportAlert = true
+
+        case .failure(let error):
+            importAlertTitle = "Import Failed"
+            importMessage = error.localizedDescription
+            showingImportAlert = true
         }
-        
-        result.append(currentField)
-        return result
     }
-    
-    private func parseDateFromCSV(_ dateString: String, formatter: DateFormatter) -> Date? {
-        // Try common date formats, including two-digit years
-        let formats = [
-            "M/d/yy", "MM/dd/yy", "d/M/yy", "dd/MM/yy",  // Two-digit year formats (most common)
-            "M/d/yyyy", "MM/dd/yyyy", "d/M/yyyy", "dd/MM/yyyy",  // Four-digit year formats
-            "yyyy-MM-dd", "MMM d, yyyy", "dd-MM-yyyy", "yyyy/MM/dd"  // Other common formats
-        ]
-        
-        for format in formats {
-            formatter.dateFormat = format
-            if let date = formatter.date(from: dateString) {
-                return date
-            }
-        }
-        return nil
-    }
+
 }
 
 struct ExportView: View {
@@ -665,22 +630,4 @@ struct ExportView: View {
     }
 }
 
-// Document wrapper for file export
-struct DocumentFile: FileDocument {
-    static var readableContentTypes: [UTType] { [.commaSeparatedText, .json] }
-    
-    let url: URL
-    
-    init(url: URL) {
-        self.url = url
-    }
-    
-    init(configuration: ReadConfiguration) throws {
-        // This shouldn't be called for our use case
-        throw CocoaError(.fileReadCorruptFile)
-    }
-    
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        return try FileWrapper(url: url)
-    }
-}
+

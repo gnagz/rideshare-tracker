@@ -32,12 +32,28 @@ struct EndShiftView: View {
     @State private var odometerError = ""
     @State private var showEndDatePicker = false
     @State private var showEndTimePicker = false
+    @State private var showEndDateTextInput = false
+    @State private var endDateText = ""
+    @State private var showEndTimeTextInput = false
+    @State private var endTimeText = ""
+    @State private var showTankTextInput = false
+    @State private var tankText = ""
     @FocusState private var focusedField: FocusedField?
 
     // Photo attachment state
     @State private var selectedPhotos: [PhotosPickerItem] = []
     @State private var photoImages: [UIImage] = []
-    
+
+    // UIImagePickerController state
+    @State private var showingCameraPicker = false
+    @State private var showingPhotoLibraryPicker = false
+    @State private var showingImageSourceActionSheet = false
+
+    // Image viewer state
+    @State private var showingImageViewer = false
+    @State private var viewerImages: [UIImage] = []
+    @State private var viewerStartIndex: Int = 0
+
     enum FocusedField {
         case endMileage, refuelGallons, refuelCost, trips, netFare, tips, promotions, totalTolls, tollsReimbursed, parkingFees, miscFees
     }
@@ -66,6 +82,20 @@ struct EndShiftView: View {
         NavigationView {
             formContent
         }
+        .sheet(isPresented: $showingImageViewer) {
+            ImageViewerView(
+                images: $viewerImages,
+                startingIndex: viewerStartIndex,
+                isPresented: $showingImageViewer
+            )
+        }
+        .imagePickerSheets(
+            showingCameraPicker: $showingCameraPicker,
+            showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
+            onImageSelected: { image in
+                photoImages.append(image)
+            }
+        )
     }
     
     private var mainContent: some View {
@@ -88,11 +118,22 @@ struct EndShiftView: View {
                                 .cornerRadius(8)
                         }
                     }
+                    .accessibilityIdentifier("end_date_button")
                     
                     if showEndDatePicker {
-                        DatePicker("", selection: $endDate, displayedComponents: .date)
-                            .datePickerStyle(.graphical)
-                            .labelsHidden()
+                        VStack {
+                            DatePicker("", selection: $endDate, displayedComponents: .date)
+                                .datePickerStyle(.graphical)
+                                .labelsHidden()
+
+                            KeyboardInputUtility.keyboardInputButton(
+                                currentValue: preferences.formatDate(endDate),
+                                showingAlert: $showEndDateTextInput,
+                                inputText: $endDateText,
+                                accessibilityId: "end_date_text_input_button",
+                                accessibilityLabel: "Enter end date as text"
+                            )
+                        }
                     }
                     
                     Button(action: { showEndTimePicker.toggle() }) {
@@ -108,11 +149,22 @@ struct EndShiftView: View {
                                 .cornerRadius(8)
                         }
                     }
+                    .accessibilityIdentifier("end_time_button")
                     
                     if showEndTimePicker {
-                        DatePicker("", selection: $endDate, displayedComponents: .hourAndMinute)
-                            .datePickerStyle(.wheel)
-                            .labelsHidden()
+                        VStack {
+                            DatePicker("", selection: $endDate, displayedComponents: .hourAndMinute)
+                                .datePickerStyle(.wheel)
+                                .labelsHidden()
+
+                            KeyboardInputUtility.keyboardInputButton(
+                                currentValue: preferences.formatTime(endDate),
+                                showingAlert: $showEndTimeTextInput,
+                                inputText: $endTimeText,
+                                accessibilityId: "end_time_text_input_button",
+                                accessibilityLabel: "Enter end time as text"
+                            )
+                        }
                     }
                 }
                 
@@ -122,7 +174,7 @@ struct EndShiftView: View {
                         Spacer()
                         CalculatorTextField(placeholder: "Miles", value: Binding(
                             get: { Double(endMileage) ?? 0.0 },
-                            set: { newValue in 
+                            set: { newValue in
                                 endMileage = newValue > 0 ? String(newValue) : ""
                                 validateOdometerReading()
                             }
@@ -134,6 +186,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .endMileage ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("end_mileage_input")
                     }
                     
                     if !odometerError.isEmpty {
@@ -142,11 +195,8 @@ struct EndShiftView: View {
                             .font(.caption)
                     }
                     
-                    HStack {
-                        Text("Refueled Tank")
-                        Spacer()
-                        Toggle("", isOn: $didRefuel)
-                    }
+                    Toggle("Refueled Tank", isOn: $didRefuel)
+                        .accessibilityIdentifier("refueled_tank_toggle")
                     
                     if didRefuel {
                         HStack {
@@ -163,6 +213,7 @@ struct EndShiftView: View {
                                     RoundedRectangle(cornerRadius: 6)
                                         .stroke(focusedField == .refuelGallons ? Color.accentColor : Color.clear, lineWidth: 2)
                                 )
+                                .accessibilityIdentifier("gallons_filled_input")
                         }
                         HStack {
                             Text("Fuel Cost")
@@ -175,11 +226,27 @@ struct EndShiftView: View {
                                     RoundedRectangle(cornerRadius: 6)
                                         .stroke(focusedField == .refuelCost ? Color.accentColor : Color.clear, lineWidth: 2)
                                 )
+                                .accessibilityIdentifier("fuel_cost_input")
                         }
                     } else {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Tank Level")
-                                .font(.headline)
+                            HStack {
+                                Text("Tank Level")
+                                    .font(.headline)
+                                Spacer()
+                                Button(action: {
+                                    tankText = String(format: "%.0f", tankReading)
+                                    showTankTextInput = true
+                                }) {
+                                    Image(systemName: "keyboard")
+                                        .font(.title3)
+                                        .foregroundColor(.blue)
+                                }
+                                .accessibilityIdentifier("end_tank_text_input_button")
+                                .accessibilityLabel("Enter tank level as number")
+                                .padding(.trailing, 8)
+                            }
+
                             Picker("Tank Reading", selection: $tankReading) {
                                 ForEach(availableTankLevels, id: \.value) { level in
                                     Text(level.label).tag(level.value)
@@ -205,6 +272,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .trips ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("trip_count_input")
                     }
                     HStack {
                         Text("Net Fare")
@@ -217,6 +285,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .netFare ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("net_fare_input")
                     }
                     HStack {
                         Text("Promotions")
@@ -229,6 +298,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .promotions ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("promotions_input")
                     }
                     HStack {
                         Text("Tips")
@@ -241,6 +311,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .tips ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("tips_input")
                     }
                 }
                 
@@ -256,6 +327,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .totalTolls ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("tolls_input")
                     }
                     HStack {
                         Text("Tolls Reimbursed")
@@ -268,6 +340,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .tollsReimbursed ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("tolls_reimbursed_input")
                     }
                     HStack {
                         Text("Parking Fees")
@@ -280,6 +353,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .parkingFees ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("parking_fees_input")
                     }
                     HStack {
                         Text("Misc Fees")
@@ -292,49 +366,19 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .miscFees ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("misc_fees_input")
                     }
                 }
 
-                Section("Photos") {
-                    PhotosPicker(
-                        selection: $selectedPhotos,
-                        maxSelectionCount: 10,
-                        matching: .images
-                    ) {
-                        Label("Add Photos", systemImage: "camera.fill")
-                            .foregroundColor(.accentColor)
-                    }
-                    .onChange(of: selectedPhotos) { oldItems, newItems in
-                        Task {
-                            await loadSelectedPhotos(from: newItems)
-                        }
-                    }
-
-                    if !photoImages.isEmpty {
-                        Text("\(photoImages.count) photo\(photoImages.count == 1 ? "" : "s") selected")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-
-                    if !photoImages.isEmpty {
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
-                            ForEach(Array(photoImages.enumerated()), id: \.offset) { index, image in
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 80, height: 80)
-                                    .clipped()
-                                    .cornerRadius(8)
-                                    .onTapGesture {
-                                        // Remove photo on tap
-                                        photoImages.remove(at: index)
-                                        selectedPhotos.remove(at: index)
-                                    }
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
+                PhotosSection(
+                    photoImages: $photoImages,
+                    showingImageSourceActionSheet: $showingImageSourceActionSheet,
+                    showingCameraPicker: $showingCameraPicker,
+                    showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
+                    showingImageViewer: $showingImageViewer,
+                    viewerImages: $viewerImages,
+                    viewerStartIndex: $viewerStartIndex
+                )
             }
             .navigationTitle("End Shift")
             #if os(iOS)
@@ -357,8 +401,45 @@ struct EndShiftView: View {
                         endShift()
                     }
                     .disabled(endMileage.isEmpty || totalTrips.isEmpty || !odometerError.isEmpty)
+                    .accessibilityIdentifier("confirm_save_shift_button")
                 }
             })
+        .alert("Enter End Date", isPresented: $showEndDateTextInput) {
+            TextField(preferences.formatDate(Date()), text: $endDateText)
+                .keyboardType(.numbersAndPunctuation)
+            Button("Set Date") {
+                setEndDateFromText()
+            }
+            Button("Cancel", role: .cancel) {
+                endDateText = ""
+            }
+        } message: {
+            Text("Format: \(preferences.formatDate(Date()))")
+        }
+        .alert("Enter End Time", isPresented: $showEndTimeTextInput) {
+            TextField(preferences.formatTime(Date()), text: $endTimeText)
+                .keyboardType(.numbersAndPunctuation)
+            Button("Set Time") {
+                setEndTimeFromText()
+            }
+            Button("Cancel", role: .cancel) {
+                endTimeText = ""
+            }
+        } message: {
+            Text("Format: \(preferences.formatTime(Date()))")
+        }
+        .alert("Enter Tank Level", isPresented: $showTankTextInput) {
+            TextField("0 to 8", text: $tankText)
+                .keyboardType(.decimalPad)
+            Button("Set Level") {
+                setTankFromText()
+            }
+            Button("Cancel", role: .cancel) {
+                tankText = ""
+            }
+        } message: {
+            Text("Enter: 0 (Empty) to 8 (Full)")
+        }
     }
     
     
@@ -442,6 +523,69 @@ struct EndShiftView: View {
                     photoImages.append(image)
                 }
             }
+        }
+    }
+
+    private func setEndDateFromText() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = preferences.dateFormat
+
+        if let date = formatter.date(from: endDateText) {
+            print("✅ [EndShiftView] Date parsed successfully: '\(endDateText)' using format '\(preferences.dateFormat)'")
+            // Preserve the time from current endDate, only update the date part
+            let calendar = Calendar.current
+            let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+            let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: endDate)
+
+            var combinedComponents = DateComponents()
+            combinedComponents.year = dateComponents.year
+            combinedComponents.month = dateComponents.month
+            combinedComponents.day = dateComponents.day
+            combinedComponents.hour = timeComponents.hour
+            combinedComponents.minute = timeComponents.minute
+            combinedComponents.second = timeComponents.second
+
+            if let combinedDate = calendar.date(from: combinedComponents) {
+                endDate = combinedDate
+                showEndDatePicker = false
+                endDateText = ""
+            }
+        } else {
+            print("⚠️ [EndShiftView] Failed to parse date: '\(endDateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferences.formatDate(Date()))')")
+        }
+    }
+
+    private func setEndTimeFromText() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = preferences.timeFormat
+
+        if let time = formatter.date(from: endTimeText) {
+            print("✅ [EndShiftView] Time parsed successfully: '\(endTimeText)' using format '\(preferences.timeFormat)'")
+            let calendar = Calendar.current
+            let dateComponents = calendar.dateComponents([.year, .month, .day], from: endDate)
+            let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
+
+            var combinedComponents = DateComponents()
+            combinedComponents.year = dateComponents.year
+            combinedComponents.month = dateComponents.month
+            combinedComponents.day = dateComponents.day
+            combinedComponents.hour = timeComponents.hour
+            combinedComponents.minute = timeComponents.minute
+
+            if let combinedDate = calendar.date(from: combinedComponents) {
+                endDate = combinedDate
+                showEndTimePicker = false
+                endTimeText = ""
+            }
+        } else {
+            print("⚠️ [EndShiftView] Failed to parse time: '\(endTimeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferences.formatTime(Date()))')")
+        }
+    }
+
+    private func setTankFromText() {
+        if let tankValue = Double(tankText), tankValue >= 0 && tankValue <= 8 {
+            tankReading = tankValue
+            tankText = ""
         }
     }
 }

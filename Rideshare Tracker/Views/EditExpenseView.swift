@@ -24,17 +24,24 @@ struct EditExpenseView: View {
     @FocusState private var focusedField: FocusedField?
     
     // Photo attachment state
-    @State private var selectedPhotoItems: [PhotosPickerItem] = []
+    @State private var existingAttachments: [ImageAttachment] = []
     @State private var existingImages: [UIImage] = []
     @State private var newImages: [UIImage] = []
+
+    // UIImagePickerController state
+    @State private var showingCameraPicker = false
+    @State private var showingPhotoLibraryPicker = false
+    @State private var showingImageSourceActionSheet = false
+
+    // Image viewer state
     @State private var showingImageViewer = false
     @State private var viewerImages: [UIImage] = []
     @State private var viewerStartIndex: Int = 0
-    
+
     enum FocusedField {
         case description, amount
     }
-    
+
     init(expense: ExpenseItem, isSheet: Bool = true) {
         self.expense = expense
         self.isSheet = isSheet
@@ -42,6 +49,7 @@ struct EditExpenseView: View {
         _selectedCategory = State(initialValue: expense.category)
         _description = State(initialValue: expense.description)
         _amount = State(initialValue: expense.amount)
+        _existingAttachments = State(initialValue: expense.imageAttachments)
     }
     
     private var isFormValid: Bool {
@@ -65,6 +73,7 @@ struct EditExpenseView: View {
                                 saveChanges()
                             }
                             .disabled(!isFormValid)
+                            .accessibilityIdentifier("save_expense_button")
                         }
                         ToolbarItemGroup(placement: .keyboard) {
                             Spacer()
@@ -84,6 +93,7 @@ struct EditExpenseView: View {
                             saveChanges()
                         }
                         .disabled(!isFormValid)
+                        .accessibilityIdentifier("save_expense_button")
                     }
                     ToolbarItemGroup(placement: .keyboard) {
                         Spacer()
@@ -142,12 +152,13 @@ struct EditExpenseView: View {
                         .multilineTextAlignment(.trailing)
                         .frame(minWidth: 150)
                         .focused($focusedField, equals: .description)
+                        .accessibilityIdentifier("expense_description_input")
                         .overlay(
                             RoundedRectangle(cornerRadius: 6)
                                 .stroke(focusedField == .description ? Color.accentColor : Color.clear, lineWidth: 2)
                         )
                 }
-                
+
                 HStack {
                     Text("Amount")
                     Spacer()
@@ -155,6 +166,7 @@ struct EditExpenseView: View {
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 120)
                         .focused($focusedField, equals: .amount)
+                        .accessibilityIdentifier("expense_amount_input")
                         .overlay(
                             RoundedRectangle(cornerRadius: 6)
                                 .stroke(focusedField == .amount ? Color.accentColor : Color.clear, lineWidth: 2)
@@ -162,73 +174,59 @@ struct EditExpenseView: View {
                 }
             }
             
-            Section("Photos") {
-                PhotosPicker(
-                    selection: $selectedPhotoItems,
-                    maxSelectionCount: 5,
-                    matching: .images
-                ) {
-                    Label("Add More Photos", systemImage: "camera.fill")
-                        .foregroundColor(.blue)
-                }
-                .onChange(of: selectedPhotoItems) { oldItems, items in
-                    Task {
-                        await loadNewPhotos(from: items)
-                    }
-                }
-                
-                if !existingImages.isEmpty || !newImages.isEmpty {
-                    let allImages = existingImages + newImages
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: 12) {
-                            ForEach(0..<allImages.count, id: \.self) { index in
-                                ZStack(alignment: .topTrailing) {
-                                    Button(action: { showImage(at: index) }) {
-                                        Image(uiImage: allImages[index])
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 80, height: 80)
-                                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 8)
-                                                    .stroke(Color(.systemGray4), lineWidth: 1)
-                                            )
-                                    }
-                                    .buttonStyle(PlainButtonStyle())
-                                    
-                                    Button(action: { removeImage(at: index) }) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundColor(.red)
-                                            .background(Color.white, in: Circle())
-                                    }
-                                    .offset(x: 8, y: -8)
-                                }
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                }
-                
-                let totalImages = existingImages.count + newImages.count
-                if totalImages > 0 {
-                    Text("\(totalImages) photo\(totalImages == 1 ? "" : "s")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
+            PhotosSection(
+                photoImages: $newImages,
+                existingImages: $existingImages,
+                onDeleteExisting: { index in
+                    // Remove from working copy arrays (changes saved on Save button)
+                    let attachment = existingAttachments[index]
+                    existingAttachments.remove(at: index)
+                    existingImages.remove(at: index)
+
+                    // Delete the physical file
+                    ImageManager.shared.deleteImage(attachment, for: expense.id, parentType: .expense)
+                },
+                showingImageSourceActionSheet: $showingImageSourceActionSheet,
+                showingCameraPicker: $showingCameraPicker,
+                showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
+                showingImageViewer: $showingImageViewer,
+                viewerImages: $viewerImages,
+                viewerStartIndex: $viewerStartIndex
+            )
         }
         .onAppear {
             loadExistingImages()
         }
         .sheet(isPresented: $showingImageViewer) {
-            if !viewerImages.isEmpty {
-                ImageViewerView(
-                    images: viewerImages,
-                    startingIndex: viewerStartIndex,
-                    isPresented: $showingImageViewer
-                )
+            Group {
+                if !viewerImages.isEmpty {
+                    ImageViewerView(
+                        images: $viewerImages,
+                        startingIndex: viewerStartIndex,
+                        isPresented: $showingImageViewer
+                    )
+                    .onAppear {
+                        debugMessage("EditExpenseView sheet: ImageViewerView appeared with \(viewerImages.count) images, startIndex=\(viewerStartIndex)")
+                    }
+                } else {
+                    Text("No images for expense viewer")
+                        .foregroundColor(.white)
+                        .onAppear {
+                            debugMessage("EditExpenseView sheet: Empty state - viewerImages.count=\(viewerImages.count)")
+                        }
+                }
+            }
+            .onAppear {
+                debugMessage("EditExpenseView sheet: Sheet opened - showingImageViewer=\(showingImageViewer), viewerImages.count=\(viewerImages.count)")
             }
         }
+        .imagePickerSheets(
+            showingCameraPicker: $showingCameraPicker,
+            showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
+            onImageSelected: { image in
+                newImages.append(image)
+            }
+        )
     }
     
     private func saveChanges() {
@@ -237,7 +235,10 @@ struct EditExpenseView: View {
         updatedExpense.category = selectedCategory
         updatedExpense.description = description
         updatedExpense.amount = amount
-        
+
+        // Handle photo changes - sync working copy back to expense
+        updatedExpense.imageAttachments = existingAttachments
+
         // Save new attached images
         for image in newImages {
             do {
@@ -254,67 +255,30 @@ struct EditExpenseView: View {
                 // Continue saving expense even if image fails
             }
         }
-        
+
         expenseManager.updateExpense(updatedExpense)
         presentationMode.wrappedValue.dismiss()
     }
     
     private func loadExistingImages() {
+        debugMessage("EditExpenseView loadExistingImages: Starting with \(existingAttachments.count) attachments")
         existingImages.removeAll()
-        
-        for attachment in expense.imageAttachments {
+
+        for (index, attachment) in existingAttachments.enumerated() {
+            debugMessage("EditExpenseView loadExistingImages: Loading attachment \(index): \(attachment.filename)")
             if let image = ImageManager.shared.loadImage(
                 for: expense.id,
                 parentType: .expense,
                 filename: attachment.filename
             ) {
                 existingImages.append(image)
+                debugMessage("EditExpenseView loadExistingImages: Successfully loaded \(attachment.filename)")
+            } else {
+                debugMessage("EditExpenseView loadExistingImages: Failed to load \(attachment.filename)")
             }
         }
-    }
-    
-    private func loadNewPhotos(from items: [PhotosPickerItem]) async {
-        newImages.removeAll()
-        
-        for item in items {
-            if let data = try? await item.loadTransferable(type: Data.self),
-               let image = UIImage(data: data) {
-                await MainActor.run {
-                    newImages.append(image)
-                }
-            }
-        }
-    }
-    
-    private func showImage(at index: Int) {
-        let allImages = existingImages + newImages
-        viewerImages = allImages
-        viewerStartIndex = index
-        showingImageViewer = true
-    }
-    
-    private func removeImage(at index: Int) {
-        let existingCount = existingImages.count
-        
-        if index < existingCount {
-            // Removing existing image - need to delete from expense and disk
-            let attachment = expense.imageAttachments[index]
-            ImageManager.shared.deleteImage(attachment, for: expense.id, parentType: .expense)
-            
-            // Update the expense in the data manager
-            var updatedExpense = expense
-            updatedExpense.imageAttachments.remove(at: index)
-            expenseManager.updateExpense(updatedExpense)
-            
-            existingImages.remove(at: index)
-        } else {
-            // Removing new image - just remove from array
-            let newImageIndex = index - existingCount
-            newImages.remove(at: newImageIndex)
-            if newImageIndex < selectedPhotoItems.count {
-                selectedPhotoItems.remove(at: newImageIndex)
-            }
-        }
+
+        debugMessage("EditExpenseView loadExistingImages: Final existingImages.count=\(existingImages.count)")
     }
     
     private func hideKeyboard() {

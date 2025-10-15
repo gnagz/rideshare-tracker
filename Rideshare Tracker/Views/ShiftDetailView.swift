@@ -18,6 +18,9 @@ struct ShiftDetailView: View {
     @State private var showingImageViewer = false
     @State private var selectedImageIndex = 0
     @State private var loadedImages: [UIImage] = []
+    @State private var isLoadingImages = false
+    @State private var viewerImages: [UIImage] = []
+    @Environment(\.dismiss) private var dismiss
     
     private func formatDateTime(_ date: Date) -> String {
         return "\(preferences.formatDate(date)) \(preferences.formatTime(date))"
@@ -37,11 +40,11 @@ struct ShiftDetailView: View {
     }
 
     private var yearTotalDeductibleTips: Double {
-        RideshareShift.calculateYearTotalDeductibleTips(shifts: dataManager.shifts, year: currentYear)
+        RideshareShift.calculateYearTotalDeductibleTips(shifts: dataManager.shifts, year: currentYear, tipDeductionEnabled: preferences.tipDeductionEnabled)
     }
 
     private var yearTotalMileageDeduction: Double {
-        yearToDateShifts.reduce(0) { $0 + $1.deductibleExpenses(mileageRate: preferences.standardMileageRate) }
+        RideshareShift.calculateYearTotalMileageDeduction(shifts: dataManager.shifts, year: currentYear, mileageRate: preferences.standardMileageRate)
     }
     
     private var yearTotalExpensesWithoutVehicle: Double {
@@ -80,6 +83,40 @@ struct ShiftDetailView: View {
             .filter { calendar.component(.year, from: $0.date) == currentYear }
             .reduce(0) { $0 + $1.amount }
     }
+
+    // MARK: - Shift Navigation Helpers
+
+    /// Get the previous shift in chronological order
+    private var previousShift: RideshareShift? {
+        // Get all shifts before this one, sorted by date descending
+        return dataManager.shifts
+            .filter { $0.startDate < shift.startDate }
+            .sorted { $0.startDate > $1.startDate }
+            .first
+    }
+
+    /// Get the next shift in chronological order
+    private var nextShift: RideshareShift? {
+        // Get all shifts after this one, sorted by date ascending
+        return dataManager.shifts
+            .filter { $0.startDate > shift.startDate }
+            .sorted { $0.startDate < $1.startDate }
+            .first
+    }
+
+    /// Navigate to the previous shift
+    private func navigateToPreviousShift() {
+        if let previous = previousShift {
+            shift = previous
+        }
+    }
+
+    /// Navigate to the next shift
+    private func navigateToNextShift() {
+        if let next = nextShift {
+            shift = next
+        }
+    }
     
     var body: some View {
         GeometryReader { geometry in
@@ -87,11 +124,41 @@ struct ShiftDetailView: View {
             
             ScrollView {
                 VStack(spacing: 20) {
-                    // Header with date
+                    // Header with date and navigation buttons
                     VStack(spacing: 8) {
-                        Text(formatDateTime(shift.startDate))
-                            .font(.title2)
-                            .foregroundColor(.secondary)
+                        HStack {
+                            // Previous shift button
+                            Button(action: navigateToPreviousShift) {
+                                Image(systemName: "chevron.left")
+                                    .font(.title2)
+                                    .foregroundColor(previousShift == nil ? .gray.opacity(0.3) : .blue)
+                            }
+                            .disabled(previousShift == nil)
+                            .accessibilityLabel("Previous Shift")
+
+                            Spacer()
+
+                            Text(formatDateTime(shift.startDate))
+                                .font(.title2)
+                                .foregroundColor(.secondary)
+
+                            Spacer()
+
+                            // Next shift button (hidden if viewing most recent shift)
+                            if nextShift != nil {
+                                Button(action: navigateToNextShift) {
+                                    Image(systemName: "chevron.right")
+                                        .font(.title2)
+                                        .foregroundColor(.blue)
+                                }
+                                .accessibilityLabel("Next Shift")
+                            } else {
+                                // Invisible placeholder to keep layout balanced
+                                Image(systemName: "chevron.right")
+                                    .font(.title2)
+                                    .opacity(0)
+                            }
+                        }
                     }
                     .padding()
                     
@@ -162,10 +229,15 @@ struct ShiftDetailView: View {
         }
         .sheet(isPresented: $showingImageViewer) {
             ImageViewerView(
-                images: loadedImages,
+                images: $viewerImages,
                 startingIndex: selectedImageIndex,
                 isPresented: $showingImageViewer
             )
+            .onAppear {
+                if viewerImages.isEmpty {
+                    viewerImages = loadShiftImages()
+                }
+            }
         }
     }
     
@@ -431,9 +503,11 @@ struct ShiftDetailView: View {
                                 )
                         }
                         .onTapGesture {
-                            selectedImageIndex = shift.imageAttachments.firstIndex(of: attachment) ?? 0
-                            Task {
-                                await loadImagesForViewer()
+                            // Prevent multiple taps while sheet is already showing
+                            guard !showingImageViewer else { return }
+
+                            if let attachmentIndex = shift.imageAttachments.firstIndex(of: attachment) {
+                                showImage(at: attachmentIndex)
                             }
                         }
                     }
@@ -450,20 +524,23 @@ struct ShiftDetailView: View {
     }
 
     @MainActor
-    private func loadImagesForViewer() async {
-        loadedImages.removeAll()
+    private func loadShiftImages() -> [UIImage] {
 
-        for attachment in shift.imageAttachments {
-            let url = attachment.fileURL(for: shift.id, parentType: .shift)
-            if let data = try? Data(contentsOf: url),
-               let image = UIImage(data: data) {
-                loadedImages.append(image)
+        var images: [UIImage] = []
+
+        for (_, attachment) in shift.imageAttachments.enumerated() {
+
+            if let image = ImageManager.shared.loadImage(
+                for: shift.id,
+                parentType: .shift,
+                filename: attachment.filename
+            ) {
+                images.append(image)
+            } else {
             }
         }
 
-        if !loadedImages.isEmpty {
-            showingImageViewer = true
-        }
+        return images
     }
 
     private func tankLevelText(_ reading: Double) -> String {
@@ -479,6 +556,17 @@ struct ShiftDetailView: View {
         case 8.0: return "F"
         default: return "\(Int(reading))/8"
         }
+    }
+
+    private func showImage(at index: Int) {
+        let shiftImages = loadShiftImages()
+        ImageViewingUtilities.showImageViewer(
+            images: shiftImages,
+            startIndex: index,
+            viewerImages: $viewerImages,
+            viewerStartIndex: $selectedImageIndex,
+            showingImageViewer: $showingImageViewer
+        )
     }
 }
 
