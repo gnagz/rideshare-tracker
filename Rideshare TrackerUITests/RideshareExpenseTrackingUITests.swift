@@ -12,6 +12,80 @@ import XCTest
 /// Eliminates over-execution: ExpenseItem.init() hits by ~80%
 final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
 
+    // MARK: - Class Setup/Teardown
+
+    /// Clean up test data before tests start (ensures clean slate)
+    override class func setUp() {
+        super.setUp()
+        cleanupExpensesViaUI()
+    }
+
+    /// Clean up test data after all tests in this class complete
+    override class func tearDown() {
+        super.tearDown()
+        cleanupExpensesViaUI()
+    }
+
+    /// Helper to delete all expenses via UI
+    private static func cleanupExpensesViaUI() {
+        // Delete expenses via UI (we can't access managers directly from UI tests)
+        let app = XCUIApplication()
+        app.launch()
+
+        // Navigate to Expenses tab
+        let expensesTab = app.buttons["Expenses"]
+        if expensesTab.waitForExistence(timeout: 5) {
+            expensesTab.tap()
+            Thread.sleep(forTimeInterval: 1)
+
+            var totalDeleted = 0
+
+            // Delete expenses from current month and navigate back through previous months
+            for monthOffset in 0..<6 { // Check current month + 5 previous months (covers test data)
+                if monthOffset > 0 {
+                    // Navigate to previous month using left chevron
+                    let leftChevron = app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'chevron.left' OR label CONTAINS 'chevron.left' OR identifier CONTAINS 'left' OR label CONTAINS 'left'")).firstMatch
+                    if leftChevron.exists {
+                        leftChevron.tap()
+                        Thread.sleep(forTimeInterval: 0.5)
+                    } else {
+                        // Try finding by position (first few buttons)
+                        let allButtons = app.buttons.allElementsBoundByIndex
+                        if let backButton = allButtons.first(where: { $0.identifier.isEmpty && $0.label.isEmpty }) {
+                            backButton.tap()
+                            Thread.sleep(forTimeInterval: 0.5)
+                        } else {
+                            break // Can't navigate further back
+                        }
+                    }
+                }
+
+                // Delete all expenses in current month view
+                var monthDeletedCount = 0
+                while app.cells.count > 0 && monthDeletedCount < 20 { // Max 20 per month
+                    let firstCell = app.cells.firstMatch
+                    if firstCell.exists {
+                        firstCell.swipeLeft()
+                        Thread.sleep(forTimeInterval: 0.3)
+
+                        let deleteButton = app.buttons["Delete"]
+                        if deleteButton.waitForExistence(timeout: 2) {
+                            deleteButton.tap()
+                            monthDeletedCount += 1
+                            totalDeleted += 1
+                            Thread.sleep(forTimeInterval: 0.3)
+                        } else {
+                            break
+                        }
+                    } else {
+                        break
+                    }
+                }
+            }
+
+            print("🧹 Cleaned up \(totalDeleted) test expenses via UI")
+        }
+    }
 
     // MARK: - Core Expense Workflow Tests (Consolidates 5 → 2 tests)
 
@@ -101,7 +175,7 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
         enterText("25.50", in: finalAmountField, app: app)
 
         // Try to find description field using shared helper
-        let descriptionField = findTextField(keyword: "description", in: app)
+        let descriptionField = findTextField(keyword: "expense_description_input", in: app)
         if descriptionField.exists {
             enterText("Test Expense", in: descriptionField, app: app)
         } else {
@@ -169,8 +243,8 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
         let saveButton = findButton(keyword: "Save", in: app)
         XCTAssertFalse(saveButton.isEnabled, "Button should be disabled with empty fields")
 
-        // Test text field discovery using flexible patterns
-        let amountField = findTextField(keyword: "amount", in: app)
+        // Test text field discovery using accessibility identifiers
+        let amountField = findTextField(keyword: "expense_amount_input", in: app)
 
         // Test invalid input validation
         waitAndTap(amountField)
@@ -189,12 +263,14 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
         amountField.clearText()
         enterText("123", in: amountField, app: app)
 
-        // Test description field discovery
-        let descriptionField = findTextField(keyword: "description", in: app)
+        // Test description field discovery using accessibility identifier
+        let descriptionField = findTextField(keyword: "expense_description_input", in: app)
 
         // Test empty description validation (ensure field is properly focused)
         waitAndTap(descriptionField)
+        captureScreenshot(named: "before_empty_description_entry", in: app)
         enterText("", in: descriptionField, app: app)
+        captureScreenshot(named: "after_empty_description_entry", in: app)
 
         // Graceful validation check - button state may vary
         if !saveButton.isEnabled {
@@ -273,10 +349,10 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
         waitAndTap(addExpenseButton)
 
         if app.navigationBars["Add Expense"].waitForExistence(timeout: 3) {
-            let amountField = findTextField(keyword: "amount", in: app)
+            let amountField = findTextField(keyword: "expense_amount_input", in: app)
             enterText("50.00", in: amountField, app: app)
 
-            let descriptionField = findTextField(keyword: "description", in: app)
+            let descriptionField = findTextField(keyword: "expense_description_input", in: app)
             enterText("Edit Test Expense", in: descriptionField, app: app)
 
             let saveButton = findButton(keyword: "save_expense_button", keyword2: "Save", in: app)
@@ -295,7 +371,7 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
             }
 
             // If we're in edit mode, modify the expense
-            let amountField = findTextField(keyword: "amount", in: app)
+            let amountField = findTextField(keyword: "expense_amount_input", in: app)
             if amountField.exists {
                 enterText("75.00", in: amountField, app: app)
 
@@ -338,10 +414,10 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
         waitAndTap(addExpenseButton)
 
         if app.navigationBars["Add Expense"].waitForExistence(timeout: 3) {
-            let amountField = findTextField(keyword: "amount", in: app)
+            let amountField = findTextField(keyword: "expense_amount_input", in: app)
             enterText("100.00", in: amountField, app: app)
 
-            let descriptionField = findTextField(keyword: "description", in: app)
+            let descriptionField = findTextField(keyword: "expense_description_input", in: app)
             enterText("Detail Test Expense", in: descriptionField, app: app)
 
             let saveButton = findButton(keyword: "save_expense_button", keyword2: "Save", in: app)
@@ -394,10 +470,10 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
         XCTAssertTrue(app.navigationBars["Add Expense"].waitForExistence(timeout: 3))
 
         // Add required data
-        let amountField = findTextField(keyword: "amount", in: app)
+        let amountField = findTextField(keyword: "expense_amount_input", in: app)
         enterText("200.00", in: amountField, app: app)
 
-        let descriptionField = findTextField(keyword: "description", in: app)
+        let descriptionField = findTextField(keyword: "expense_description_input", in: app)
         enterText("Receipt Test Expense", in: descriptionField, app: app)
 
         // Test receipt attachment using proper accessibility identifier

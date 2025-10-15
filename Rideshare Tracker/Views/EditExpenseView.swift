@@ -152,12 +152,13 @@ struct EditExpenseView: View {
                         .multilineTextAlignment(.trailing)
                         .frame(minWidth: 150)
                         .focused($focusedField, equals: .description)
+                        .accessibilityIdentifier("expense_description_input")
                         .overlay(
                             RoundedRectangle(cornerRadius: 6)
                                 .stroke(focusedField == .description ? Color.accentColor : Color.clear, lineWidth: 2)
                         )
                 }
-                
+
                 HStack {
                     Text("Amount")
                     Spacer()
@@ -165,6 +166,7 @@ struct EditExpenseView: View {
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 120)
                         .focused($focusedField, equals: .amount)
+                        .accessibilityIdentifier("expense_amount_input")
                         .overlay(
                             RoundedRectangle(cornerRadius: 6)
                                 .stroke(focusedField == .amount ? Color.accentColor : Color.clear, lineWidth: 2)
@@ -199,7 +201,7 @@ struct EditExpenseView: View {
             Group {
                 if !viewerImages.isEmpty {
                     ImageViewerView(
-                        images: viewerImages,
+                        images: $viewerImages,
                         startingIndex: viewerStartIndex,
                         isPresented: $showingImageViewer
                     )

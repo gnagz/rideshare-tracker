@@ -6,22 +6,59 @@
 //
 
 import XCTest
+import Foundation
 
 // MARK: - XCUIElement Extensions
 
 extension XCUIElement {
     /// Clear all text from this element
-    func clearText() {
+    func clearText(timeout: TimeInterval = 2.0) {
+        // Get the label, defaulting to "text field" if nil or empty
+        let fieldLabel = label.isEmpty ? "text field" : label
         
         guard let stringValue = value as? String else {
+            debugMessage("Clear \(fieldLabel) of current value: 'nil'")
             return
         }
+        
+        debugMessage("Clear \(fieldLabel) of current value: '\(stringValue)'")
 
-        let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: stringValue.count)
+        // Clear existing text first to ensure clean input
+        let characterCount = stringValue.count
+        debugMessage("⚙️ Attempt to clear \(fieldLabel) using Cmd+A delete + \(characterCount) right arrows + \(characterCount) delete keys")
+
+        // First, use Cmd+A and one delete to clear selection - quickest if it works
+        typeKey("a", modifierFlags: .command)
+        typeText(XCUIKeyboardKey.delete.rawValue)
+
+        // AGGRESSIVE CLEAR: Move cursor to end, then send many delete keys
+        let rightArrowString = String(repeating: XCUIKeyboardKey.rightArrow.rawValue, count: characterCount)
+        typeText(rightArrowString)
+
+        let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: characterCount)
         typeText(deleteString)
+
+        // Poll for updated value
+        let startTime = Date()
+        var currentValue = value as? String
+        while currentValue != nil && !currentValue!.isEmpty && Date().timeIntervalSince(startTime) < timeout {
+            currentValue = value as? String
+            Thread.sleep(forTimeInterval: 0.1) // Small polling interval
+        }
+        
+        guard let clearedValue = value as? String else {
+            debugMessage("✅ After clearing, \(fieldLabel) value is nil.")
+            return
+        }
+        let clearedValueCharacterCount = clearedValue.count
+        if clearedValueCharacterCount == 0 {
+            debugMessage("✅ After clearing, \(fieldLabel) value is empty.")
+            return
+        }
+        
+        debugMessage("❌ After clearing, \(fieldLabel) value is still not empty. Current value: '\(value as? String ?? "")'")
     }
 }
-
 /// Shared base class for all Rideshare Tracker UI tests
 /// Provides common utilities, debug helpers, and lightweight test fixtures
 /// to reduce redundant business logic execution in UI tests
@@ -55,16 +92,73 @@ class RideshareTrackerUITestBase: XCTestCase {
 //        }
     }
 
+    /// Capture and attach a screenshot with a descriptive name
+    /// The screenshot name will be: testName_description (e.g., "testExpenseFormValidation_before_empty_description")
+    @MainActor
+    func captureScreenshot(named description: String, in app: XCUIApplication, function: String = #function) {
+        let screenshot = app.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        // Extract test function name (remove parentheses and parameters)
+        let testName = function.components(separatedBy: "(").first ?? function
+        attachment.name = "\(testName)_\(description)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        debugMessage("📸 Screenshot captured: \(attachment.name)")
+    }
+
+    /// Get the actual field value, accounting for placeholder text
+    /// Returns nil if the field is empty (showing only placeholder)
+    /// Workaround for XCTest behavior since Xcode 9 where `value` returns placeholderValue when field is empty
+    @MainActor
+    func fieldValue(_ textField: XCUIElement) -> String? {
+        let value = textField.value as? String ?? ""
+        let placeholder = textField.placeholderValue ?? ""
+
+        // If value equals placeholder, the field is actually empty (XCTest quirk)
+        if value == placeholder {
+            return nil
+        }
+
+        // If value is empty, field is empty
+        if value.isEmpty {
+            return nil
+        }
+
+        return value
+    }
+
     // MARK: - App Launch and Configuration
 
     /// Configure XCUIApplication with proper test arguments and launch
     @MainActor
-    func launchApp() -> XCUIApplication {
+    func launchApp(testName: String = #function) -> XCUIApplication {
         debugMessage("Launching app...")
         let app = XCUIApplication()
+
+        // Pass test name to app so it can display it
+        let cleanName = testName.components(separatedBy: "(").first ?? testName
+        app.launchArguments.append("-testName")
+        app.launchArguments.append(cleanName)
+
         configureTestApp(app)
         app.launch()
         debugMessage("App launched successfully")
+
+        // Wait for and dismiss the test name alert
+        let alert = app.alerts.firstMatch
+        if alert.waitForExistence(timeout: 3) {
+            debugMessage("🔔 Test name alert displayed: \(cleanName)")
+            // Wait 3 seconds for user to see the test name
+            Thread.sleep(forTimeInterval: 3.0)
+
+            // Dismiss the alert by tapping OK button
+            let okButton = alert.buttons["OK"]
+            if okButton.exists {
+                okButton.tap()
+                debugMessage("Test name alert dismissed")
+            }
+        }
+
         return app
     }
 
@@ -234,11 +328,22 @@ class RideshareTrackerUITestBase: XCTestCase {
         debugMessage("Field tapped, clearing existing text and typing new text...")
 
         // Clear existing text first to ensure clean input
-        let existingText = textField.value as? String ?? ""
-        if !existingText.isEmpty {
-            debugMessage("Clearing existing text: '\(existingText)'")
-            textField.clearText()
-        }
+        // AGGRESSIVE CLEAR: Move cursor to end, then send many delete keys
+        // Delete key only works when cursor is positioned after text
+
+        // First, use Cmd+A and one delete to clear selection
+        textField.typeKey("a", modifierFlags: .command)
+        textField.typeText(XCUIKeyboardKey.delete.rawValue)
+
+        // Move cursor to the right (end of any remaining text) - use 20 to cover reasonable field lengths
+        let rightArrowString = String(repeating: XCUIKeyboardKey.rightArrow.rawValue, count: 20)
+        textField.typeText(rightArrowString)
+
+        // Now send delete keys to clear everything from right to left - 20 should be enough
+        let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: 20)
+        textField.typeText(deleteString)
+
+        debugMessage("✅ Cleared using Cmd+A delete + 20 right arrows + 20 delete keys")
 
         textField.typeText(text)
         debugMessage("Text typed. Field value after typing: '\(textField.value ?? "nil")'")
@@ -263,7 +368,27 @@ class RideshareTrackerUITestBase: XCTestCase {
 
         let keyboardCount = app.keyboards.count
         debugMessage("Keyboard dismissal complete. Keyboards remaining: \(keyboardCount)")
-        debugMessage("Final field value: '\(textField.value ?? "nil")'")
+
+        // Brief pause to allow field value to update after keyboard dismissal
+        Thread.sleep(forTimeInterval: 0.3)
+
+        // Verify field value matches expected text (accounting for formatting and placeholders)
+        let actualValue = fieldValue(textField) ?? ""
+        debugMessage("Final field value: '\(actualValue)' (expected: '\(text)')")
+
+        // Try numeric comparison first (strips formatting like "$" and ",")
+        let cleanActualValue = actualValue.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: "$", with: "").trimmingCharacters(in: .whitespaces)
+        let cleanExpectedValue = text.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: "$", with: "").trimmingCharacters(in: .whitespaces)
+
+        // If both can be parsed as numbers, use numeric comparison
+        if let actualDouble = Double(cleanActualValue), let expectedDouble = Double(cleanExpectedValue) {
+            XCTAssertEqual(actualDouble, expectedDouble, accuracy: 0.001, "Field value '\(actualValue)' does not match expected '\(text)' (numeric comparison). Field identifier: '\(textField.identifier)'")
+            debugMessage("✅ Field value verified: '\(actualValue)' matches expected '\(text)' (numeric)")
+        } else {
+            // Otherwise use string comparison
+            XCTAssertEqual(actualValue, text, "Field value '\(actualValue)' does not match expected '\(text)'. Field identifier: '\(textField.identifier)'")
+            debugMessage("✅ Field value verified: '\(actualValue)' matches expected '\(text)' (string)")
+        }
     }
 
     /// Dismiss keyboard if present
@@ -310,6 +435,77 @@ class RideshareTrackerUITestBase: XCTestCase {
             debugMessage("❌ TIMEOUT: Element did not appear within \(timeout) seconds")
         }
         XCTAssertTrue(exists, "Element should exist within \(timeout) seconds", file: file, line: line)
+    }
+
+    // MARK: - Date/Time Format Helpers
+
+    /// Infer date format string from a placeholder example
+    /// Matches formats from PreferencesView.swift:
+    /// - "M/d/yyyy" (US Format)
+    /// - "MMM d, yyyy" (Written Format)
+    /// - "d/M/yyyy" (International Format)
+    /// - "yyyy-MM-dd" (ISO Format)
+    ///
+    /// - Parameter placeholder: Example date string showing today's date
+    /// - Returns: DateFormatter format string
+    func inferDateFormat(from placeholder: String) -> String {
+        if placeholder.contains("-") {
+            // ISO Format: "2025-10-10"
+            return "yyyy-MM-dd"
+        } else if placeholder.contains(",") {
+            // Written Format: "Oct 10, 2025" or "Jan 1, 2025"
+            return "MMM d, yyyy"
+        } else if placeholder.contains("/") {
+            // Could be US (M/d/yyyy) or International (d/M/yyyy)
+            // Placeholder shows today's date, so use current date to determine format
+            let today = Date()
+            let calendar = Calendar.current
+            let currentMonth = calendar.component(.month, from: today)
+            let currentDay = calendar.component(.day, from: today)
+
+            // Split the placeholder (e.g., "10/10/2025" -> ["10", "10", "2025"])
+            let components = placeholder.split(separator: "/").compactMap { Int($0) }
+            guard components.count >= 2 else {
+                return "M/d/yyyy" // Fallback
+            }
+
+            let firstNum = components[0]
+            let secondNum = components[1]
+
+            if currentMonth != currentDay {
+                // Easy case: month and day are different
+                if firstNum == currentMonth {
+                    return "M/d/yyyy" // US Format (month first)
+                } else if secondNum == currentMonth {
+                    return "d/M/yyyy" // International Format (day first)
+                }
+            } else {
+                // Edge case: month == day (e.g., Oct 10 = 10/10)
+                // Use current month as tie-breaker: which position has the current month number?
+                if firstNum == currentMonth {
+                    return "M/d/yyyy" // Assume US Format
+                } else if secondNum == currentMonth {
+                    return "d/M/yyyy" // Assume International Format
+                }
+            }
+
+            // Fallback to US format
+            return "M/d/yyyy"
+        }
+
+        // Fallback to US format
+        return "M/d/yyyy"
+    }
+
+    /// Infer time format string from a placeholder example
+    func inferTimeFormat(from placeholder: String) -> String {
+        if placeholder.uppercased().contains("AM") || placeholder.uppercased().contains("PM") {
+            // 12-hour format: "6:30 PM"
+            return "h:mm a"
+        } else {
+            // 24-hour format: "18:30"
+            return "HH:mm"
+        }
     }
 
     // MARK: - Lightweight Test Data Creation

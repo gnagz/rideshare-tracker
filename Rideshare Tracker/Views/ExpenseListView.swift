@@ -335,7 +335,7 @@ struct ExpenseRowView: View {
         .sheet(isPresented: $showingImageViewer) {
             if !thumbnailImages.isEmpty {
                 ImageViewerView(
-                    images: thumbnailImages,
+                    images: $thumbnailImages,
                     startingIndex: 0,
                     isPresented: $showingImageViewer
                 )

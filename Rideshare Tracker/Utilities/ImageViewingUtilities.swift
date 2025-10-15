@@ -31,7 +31,12 @@ struct ImageViewingUtilities {
         if !images.isEmpty && startIndex < images.count {
             viewerImages.wrappedValue = images
             viewerStartIndex.wrappedValue = startIndex
-            showingImageViewer.wrappedValue = true
+
+            // Delay showing the sheet to allow state to propagate
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                showingImageViewer.wrappedValue = true
+            }
+
             debugMessage("ImageViewingUtilities showImageViewer: Set up viewer with \(images.count) images, starting at \(startIndex)")
         } else {
             debugMessage("ImageViewingUtilities showImageViewer: No images available or invalid index \(startIndex)")
@@ -77,7 +82,7 @@ struct ImageViewingUtilities {
 /// View modifier for common image viewer sheet presentation
 struct ImageViewerSheet: ViewModifier {
     @Binding var isPresented: Bool
-    let images: [UIImage]
+    @Binding var images: [UIImage]
     let startIndex: Int
 
     func body(content: Content) -> some View {
@@ -85,7 +90,7 @@ struct ImageViewerSheet: ViewModifier {
             .sheet(isPresented: $isPresented) {
                 if !images.isEmpty {
                     ImageViewerView(
-                        images: images,
+                        images: $images,
                         startingIndex: startIndex,
                         isPresented: $isPresented
                     )
@@ -98,7 +103,7 @@ extension View {
     /// Adds an image viewer sheet to the view
     func imageViewerSheet(
         isPresented: Binding<Bool>,
-        images: [UIImage],
+        images: Binding<[UIImage]>,
         startIndex: Int = 0
     ) -> some View {
         self.modifier(ImageViewerSheet(
@@ -157,6 +162,8 @@ struct AddPhotoButton: View {
             Label("Add Photos", systemImage: "camera.fill")
                 .foregroundColor(.accentColor)
         }
+        .accessibilityIdentifier("add_photo_button")
+        .accessibilityLabel("Add Photos")
         .confirmationDialog("Add Photo", isPresented: $showingImageSourceActionSheet) {
             if UIImagePickerController.isSourceTypeAvailable(.camera) {
                 Button("Camera") {
@@ -182,9 +189,15 @@ struct PhotoThumbnailView: View {
     let onView: (Int) -> Void
     let onDelete: (Int) -> Void
 
+    // Create a unique identifier for this image based on its hash
+    private var imageIdentifier: String {
+        String(image.hashValue)
+    }
+
     var body: some View {
+        // View button - tapping the thumbnail opens the viewer
         Button(action: {
-            print("DEBUG: View button tapped for index \(index)")
+            debugMessage("👁️ View button tapped - index: \(index), imageID: \(imageIdentifier)")
             onView(index)
         }) {
             Image(uiImage: image)
@@ -200,8 +213,10 @@ struct PhotoThumbnailView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .overlay(alignment: .topTrailing) {
+            // Delete button - positioned at top-trailing corner
+            // Must be in overlay to be rendered on top and receive taps first
             Button(action: {
-                print("DEBUG: Delete button tapped for index \(index)")
+                debugMessage("❌ Delete button tapped - index: \(index), imageID: \(imageIdentifier)")
                 onDelete(index)
             }) {
                 Image(systemName: "xmark.circle.fill")
@@ -210,11 +225,15 @@ struct PhotoThumbnailView: View {
                     .background(
                         Circle()
                             .fill(Color.white)
-                            .frame(width: 20, height: 20)
+                            .frame(width: 22, height: 22)
                     )
             }
             .buttonStyle(PlainButtonStyle())
+            .accessibilityIdentifier("delete_photo_\(index)")
             .offset(x: 6, y: -6)
+        }
+        .onAppear {
+            debugMessage("📸 PhotoThumbnailView appeared - index: \(index), imageID: \(imageIdentifier)")
         }
     }
 }
@@ -306,7 +325,11 @@ struct PhotosSection: View {
                 PhotoGridView(
                     images: allImages,
                     onView: { index in
-                        guard !showingImageViewer else { return }
+                        debugMessage("PhotosSection onView: index=\(index), showingImageViewer=\(showingImageViewer), allImages.count=\(allImages.count)")
+                        guard !showingImageViewer else {
+                            debugMessage("PhotosSection onView: Guard blocked - viewer already showing")
+                            return
+                        }
                         ImageViewingUtilities.showImageViewer(
                             images: allImages,
                             startIndex: index,

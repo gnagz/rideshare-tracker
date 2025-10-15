@@ -147,10 +147,15 @@ struct EditShiftView: View {
         }
         .sheet(isPresented: $showingImageViewer) {
             ImageViewerView(
-                images: loadAllImages(),
+                images: $viewerImages,
                 startingIndex: viewerStartIndex,
                 isPresented: $showingImageViewer
             )
+            .onAppear {
+                if viewerImages.isEmpty {
+                    viewerImages = loadAllImages()
+                }
+            }
         }
         .imagePickerSheets(
             showingCameraPicker: $showingCameraPicker,
@@ -820,6 +825,7 @@ struct EditShiftView: View {
         formatter.dateFormat = preferences.dateFormat
 
         if let date = formatter.date(from: startDateText) {
+            print("✅ [EditShiftView] Start date parsed successfully: '\(startDateText)' using format '\(preferences.dateFormat)'")
             // Preserve the time from current startDate, only update the date part
             let calendar = Calendar.current
             let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
@@ -838,6 +844,8 @@ struct EditShiftView: View {
                 showStartDatePicker = false
                 startDateText = ""
             }
+        } else {
+            print("⚠️ [EditShiftView] Failed to parse start date: '\(startDateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferences.formatDate(Date()))')")
         }
     }
 
@@ -846,6 +854,7 @@ struct EditShiftView: View {
         formatter.dateFormat = preferences.timeFormat
 
         if let time = formatter.date(from: startTimeText) {
+            print("✅ [EditShiftView] Start time parsed successfully: '\(startTimeText)' using format '\(preferences.timeFormat)'")
             let calendar = Calendar.current
             let dateComponents = calendar.dateComponents([.year, .month, .day], from: startDate)
             let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
@@ -862,6 +871,8 @@ struct EditShiftView: View {
                 showStartTimePicker = false
                 startTimeText = ""
             }
+        } else {
+            print("⚠️ [EditShiftView] Failed to parse start time: '\(startTimeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferences.formatTime(Date()))')")
         }
     }
 
@@ -877,10 +888,11 @@ struct EditShiftView: View {
         formatter.dateFormat = preferences.dateFormat
 
         if let date = formatter.date(from: endDateText) {
+            print("✅ [EditShiftView] End date parsed successfully: '\(endDateText)' using format '\(preferences.dateFormat)'")
             // Preserve the time from current endDate, only update the date part
             let calendar = Calendar.current
             let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
-            let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: endDate)
+            let timeComponents = calendar.dateComponents([.year, .month, .day], from: endDate)
 
             var combinedComponents = DateComponents()
             combinedComponents.year = dateComponents.year
@@ -895,6 +907,8 @@ struct EditShiftView: View {
                 showEndDatePicker = false
                 endDateText = ""
             }
+        } else {
+            print("⚠️ [EditShiftView] Failed to parse end date: '\(endDateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferences.formatDate(Date()))')")
         }
     }
 
@@ -903,6 +917,7 @@ struct EditShiftView: View {
         formatter.dateFormat = preferences.timeFormat
 
         if let time = formatter.date(from: endTimeText) {
+            print("✅ [EditShiftView] End time parsed successfully: '\(endTimeText)' using format '\(preferences.timeFormat)'")
             let calendar = Calendar.current
             let dateComponents = calendar.dateComponents([.year, .month, .day], from: endDate)
             let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
@@ -919,6 +934,8 @@ struct EditShiftView: View {
                 showEndTimePicker = false
                 endTimeText = ""
             }
+        } else {
+            print("⚠️ [EditShiftView] Failed to parse end time: '\(endTimeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferences.formatTime(Date()))')")
         }
     }
 

@@ -8,17 +8,17 @@
 import SwiftUI
 
 struct ImageViewerView: View {
-    let images: [UIImage]
+    @Binding var images: [UIImage]
     let startingIndex: Int
     @Binding var isPresented: Bool
-    
+
     @State private var currentIndex: Int
     @State private var scale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
-    
-    init(images: [UIImage], startingIndex: Int = 0, isPresented: Binding<Bool>) {
-        self.images = images
+
+    init(images: Binding<[UIImage]>, startingIndex: Int = 0, isPresented: Binding<Bool>) {
+        self._images = images
         self.startingIndex = startingIndex
         self._isPresented = isPresented
         self._currentIndex = State(initialValue: startingIndex)
@@ -182,10 +182,10 @@ struct ZoomableImageView: View {
 
 #Preview {
     @Previewable @State var isPresented = true
-    let sampleImages = [UIImage(systemName: "photo")!]
-    
+    @Previewable @State var sampleImages = [UIImage(systemName: "photo")!]
+
     return ImageViewerView(
-        images: sampleImages,
+        images: $sampleImages,
         startingIndex: 0,
         isPresented: $isPresented
     )

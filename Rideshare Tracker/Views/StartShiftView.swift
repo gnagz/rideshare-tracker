@@ -73,13 +73,6 @@ struct StartShiftView: View {
                     }
                 }
         }
-        .sheet(isPresented: $showingImageViewer) {
-            ImageViewerView(
-                images: photoImages,
-                startingIndex: viewerStartIndex,
-                isPresented: $showingImageViewer
-            )
-        }
         .imagePickerSheets(
             showingCameraPicker: $showingCameraPicker,
             showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
@@ -263,6 +256,13 @@ struct StartShiftView: View {
                 viewerStartIndex: $viewerStartIndex
             )
         }
+        .sheet(isPresented: $showingImageViewer) {
+            ImageViewerView(
+                images: $viewerImages,
+                startingIndex: viewerStartIndex,
+                isPresented: $showingImageViewer
+            )
+        }
     }
     
     private func startShift() {
@@ -322,6 +322,7 @@ struct StartShiftView: View {
         formatter.dateFormat = preferences.dateFormat
 
         if let date = formatter.date(from: dateText) {
+            print("✅ [StartShiftView] Date parsed successfully: '\(dateText)' using format '\(preferences.dateFormat)'")
             // Preserve the time from current startDate, only update the date part
             let calendar = Calendar.current
             let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
@@ -341,8 +342,7 @@ struct StartShiftView: View {
                 dateText = "" // Clear the text field
             }
         } else {
-            // Could add an error alert here, but for now just keep the picker open
-            // so user can try again or use the graphical picker
+            print("⚠️ [StartShiftView] Failed to parse date: '\(dateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferences.formatDate(Date()))')")
         }
     }
 
@@ -351,6 +351,7 @@ struct StartShiftView: View {
         formatter.dateFormat = preferences.timeFormat
 
         if let time = formatter.date(from: timeText) {
+            print("✅ [StartShiftView] Time parsed successfully: '\(timeText)' using format '\(preferences.timeFormat)'")
             // Combine the date part from startDate with the time part from the input
             let calendar = Calendar.current
             let dateComponents = calendar.dateComponents([.year, .month, .day], from: startDate)
@@ -369,8 +370,7 @@ struct StartShiftView: View {
                 timeText = "" // Clear the text field
             }
         } else {
-            // Could add an error alert here, but for now just keep the picker open
-            // so user can try again or use the graphical picker
+            print("⚠️ [StartShiftView] Failed to parse time: '\(timeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferences.formatTime(Date()))')")
         }
     }
 

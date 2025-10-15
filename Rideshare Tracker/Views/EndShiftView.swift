@@ -84,7 +84,7 @@ struct EndShiftView: View {
         }
         .sheet(isPresented: $showingImageViewer) {
             ImageViewerView(
-                images: photoImages,
+                images: $viewerImages,
                 startingIndex: viewerStartIndex,
                 isPresented: $showingImageViewer
             )
@@ -195,11 +195,8 @@ struct EndShiftView: View {
                             .font(.caption)
                     }
                     
-                    HStack {
-                        Text("Refueled Tank")
-                        Spacer()
-                        Toggle("", isOn: $didRefuel)
-                    }
+                    Toggle("Refueled Tank", isOn: $didRefuel)
+                        .accessibilityIdentifier("refueled_tank_toggle")
                     
                     if didRefuel {
                         HStack {
@@ -216,6 +213,7 @@ struct EndShiftView: View {
                                     RoundedRectangle(cornerRadius: 6)
                                         .stroke(focusedField == .refuelGallons ? Color.accentColor : Color.clear, lineWidth: 2)
                                 )
+                                .accessibilityIdentifier("gallons_filled_input")
                         }
                         HStack {
                             Text("Fuel Cost")
@@ -228,6 +226,7 @@ struct EndShiftView: View {
                                     RoundedRectangle(cornerRadius: 6)
                                         .stroke(focusedField == .refuelCost ? Color.accentColor : Color.clear, lineWidth: 2)
                                 )
+                                .accessibilityIdentifier("fuel_cost_input")
                         }
                     } else {
                         VStack(alignment: .leading, spacing: 8) {
@@ -299,6 +298,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .promotions ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("promotions_input")
                     }
                     HStack {
                         Text("Tips")
@@ -327,6 +327,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .totalTolls ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("tolls_input")
                     }
                     HStack {
                         Text("Tolls Reimbursed")
@@ -339,6 +340,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .tollsReimbursed ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("tolls_reimbursed_input")
                     }
                     HStack {
                         Text("Parking Fees")
@@ -351,6 +353,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .parkingFees ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("parking_fees_input")
                     }
                     HStack {
                         Text("Misc Fees")
@@ -363,6 +366,7 @@ struct EndShiftView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .miscFees ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("misc_fees_input")
                     }
                 }
 
@@ -397,6 +401,7 @@ struct EndShiftView: View {
                         endShift()
                     }
                     .disabled(endMileage.isEmpty || totalTrips.isEmpty || !odometerError.isEmpty)
+                    .accessibilityIdentifier("confirm_save_shift_button")
                 }
             })
         .alert("Enter End Date", isPresented: $showEndDateTextInput) {
@@ -526,6 +531,7 @@ struct EndShiftView: View {
         formatter.dateFormat = preferences.dateFormat
 
         if let date = formatter.date(from: endDateText) {
+            print("✅ [EndShiftView] Date parsed successfully: '\(endDateText)' using format '\(preferences.dateFormat)'")
             // Preserve the time from current endDate, only update the date part
             let calendar = Calendar.current
             let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
@@ -544,6 +550,8 @@ struct EndShiftView: View {
                 showEndDatePicker = false
                 endDateText = ""
             }
+        } else {
+            print("⚠️ [EndShiftView] Failed to parse date: '\(endDateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferences.formatDate(Date()))')")
         }
     }
 
@@ -552,6 +560,7 @@ struct EndShiftView: View {
         formatter.dateFormat = preferences.timeFormat
 
         if let time = formatter.date(from: endTimeText) {
+            print("✅ [EndShiftView] Time parsed successfully: '\(endTimeText)' using format '\(preferences.timeFormat)'")
             let calendar = Calendar.current
             let dateComponents = calendar.dateComponents([.year, .month, .day], from: endDate)
             let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
@@ -568,6 +577,8 @@ struct EndShiftView: View {
                 showEndTimePicker = false
                 endTimeText = ""
             }
+        } else {
+            print("⚠️ [EndShiftView] Failed to parse time: '\(endTimeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferences.formatTime(Date()))')")
         }
     }
 
