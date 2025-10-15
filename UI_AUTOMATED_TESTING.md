@@ -2,11 +2,14 @@
 
 This document describes the comprehensive UI automated testing infrastructure implemented for the Rideshare Tracker app, including sync testing capabilities, local testing environment, debug utilities, and UI test improvements.
 
-## Current Test Status (September 2025)
+## Current Test Status (October 2025)
 
 ### ✅ UI Test Suite: ALL PASSING (32 tests across 6 files)
 
-**Recent Major Achievement**: All photo picker UI tests that were previously failing are now working correctly.
+**Recent Major Achievements**:
+- All photo picker UI tests that were previously failing are now working correctly
+- Fixed SwiftUI Toggle automation issue on iOS 18.x
+- Enhanced test reliability with improved field validation and keyboard interaction
 
 **Test Distribution**:
 - **RideshareShiftTrackingUITests**: Complete shift workflows including photo attachments
@@ -26,9 +29,13 @@ This document describes the comprehensive UI automated testing infrastructure im
 - ✅ `testExpensePhotoAttachmentWorkflow()` - Expense photo attachments working
 - ✅ `testExpensePhotoViewerAndPermissions()` - Expense photo viewer working
 
-**Test Infrastructure Improvements**:
-- Resolved test targeting with `xcodetest.command` script
-- Optimized test execution with parallel processing
+**Test Infrastructure Improvements (October 2025)**:
+- **SwiftUI Toggle Automation**: Fixed iOS 18.x compatibility using `.switches.firstMatch.tap()` pattern
+- **Field Value Assertions**: Enhanced `enterText()` with automatic validation of field values (handles numeric formatting)
+- **Text Clearing**: Fixed `clearNumericText()` to use Command+A for reliable clearing regardless of cursor position
+- **Scroll-to-Control**: Added automatic scrolling logic for tank segment verification when keyboard obscures UI
+- **Test Execution Tool**: Resolved test targeting with `xcodetest.command` script
+- **Parallel Processing**: Optimized test execution with parallel processing (~5 minutes total)
 - All UI test failures resolved through systematic debugging
 
 ## Overview
@@ -137,7 +144,7 @@ private func configureTestApp(_ app: XCUIApplication) {
 }
 ```
 
-**Applied to all 35+ UI automated tests** to ensure consistent behavior across the entire test suite.
+**Applied to all 32 UI automated tests** to ensure consistent behavior across the entire test suite.
 
 ### 4. Environment-Aware Test Logic
 
@@ -339,7 +346,7 @@ DEBUG [testSyncStatusDisplay]: Local test storage available - manual sync button
 - `Rideshare_TrackerUITests.swift`: Debug utilities, test configuration, environment-aware assertions
 
 ### Key Statistics
-- **35+ UI automated tests** updated with configuration helper
+- **32 UI automated tests** updated with configuration helper
 - **100% test pass rate** achieved across all test scenarios
 - **3 test environments** supported (no flags, testing, production)
 - **Zero code changes** required for debug control
