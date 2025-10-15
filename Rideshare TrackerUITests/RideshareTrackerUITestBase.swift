@@ -68,28 +68,25 @@ class RideshareTrackerUITestBase: XCTestCase {
 
     /// Global debug printing utility - only outputs when debug flags are set
     func debugMessage(_ message: String, function: String = #function, file: String = #file) {
-//        let debugEnabled = ProcessInfo.processInfo.environment["DEBUG"] != nil ||
-//                          ProcessInfo.processInfo.arguments.contains("-debug")
+        let debugEnabled = ProcessInfo.processInfo.environment["DEBUG"] != nil ||
+                          ProcessInfo.processInfo.arguments.contains("-debug")
 
-        // Debug printing only when enabled
-        // Removed always-print debug lines - only print when debug flag is enabled
-
-//        if debugEnabled {
+        if debugEnabled {
             let fileName = (file as NSString).lastPathComponent
             print("DEBUG [\(fileName):\(function)]: \(message)")
-//        }
+        }
     }
 
     /// Visual verification pause - only pauses when visual debug flags are set
     func visualDebugPause(_ seconds: UInt32 = 2, function: String = #function, file: String = #file) {
-//        let visualDebugEnabled = ProcessInfo.processInfo.environment["UI_TEST_VISUAL_DEBUG"] != nil ||
-//                                ProcessInfo.processInfo.arguments.contains("-visual-debug")
-//        if visualDebugEnabled {
+        let visualDebugEnabled = ProcessInfo.processInfo.environment["UI_TEST_VISUAL_DEBUG"] != nil ||
+                                ProcessInfo.processInfo.arguments.contains("-visual-debug")
+        if visualDebugEnabled {
             let fileName = (file as NSString).lastPathComponent
             let message = "Pausing test for \(seconds)s for Visual Observation. Consider taking screenshot."
             print("DEBUG [\(fileName):\(function)]: \(message)")
             sleep(seconds)
-//        }
+        }
     }
 
     /// Capture and attach a screenshot with a descriptive name
