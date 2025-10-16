@@ -80,6 +80,9 @@ final class ImageViewingTests: XCTestCase {
         )
 
         // Test with valid images and index
+        let expectation = XCTestExpectation(description: "Image viewer should be shown")
+        let expectedImageCount = testImages.count
+
         ImageViewingUtilities.showImageViewer(
             images: testImages,
             startIndex: 1,
@@ -88,9 +91,15 @@ final class ImageViewingTests: XCTestCase {
             showingImageViewer: showingImageViewerBinding
         )
 
-        XCTAssertEqual(state.viewerImages.count, testImages.count, "Viewer images should match input images")
-        XCTAssertEqual(state.viewerStartIndex, 1, "Start index should be set correctly")
-        XCTAssertTrue(state.showingImageViewer, "Image viewer should be shown")
+        // Wait for async operation to complete (0.1 second delay in implementation)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            XCTAssertEqual(state.viewerImages.count, expectedImageCount, "Viewer images should match input images")
+            XCTAssertEqual(state.viewerStartIndex, 1, "Start index should be set correctly")
+            XCTAssertTrue(state.showingImageViewer, "Image viewer should be shown")
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 1.0)
     }
 
     func testImageViewingUtilitiesWithEmptyImages() throws {
