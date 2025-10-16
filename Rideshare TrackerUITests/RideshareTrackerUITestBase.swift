@@ -14,48 +14,54 @@ extension XCUIElement {
     /// Clear all text from this element
     func clearText(timeout: TimeInterval = 2.0) {
         // Get the label, defaulting to "text field" if nil or empty
-        let fieldLabel = label.isEmpty ? "text field" : label
-        
-        guard let stringValue = value as? String else {
+        let fieldLabel = self.label.isEmpty ? "text field" : label
+
+        guard let stringValue = self.value as? String else {
             debugMessage("Clear \(fieldLabel) of current value: 'nil'")
             return
         }
-        
+
         debugMessage("Clear \(fieldLabel) of current value: '\(stringValue)'")
 
         // Clear existing text first to ensure clean input
         let characterCount = stringValue.count
-        debugMessage("⚙️ Attempt to clear \(fieldLabel) using Cmd+A delete + \(characterCount) right arrows + \(characterCount) delete keys")
+        debugMessage("⚙️ Attempt to clear \(fieldLabel) using doubletap + delete, Cmd A + delete, and \(characterCount) right arrows + \(characterCount) delete keys")
+        
+        self.tap() // Ensure the element is focused and keyboard is up
+        
+        // Simulate backspace presses to clear existing text
+        let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: stringValue.count)
+        self.typeText(deleteString)
 
-        // First, use Cmd+A and one delete to clear selection - quickest if it works
-        typeKey("a", modifierFlags: .command)
-        typeText(XCUIKeyboardKey.delete.rawValue)
-
-        // AGGRESSIVE CLEAR: Move cursor to end, then send many delete keys
-        let rightArrowString = String(repeating: XCUIKeyboardKey.rightArrow.rawValue, count: characterCount)
-        typeText(rightArrowString)
-
-        let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: characterCount)
-        typeText(deleteString)
+        // If that doesn't work, try Cmd+A and one delete to clear selection
+        self.typeKey("a", modifierFlags: .command)
+        self.typeText(XCUIKeyboardKey.delete.rawValue)
+        
+        // Move cursor to end of text if the cursor isn't already there
+        let rightArrowString = String(repeating: XCUIKeyboardKey.rightArrow.rawValue, count: stringValue.count)
+                
+        // Simulate more backspace presses to clear existing text
+        self.typeText(deleteString)
 
         // Poll for updated value
         let startTime = Date()
         var currentValue = value as? String
+        var placeholderValue = placeholderValue ?? ""
         while currentValue != nil && !currentValue!.isEmpty && Date().timeIntervalSince(startTime) < timeout {
             currentValue = value as? String
             Thread.sleep(forTimeInterval: 0.1) // Small polling interval
         }
-        
+
         guard let clearedValue = value as? String else {
             debugMessage("✅ After clearing, \(fieldLabel) value is nil.")
             return
         }
-        let clearedValueCharacterCount = clearedValue.count
-        if clearedValueCharacterCount == 0 {
-            debugMessage("✅ After clearing, \(fieldLabel) value is empty.")
+        if clearedValue.isEmpty || clearedValue == placeholderValue {
+            debugMessage("✅ After clearing, \(fieldLabel) value is empty or showing placeholder.")
             return
         }
-        
+            
+        let clearedValueCharacterCount = clearedValue.count
         debugMessage("❌ After clearing, \(fieldLabel) value is still not empty. Current value: '\(value as? String ?? "")'")
     }
 }
@@ -79,7 +85,7 @@ class RideshareTrackerUITestBase: XCTestCase {
 
     /// Visual verification pause - only pauses when visual debug flags are set
     func visualDebugPause(_ seconds: UInt32 = 2, function: String = #function, file: String = #file) {
-        let visualDebugEnabled = ProcessInfo.processInfo.environment["UI_TEST_VISUAL_DEBUG"] != nil ||
+        let visualDebugEnabled = ProcessInfo.processInfo.environment["VISUAL_DEBUG"] != nil ||
                                 ProcessInfo.processInfo.arguments.contains("-visual-debug")
         if visualDebugEnabled {
             let fileName = (file as NSString).lastPathComponent
@@ -322,26 +328,8 @@ class RideshareTrackerUITestBase: XCTestCase {
         debugMessage("Field state before tap: exists=\(textField.exists), isEnabled=\(textField.isEnabled), isFocused=\(textField.hasFocus)")
 
         waitAndTap(textField)
-        debugMessage("Field tapped, clearing existing text and typing new text...")
-
-        // Clear existing text first to ensure clean input
-        // AGGRESSIVE CLEAR: Move cursor to end, then send many delete keys
-        // Delete key only works when cursor is positioned after text
-
-        // First, use Cmd+A and one delete to clear selection
-        textField.typeKey("a", modifierFlags: .command)
-        textField.typeText(XCUIKeyboardKey.delete.rawValue)
-
-        // Move cursor to the right (end of any remaining text) - use 20 to cover reasonable field lengths
-        let rightArrowString = String(repeating: XCUIKeyboardKey.rightArrow.rawValue, count: 20)
-        textField.typeText(rightArrowString)
-
-        // Now send delete keys to clear everything from right to left - 20 should be enough
-        let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: 20)
-        textField.typeText(deleteString)
-
-        debugMessage("✅ Cleared using Cmd+A delete + 20 right arrows + 20 delete keys")
-
+        textField.clearText()
+        
         textField.typeText(text)
         debugMessage("Text typed. Field value after typing: '\(textField.value ?? "nil")'")
 

@@ -142,6 +142,8 @@
 		3597BA6C2E5D4BE6003DA956 /* BackupRestoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupRestoreView.swift; sourceTree = "<group>"; };
 		3597BA6D2E5D4BE6003DA956 /* ImportExportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportExportView.swift; sourceTree = "<group>"; };
 		3597BA6E2E5D4BE6003DA956 /* MainMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuView.swift; sourceTree = "<group>"; };
+		35A25DC02EA0DDE80036A2F0 /* xcodetest.command */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = xcodetest.command; sourceTree = "<group>"; };
+		35A25DC12EA0DDFE0036A2F0 /* XCODETEST.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = XCODETEST.md; sourceTree = "<group>"; };
 		35A841832E711EE60050192C /* ImageAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageAttachment.swift; sourceTree = "<group>"; };
 		35A841852E711EF30050192C /* ImageViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViewerView.swift; sourceTree = "<group>"; };
 		35A841872E711EFF0050192C /* ImageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageManager.swift; sourceTree = "<group>"; };
@@ -190,6 +192,7 @@
 		3531FC1B2E497ECC000F2CD7 = {
 			isa = PBXGroup;
 			children = (
+				35A25DBF2EA0DCB30036A2F0 /* scripts */,
 				357F17772E857B3800262CFA /* Debug Text & Visual Pauses.xctestplan */,
 				353424982E52935300B86346 /* CLAUDE.md */,
 				353424992E52935300B86346 /* README.md */,
@@ -309,6 +312,15 @@
 				35424BD22E77F190000E739E /* Testing.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		35A25DBF2EA0DCB30036A2F0 /* scripts */ = {
+			isa = PBXGroup;
+			children = (
+				35A25DC12EA0DDFE0036A2F0 /* XCODETEST.md */,
+				35A25DC02EA0DDE80036A2F0 /* xcodetest.command */,
+			);
+			path = scripts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

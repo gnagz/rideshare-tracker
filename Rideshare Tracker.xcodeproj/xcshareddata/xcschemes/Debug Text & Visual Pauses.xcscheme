@@ -76,7 +76,7 @@
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
-            key = "UI_TEST_VISUAL_DEBUG"
+            key = "VISUAL_DEBUG"
             value = "1"
             isEnabled = "YES">
          </EnvironmentVariable>

@@ -202,6 +202,9 @@ Rideshare Tracker/
 │   └── Rideshare_TrackerTests.swift     # Unit tests for sync functionality & business logic
 ├── Rideshare TrackerUITests/
 │   └── Rideshare_TrackerUITests.swift   # UI automated tests with debug utilities
+├── scripts/
+│   ├── xcodetest.command            # Shell script for running xcodebuild tests
+│   └── XCODETEST.md                 # Documentation for test execution script
 └── UI_AUTOMATED_TESTING.md              # Comprehensive testing system documentation
 ```
 

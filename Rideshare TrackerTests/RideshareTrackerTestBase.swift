@@ -31,12 +31,12 @@ class RideshareTrackerTestBase: XCTestCase {
 
     /// Unit test debug printing - only outputs when test debug flags are set
     func debugMessage(_ message: String, function: String = #function, file: String = #file) {
-        let debugEnabled = ProcessInfo.processInfo.environment["TEST_DEBUG"] != nil ||
-                          ProcessInfo.processInfo.arguments.contains("-test-debug")
+        let debugEnabled = ProcessInfo.processInfo.environment["DEBUG"] != nil ||
+                          ProcessInfo.processInfo.arguments.contains("-debug")
 
         if debugEnabled {
             let fileName = (file as NSString).lastPathComponent
-            print("TEST_DEBUG [\(fileName):\(function)]: \(message)")
+            print("DEBUG [\(fileName):\(function)]: \(message)")
         }
     }
 
