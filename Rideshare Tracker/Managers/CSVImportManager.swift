@@ -246,6 +246,14 @@ class CSVImportManager {
                 // REPLACE (not add to) the existing toll amount
                 dataManager.shifts[shiftIndex].tolls = totalTollsForShift
 
+                // Remove old toll summary images for this specific shift before adding new one (prevents duplicates on re-import)
+                let oldTollImages = dataManager.shifts[shiftIndex].imageAttachments.filter { $0.type == .importedToll }
+                if !oldTollImages.isEmpty {
+                    let shiftDate = dataManager.shifts[shiftIndex].startDate
+                    debugMessage("Removing \(oldTollImages.count) old toll summary image(s) from shift starting \(shiftDate) before adding new one")
+                    dataManager.shifts[shiftIndex].imageAttachments.removeAll { $0.type == .importedToll }
+                }
+
                 // Generate and attach toll summary image
                 if let summaryImage = TollSummaryImageGenerator.generateTollSummaryImage(
                     shiftDate: dataManager.shifts[shiftIndex].startDate,
@@ -258,7 +266,7 @@ class CSVImportManager {
                             summaryImage,
                             for: dataManager.shifts[shiftIndex].id,
                             parentType: .shift,
-                            type: .receipt,
+                            type: .importedToll,
                             description: "Toll Summary - \(tollTransactions.count) transactions"
                         )
                         dataManager.shifts[shiftIndex].imageAttachments.append(attachment)

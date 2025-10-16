@@ -15,6 +15,7 @@ class ShiftDataManager: ObservableObject {
     
     private init() {
         loadShifts()
+        migrateImportedTollImages() // One-time migration: convert old toll images to .importedToll type
     }
     
     // Public initializer for SwiftUI environment object usage
@@ -142,5 +143,58 @@ class ShiftDataManager: ObservableObject {
         
         debugMessage("Final shift count: \(shifts.count) total shifts")
         saveShifts()
+    }
+
+    // MARK: - Data Migration
+
+    /// One-time migration: Convert old toll summary images from .receipt to .importedToll type
+    /// Identifies toll images by checking if type is .receipt AND description starts with "Toll Summary"
+    func migrateImportedTollImages() {
+        // Check if migration has already run
+        guard !UserDefaults.standard.bool(forKey: "didMigrateTollImages_v1") else {
+            debugMessage("Migration already completed, skipping")
+            return
+        }
+
+        debugMessage("=== STARTING TOLL IMAGE MIGRATION ===")
+        var needsSave = false
+        var migratedCount = 0
+
+        for i in 0..<shifts.count {
+            for j in 0..<shifts[i].imageAttachments.count {
+                let attachment = shifts[i].imageAttachments[j]
+
+                // Detect old imported toll images (type: .receipt, description starts with "Toll Summary")
+                if attachment.type == .receipt,
+                   let description = attachment.description,
+                   description.starts(with: "Toll Summary") {
+
+                    // Create migrated attachment with .importedToll type
+                    let migratedAttachment = ImageAttachment(
+                        filename: attachment.filename,
+                        type: .importedToll,
+                        description: description
+                    )
+
+                    // Replace old attachment with migrated version
+                    shifts[i].imageAttachments[j] = migratedAttachment
+                    needsSave = true
+                    migratedCount += 1
+
+                    debugMessage("Migrated toll image: \(attachment.filename) -> .importedToll")
+                }
+            }
+        }
+
+        if needsSave {
+            saveShifts()
+            debugMessage("✅ Migration complete: \(migratedCount) toll images migrated to .importedToll type")
+        } else {
+            debugMessage("No toll images found to migrate")
+        }
+
+        // Set flag to prevent re-running migration
+        UserDefaults.standard.set(true, forKey: "didMigrateTollImages_v1")
+        debugMessage("=== TOLL IMAGE MIGRATION COMPLETE ===")
     }
 }

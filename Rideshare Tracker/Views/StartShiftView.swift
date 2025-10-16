@@ -284,7 +284,7 @@ struct StartShiftView: View {
                     image,
                     for: shift.id,
                     parentType: .shift,
-                    type: .screenshot // Default to screenshot for now - could add type selection later
+                    type: .other // Default type for user-added photos
                 )
                 shift.imageAttachments.append(attachment)
             } catch {
