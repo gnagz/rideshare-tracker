@@ -64,6 +64,7 @@ struct EditShiftView: View {
     @State private var photoImages: [UIImage] = []
     @State private var existingAttachments: [ImageAttachment] = []
     @State private var existingImages: [UIImage] = []
+    @State private var attachmentsMarkedForDeletion: [ImageAttachment] = []
 
     // UIImagePickerController state
     @State private var showingCameraPicker = false
@@ -674,13 +675,15 @@ struct EditShiftView: View {
             photoImages: $photoImages,
             existingImages: $existingImages,
             onDeleteExisting: { index in
-                // Remove from existing attachments and images arrays
+                // Mark attachment for deletion (don't delete file yet)
                 let attachment = existingAttachments[index]
+                attachmentsMarkedForDeletion.append(attachment)
+
+                // Remove from display arrays
                 existingAttachments.remove(at: index)
                 existingImages.remove(at: index)
 
-                // Delete the physical file
-                ImageManager.shared.deleteImage(attachment, for: shift.id, parentType: .shift)
+                // DO NOT delete the physical file here - wait for Save
             },
             showingImageSourceActionSheet: $showingImageSourceActionSheet,
             showingCameraPicker: $showingCameraPicker,
@@ -739,7 +742,7 @@ struct EditShiftView: View {
         }
 
         // Handle photo changes
-        // Remove deleted photos and update the shift's attachments
+        // Step 1: Update attachments array (remove deleted, keep existing)
         shift.imageAttachments = existingAttachments
 
         // Save new photos and add them to the shift
@@ -758,7 +761,14 @@ struct EditShiftView: View {
             }
         }
 
+        // Step 2: Save shift to disk (commits all changes)
         dataManager.updateShift(shift)
+
+        // Step 3: ONLY AFTER successful save, physically delete marked files
+        for attachment in attachmentsMarkedForDeletion {
+            ImageManager.shared.deleteImage(attachment, for: shift.id, parentType: .shift)
+        }
+
         presentationMode.wrappedValue.dismiss()
     }
     

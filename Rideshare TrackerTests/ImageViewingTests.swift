@@ -234,4 +234,154 @@ final class ImageViewingTests: XCTestCase {
         XCTAssertEqual(decodedExpense.imageAttachments.first?.filename, testExpense.imageAttachments.first?.filename,
                       "Decoded expense should preserve attachment filenames")
     }
+
+    // MARK: - Deferred Deletion Tests (TDD for Bug Fix)
+
+    @MainActor func testShiftImageDeletionIsDeferredUntilSave() throws {
+        // Test that images marked for deletion are NOT physically deleted until Save is pressed
+
+        // Setup: Create a test image and save it
+        let testImage = UIImage(systemName: "photo.fill")!
+        let attachment = try ImageManager.shared.saveImage(
+            testImage,
+            for: testShift.id,
+            parentType: .shift,
+            type: .receipt,
+            description: "Test image"
+        )
+
+        // Verify file exists on disk
+        let imageURL = ImageManager.shared.imageURL(for: testShift.id, parentType: .shift, filename: attachment.filename)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: imageURL.path), "Image file should exist after save")
+
+        // Simulate user marking image for deletion (but not saving yet)
+        var existingAttachments = [attachment]
+        var attachmentsMarkedForDeletion: [ImageAttachment] = []
+
+        // User taps X on thumbnail - mark for deletion, don't delete file yet
+        attachmentsMarkedForDeletion.append(attachment)
+        existingAttachments.removeAll { $0.id == attachment.id }
+
+        // Simulate Cancel - attachmentsMarkedForDeletion is discarded
+        attachmentsMarkedForDeletion.removeAll()
+
+        // CRITICAL: File should still exist after Cancel
+        XCTAssertTrue(FileManager.default.fileExists(atPath: imageURL.path),
+                     "Image file should STILL EXIST after cancel - not deleted yet")
+
+        // Cleanup
+        ImageManager.shared.deleteImage(attachment, for: testShift.id, parentType: .shift)
+    }
+
+    @MainActor func testShiftImageDeletionOnlyHappensAfterSave() throws {
+        // Test that images are physically deleted ONLY when Save is pressed
+
+        // Setup: Create a test image and save it
+        let testImage = UIImage(systemName: "photo.fill")!
+        let attachment = try ImageManager.shared.saveImage(
+            testImage,
+            for: testShift.id,
+            parentType: .shift,
+            type: .receipt,
+            description: "Test image"
+        )
+
+        let imageURL = ImageManager.shared.imageURL(for: testShift.id, parentType: .shift, filename: attachment.filename)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: imageURL.path), "Image file should exist after save")
+
+        // Simulate edit workflow with deletion and Save
+        var existingAttachments = [attachment]
+        var attachmentsMarkedForDeletion: [ImageAttachment] = []
+
+        // User marks for deletion
+        attachmentsMarkedForDeletion.append(attachment)
+        existingAttachments.removeAll { $0.id == attachment.id }
+
+        // File should still exist (not deleted yet)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: imageURL.path),
+                     "Image file should exist before Save is called")
+
+        // Simulate Save - physically delete marked files
+        for markedAttachment in attachmentsMarkedForDeletion {
+            ImageManager.shared.deleteImage(markedAttachment, for: testShift.id, parentType: .shift)
+        }
+
+        // NOW file should be gone
+        XCTAssertFalse(FileManager.default.fileExists(atPath: imageURL.path),
+                      "Image file should be DELETED after Save is called")
+    }
+
+    @MainActor func testExpenseImageDeletionIsDeferredUntilSave() throws {
+        // Test that expense images marked for deletion are NOT physically deleted until Save is pressed
+
+        // Setup: Create a test image and save it
+        let testImage = UIImage(systemName: "photo.fill")!
+        let attachment = try ImageManager.shared.saveImage(
+            testImage,
+            for: testExpense.id,
+            parentType: .expense,
+            type: .receipt,
+            description: "Test expense image"
+        )
+
+        // Verify file exists on disk
+        let imageURL = ImageManager.shared.imageURL(for: testExpense.id, parentType: .expense, filename: attachment.filename)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: imageURL.path), "Image file should exist after save")
+
+        // Simulate user marking image for deletion (but not saving yet)
+        var existingAttachments = [attachment]
+        var attachmentsMarkedForDeletion: [ImageAttachment] = []
+
+        // User taps X on thumbnail - mark for deletion, don't delete file yet
+        attachmentsMarkedForDeletion.append(attachment)
+        existingAttachments.removeAll { $0.id == attachment.id }
+
+        // Simulate Cancel - attachmentsMarkedForDeletion is discarded
+        attachmentsMarkedForDeletion.removeAll()
+
+        // CRITICAL: File should still exist after Cancel
+        XCTAssertTrue(FileManager.default.fileExists(atPath: imageURL.path),
+                     "Image file should STILL EXIST after cancel - not deleted yet")
+
+        // Cleanup
+        ImageManager.shared.deleteImage(attachment, for: testExpense.id, parentType: .expense)
+    }
+
+    @MainActor func testExpenseImageDeletionOnlyHappensAfterSave() throws {
+        // Test that expense images are physically deleted ONLY when Save is pressed
+
+        // Setup: Create a test image and save it
+        let testImage = UIImage(systemName: "photo.fill")!
+        let attachment = try ImageManager.shared.saveImage(
+            testImage,
+            for: testExpense.id,
+            parentType: .expense,
+            type: .receipt,
+            description: "Test expense image"
+        )
+
+        let imageURL = ImageManager.shared.imageURL(for: testExpense.id, parentType: .expense, filename: attachment.filename)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: imageURL.path), "Image file should exist after save")
+
+        // Simulate edit workflow with deletion and Save
+        var existingAttachments = [attachment]
+        var attachmentsMarkedForDeletion: [ImageAttachment] = []
+
+        // User marks for deletion
+        attachmentsMarkedForDeletion.append(attachment)
+        existingAttachments.removeAll { $0.id == attachment.id }
+
+        // File should still exist (not deleted yet)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: imageURL.path),
+                     "Image file should exist before Save is called")
+
+        // Simulate Save - physically delete marked files
+        for markedAttachment in attachmentsMarkedForDeletion {
+            ImageManager.shared.deleteImage(markedAttachment, for: testExpense.id, parentType: .expense)
+        }
+
+        // NOW file should be gone
+        XCTAssertFalse(FileManager.default.fileExists(atPath: imageURL.path),
+                      "Image file should be DELETED after Save is called")
+    }
 }

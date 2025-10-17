@@ -27,6 +27,7 @@ struct EditExpenseView: View {
     @State private var existingAttachments: [ImageAttachment] = []
     @State private var existingImages: [UIImage] = []
     @State private var newImages: [UIImage] = []
+    @State private var attachmentsMarkedForDeletion: [ImageAttachment] = []
 
     // UIImagePickerController state
     @State private var showingCameraPicker = false
@@ -178,13 +179,15 @@ struct EditExpenseView: View {
                 photoImages: $newImages,
                 existingImages: $existingImages,
                 onDeleteExisting: { index in
-                    // Remove from working copy arrays (changes saved on Save button)
+                    // Mark attachment for deletion (don't delete file yet)
                     let attachment = existingAttachments[index]
+                    attachmentsMarkedForDeletion.append(attachment)
+
+                    // Remove from display arrays
                     existingAttachments.remove(at: index)
                     existingImages.remove(at: index)
 
-                    // Delete the physical file
-                    ImageManager.shared.deleteImage(attachment, for: expense.id, parentType: .expense)
+                    // DO NOT delete the physical file here - wait for Save
                 },
                 showingImageSourceActionSheet: $showingImageSourceActionSheet,
                 showingCameraPicker: $showingCameraPicker,
@@ -236,7 +239,7 @@ struct EditExpenseView: View {
         updatedExpense.description = description
         updatedExpense.amount = amount
 
-        // Handle photo changes - sync working copy back to expense
+        // Step 1: Update attachments array (remove deleted, keep existing)
         updatedExpense.imageAttachments = existingAttachments
 
         // Save new attached images
@@ -256,7 +259,14 @@ struct EditExpenseView: View {
             }
         }
 
+        // Step 2: Save expense to disk (commits all changes)
         expenseManager.updateExpense(updatedExpense)
+
+        // Step 3: ONLY AFTER successful save, physically delete marked files
+        for attachment in attachmentsMarkedForDeletion {
+            ImageManager.shared.deleteImage(attachment, for: expense.id, parentType: .expense)
+        }
+
         presentationMode.wrappedValue.dismiss()
     }
     
