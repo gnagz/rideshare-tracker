@@ -369,7 +369,7 @@ struct ImagePickerView: UIViewControllerRepresentable {
         let picker = UIImagePickerController()
         picker.sourceType = sourceType
         picker.delegate = context.coordinator
-        picker.allowsEditing = false
+        picker.allowsEditing = true  // Enable native iOS crop/rotate editor
         return picker
     }
 
@@ -389,8 +389,11 @@ struct ImagePickerView: UIViewControllerRepresentable {
         }
 
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-            if let image = info[.originalImage] as? UIImage {
-                parent.onImageSelected(image)
+            // Use edited image if available (from crop/rotate), otherwise use original
+            if let editedImage = info[.editedImage] as? UIImage {
+                parent.onImageSelected(editedImage)
+            } else if let originalImage = info[.originalImage] as? UIImage {
+                parent.onImageSelected(originalImage)
             } else {
                 parent.onCancel()
             }
