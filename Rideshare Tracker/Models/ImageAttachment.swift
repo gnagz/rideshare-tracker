@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreGraphics
 
 struct ImageAttachment: Codable, Identifiable, Hashable, Equatable {
     let id: UUID
@@ -13,13 +14,28 @@ struct ImageAttachment: Codable, Identifiable, Hashable, Equatable {
     let createdDate: Date
     let type: AttachmentType
     let description: String?
-    
-    init(filename: String, type: AttachmentType, description: String? = nil) {
+
+    // Enhanced metadata (optional for backward compatibility)
+    let fileSize: Int64?
+    let imageDimensions: CGSize?
+    let location: Location?
+
+    /// Location information for image attachments
+    struct Location: Codable, Hashable, Equatable {
+        let latitude: Double
+        let longitude: Double
+        let address: String?  // Reverse-geocoded address (optional)
+    }
+
+    init(filename: String, type: AttachmentType, description: String? = nil, fileSize: Int64? = nil, imageDimensions: CGSize? = nil, location: Location? = nil) {
         self.id = UUID()
         self.filename = filename
         self.createdDate = Date()
         self.type = type
         self.description = description
+        self.fileSize = fileSize
+        self.imageDimensions = imageDimensions
+        self.location = location
     }
     
     // Computed properties for file paths

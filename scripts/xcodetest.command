@@ -130,7 +130,9 @@ if [[ ${#EXCLUDE_TESTS[@]} -gt 0 ]]; then
 fi
 
 # Require script to be run from project directory
-if [[ -f "*.xcodeproj/project.pbxproj" ]] || [[ -d *.xcodeproj ]]; then
+shopt -s nullglob
+xcodeproj_dirs=( *.xcodeproj )
+if [[ ${#xcodeproj_dirs[@]} -gt 0 ]]; then
     echo "📍 Detected Xcode project in current directory: $(pwd)"
     PROJECT_DIR="$(pwd)"
 else

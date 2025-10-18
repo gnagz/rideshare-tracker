@@ -134,8 +134,24 @@ class ImageManager: ObservableObject {
         try thumbnailData.write(to: thumbnailURL)
         debugMessage("Saved thumbnail: \(thumbnailURL.path)")
 
-        // Create attachment
-        let attachment = ImageAttachment(filename: filename, type: type, description: description)
+        // Capture metadata
+        let fileSize = Int64(fullSizeData.count)
+        let imageDimensions = image.size
+        // Note: Location capture would require CLLocationManager and permissions
+        // For now, location is nil (will be added in future enhancement)
+        let location: ImageAttachment.Location? = nil
+
+        debugMessage("Captured metadata: fileSize=\(fileSize), dimensions=\(imageDimensions)")
+
+        // Create attachment with metadata
+        let attachment = ImageAttachment(
+            filename: filename,
+            type: type,
+            description: description,
+            fileSize: fileSize,
+            imageDimensions: imageDimensions,
+            location: location
+        )
         debugMessage("Created ImageAttachment: ID=\(attachment.id)")
         debugMessage("=== IMAGE SAVE COMPLETE ===")
 

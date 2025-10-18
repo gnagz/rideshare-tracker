@@ -235,6 +235,158 @@ final class ImageViewingTests: XCTestCase {
                       "Decoded expense should preserve attachment filenames")
     }
 
+    // MARK: - Enhanced Metadata Tests (TDD for Phase 1)
+
+    @MainActor func testImageAttachmentCapturesFileSize() throws {
+        // Test that ImageManager captures file size when saving images
+        let testImage = UIImage(systemName: "photo.fill")!
+
+        let attachment = try ImageManager.shared.saveImage(
+            testImage,
+            for: testShift.id,
+            parentType: .shift,
+            type: .receipt,
+            description: "Test image with metadata"
+        )
+
+        // File size should be captured
+        XCTAssertNotNil(attachment.fileSize, "File size should be captured when saving image")
+        XCTAssertGreaterThan(attachment.fileSize ?? 0, 0, "File size should be greater than zero")
+
+        // Cleanup
+        ImageManager.shared.deleteImage(attachment, for: testShift.id, parentType: .shift)
+    }
+
+    @MainActor func testImageAttachmentCapturesDimensions() throws {
+        // Test that ImageManager captures image dimensions when saving
+        let testImage = UIImage(systemName: "photo.fill")!
+
+        let attachment = try ImageManager.shared.saveImage(
+            testImage,
+            for: testShift.id,
+            parentType: .shift,
+            type: .receipt,
+            description: "Test image with dimensions"
+        )
+
+        // Dimensions should be captured
+        XCTAssertNotNil(attachment.imageDimensions, "Image dimensions should be captured")
+        XCTAssertGreaterThan(attachment.imageDimensions?.width ?? 0, 0, "Image width should be greater than zero")
+        XCTAssertGreaterThan(attachment.imageDimensions?.height ?? 0, 0, "Image height should be greater than zero")
+
+        // Cleanup
+        ImageManager.shared.deleteImage(attachment, for: testShift.id, parentType: .shift)
+    }
+
+    @MainActor func testImageAttachmentLocationIsOptional() throws {
+        // Test that location is optional and doesn't block image saving
+        let testImage = UIImage(systemName: "photo.fill")!
+
+        let attachment = try ImageManager.shared.saveImage(
+            testImage,
+            for: testShift.id,
+            parentType: .shift,
+            type: .receipt,
+            description: "Test image without location"
+        )
+
+        // Location should be nil when not available (testing environment doesn't have GPS)
+        // But image should still save successfully
+        XCTAssertNil(attachment.location, "Location should be nil when not available")
+        XCTAssertNotNil(attachment.fileSize, "Image should save successfully even without location")
+
+        // Cleanup
+        ImageManager.shared.deleteImage(attachment, for: testShift.id, parentType: .shift)
+    }
+
+    @MainActor func testImageAttachmentBackwardCompatibility() throws {
+        // Test that old attachments without metadata can be decoded
+
+        // Create an attachment in the old format (without new metadata fields)
+        let oldFormatJSON = """
+        {
+            "id": "12345678-1234-1234-1234-123456789012",
+            "filename": "test.jpg",
+            "createdDate": 693964800.0,
+            "type": "Receipt",
+            "description": "Old format attachment"
+        }
+        """
+
+        let decoder = JSONDecoder()
+        let attachment = try decoder.decode(ImageAttachment.self, from: oldFormatJSON.data(using: .utf8)!)
+
+        // Should decode successfully with nil metadata fields
+        XCTAssertEqual(attachment.filename, "test.jpg")
+        XCTAssertEqual(attachment.type, .receipt)
+        XCTAssertEqual(attachment.description, "Old format attachment")
+        XCTAssertNil(attachment.fileSize, "Old attachments should have nil fileSize")
+        XCTAssertNil(attachment.imageDimensions, "Old attachments should have nil imageDimensions")
+        XCTAssertNil(attachment.location, "Old attachments should have nil location")
+    }
+
+    @MainActor func testImageAttachmentLocationStructCoding() throws {
+        // Test that Location struct encodes and decodes correctly
+
+        let location = ImageAttachment.Location(
+            latitude: 40.7128,
+            longitude: -74.0060,
+            address: "New York, NY"
+        )
+
+        // Encode
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(location)
+
+        // Decode
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(ImageAttachment.Location.self, from: data)
+
+        // Verify
+        XCTAssertEqual(decoded.latitude, 40.7128, accuracy: 0.0001)
+        XCTAssertEqual(decoded.longitude, -74.0060, accuracy: 0.0001)
+        XCTAssertEqual(decoded.address, "New York, NY")
+    }
+
+    @MainActor func testImageAttachmentWithFullMetadata() throws {
+        // Test that attachment with all metadata fields encodes/decodes correctly
+
+        let location = ImageAttachment.Location(
+            latitude: 37.7749,
+            longitude: -122.4194,
+            address: "San Francisco, CA"
+        )
+
+        let attachment = ImageAttachment(
+            filename: "full-metadata.jpg",
+            type: .gasPump,
+            description: "Gas station receipt with location",
+            fileSize: 2048576,
+            imageDimensions: CGSize(width: 1920, height: 1080),
+            location: location
+        )
+
+        // Encode
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(attachment)
+
+        // Decode
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(ImageAttachment.self, from: data)
+
+        // Verify all fields
+        XCTAssertEqual(decoded.filename, "full-metadata.jpg")
+        XCTAssertEqual(decoded.type, .gasPump)
+        XCTAssertEqual(decoded.description, "Gas station receipt with location")
+        XCTAssertEqual(decoded.fileSize, 2048576)
+        XCTAssertEqual(decoded.imageDimensions?.width, 1920)
+        XCTAssertEqual(decoded.imageDimensions?.height, 1080)
+        XCTAssertNotNil(decoded.location, "Location should be decoded")
+        XCTAssertEqual(decoded.location!.latitude, 37.7749, accuracy: 0.0001)
+        XCTAssertEqual(decoded.location!.longitude, -122.4194, accuracy: 0.0001)
+        XCTAssertEqual(decoded.location?.address, "San Francisco, CA")
+    }
+
     // MARK: - Deferred Deletion Tests (TDD for Bug Fix)
 
     @MainActor func testShiftImageDeletionIsDeferredUntilSave() throws {

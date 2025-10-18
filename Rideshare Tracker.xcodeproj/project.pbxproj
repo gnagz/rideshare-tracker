@@ -192,7 +192,6 @@
 		3531FC1B2E497ECC000F2CD7 = {
 			isa = PBXGroup;
 			children = (
-				35A25DBF2EA0DCB30036A2F0 /* scripts */,
 				357F17772E857B3800262CFA /* Debug Text & Visual Pauses.xctestplan */,
 				353424982E52935300B86346 /* CLAUDE.md */,
 				353424992E52935300B86346 /* README.md */,
@@ -202,6 +201,7 @@
 				3531FC522E498727000F2CD7 /* Rideshare Tracker */,
 				3531FC342E497ECD000F2CD7 /* Rideshare TrackerTests */,
 				3531FC3E2E497ECD000F2CD7 /* Rideshare TrackerUITests */,
+				35A25DBF2EA0DCB30036A2F0 /* scripts */,
 				35424BD12E77F190000E739E /* Frameworks */,
 				3531FC252E497ECC000F2CD7 /* Products */,
 			);
