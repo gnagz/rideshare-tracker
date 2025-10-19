@@ -8,12 +8,31 @@
 import SwiftUI
 
 struct IncrementalSyncView: View {
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @EnvironmentObject var dataManager: ShiftDataManager
     @EnvironmentObject var expenseManager: ExpenseDataManager
     @Environment(\.presentationMode) var presentationMode
-    
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
+    private var syncEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { preferences.incrementalSyncEnabled },
+            set: { newValue in
+                if newValue && preferences.lastIncrementalSyncDate == nil {
+                    // First time enabling - show initial sync confirmation
+                    showingInitialSyncConfirmation = true
+                } else {
+                    // Already synced before or disabling
+                    preferencesManager.preferences.incrementalSyncEnabled = newValue
+                    preferencesManager.savePreferences()
+                }
+            }
+        )
+    }
+
     @StateObject private var cloudSyncManager = CloudSyncManager.shared
+    @StateObject private var syncLifecycleManager = SyncLifecycleManager.shared
     @State private var showingSyncAlert = false
     @State private var syncAlertMessage = ""
     @State private var showingInitialSyncConfirmation = false
@@ -38,9 +57,10 @@ struct IncrementalSyncView: View {
     }
     
     var body: some View {
-        NavigationView {
+        EmptyView()
+        /*NavigationView {
             ScrollView {
-                VStack(spacing: 24) {
+               VStack(spacing: 24) {
                     // Header Section
                     VStack(spacing: 16) {
                         Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90.icloud.fill")
@@ -129,20 +149,8 @@ struct IncrementalSyncView: View {
                                 }
                                 
                                 Spacer()
-                                
-                                Toggle("", isOn: Binding(
-                                    get: { preferences.incrementalSyncEnabled },
-                                    set: { newValue in
-                                        if newValue && preferences.lastIncrementalSyncDate == nil {
-                                            // First time enabling - show initial sync confirmation
-                                            showingInitialSyncConfirmation = true
-                                        } else {
-                                            // Already synced before or disabling
-                                            preferences.incrementalSyncEnabled = newValue
-                                            preferences.savePreferences()
-                                        }
-                                    }
-                                ))
+
+                                Toggle("", isOn: syncEnabledBinding)
                             }
                             .padding()
                             .background(Color(.systemGroupedBackground))
@@ -159,7 +167,7 @@ struct IncrementalSyncView: View {
                                     ForEach(SyncFrequency.allCases, id: \.self) { frequency in
                                         HStack {
                                             Button(action: {
-                                                preferences.syncFrequency = frequency.rawValue
+                                                preferencesManager.preferences.syncFrequency = frequency.rawValue
                                             }) {
                                                 HStack {
                                                     Image(systemName: preferences.syncFrequency == frequency.rawValue ? "checkmark.circle.fill" : "circle")
@@ -398,9 +406,16 @@ struct IncrementalSyncView: View {
                 }
             }
         )
+        .onChange(of: syncLifecycleManager.lastSyncError) { newValue in
+            if let error = newValue {
+                syncAlertMessage = "Sync Error: \(error.localizedDescription)"
+                showingSyncAlert = true
+                syncLifecycleManager.lastSyncError = nil
+            }
+        }*/
     }
     
-    private func formatLastSyncDate() -> String {
+    /*private func formatLastSyncDate() -> String {
         guard let lastSync = preferences.lastIncrementalSyncDate else {
             return "Never"
         }
@@ -426,9 +441,9 @@ struct IncrementalSyncView: View {
                 
                 // Enable sync and mark as completed on main thread
                 await MainActor.run {
-                    preferences.incrementalSyncEnabled = true
-                    preferences.lastIncrementalSyncDate = Date()
-                    preferences.savePreferences()
+                    preferencesManager.preferences.incrementalSyncEnabled = true
+                    preferencesManager.preferences.lastIncrementalSyncDate = Date()
+                    preferencesManager.savePreferences()
                     
                     // Clean up any local soft-deleted records after successful sync
                     dataManager.cleanupDeletedShifts()
@@ -469,8 +484,8 @@ struct IncrementalSyncView: View {
                     dataManager.cleanupDeletedShifts()
                     expenseManager.cleanupDeletedExpenses()
                     
-                    preferences.lastIncrementalSyncDate = Date()
-                    preferences.savePreferences()
+                    preferencesManager.preferences.lastIncrementalSyncDate = Date()
+                    preferencesManager.savePreferences()
                     
                     syncAlertMessage = "Sync completed successfully!\n\nSynchronized \(syncResult.mergedShifts.count) shifts and \(syncResult.mergedExpenses.count) expenses."
                     showingSyncAlert = true
@@ -545,7 +560,7 @@ struct IncrementalSyncView: View {
         // Save the migrated data
         dataManager.saveShifts()
         expenseManager.saveExpenses()
-    }
+    }*/
 }
 
 struct BenefitCard: View {
@@ -650,3 +665,4 @@ struct InitialSyncProgressView: View {
         }
     }
 }
+

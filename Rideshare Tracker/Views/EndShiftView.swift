@@ -12,8 +12,10 @@ import PhotosUI
 struct EndShiftView: View {
     @Binding var shift: RideshareShift
     @EnvironmentObject var dataManager: ShiftDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @Environment(\.presentationMode) var presentationMode
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
     
     @State private var endDate = Date()
     @State private var endMileage = ""
@@ -110,7 +112,7 @@ struct EndShiftView: View {
                             Text("Date")
                                 .foregroundColor(.primary)
                             Spacer()
-                            Text(preferences.formatDate(endDate))
+                            Text(preferencesManager.formatDate(endDate))
                                 .foregroundColor(.primary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -127,7 +129,7 @@ struct EndShiftView: View {
                                 .labelsHidden()
 
                             KeyboardInputUtility.keyboardInputButton(
-                                currentValue: preferences.formatDate(endDate),
+                                currentValue: preferencesManager.formatDate(endDate),
                                 showingAlert: $showEndDateTextInput,
                                 inputText: $endDateText,
                                 accessibilityId: "end_date_text_input_button",
@@ -141,7 +143,7 @@ struct EndShiftView: View {
                             Text("Time")
                                 .foregroundColor(.primary)
                             Spacer()
-                            Text(preferences.formatTime(endDate))
+                            Text(preferencesManager.formatTime(endDate))
                                 .foregroundColor(.primary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -158,7 +160,7 @@ struct EndShiftView: View {
                                 .labelsHidden()
 
                             KeyboardInputUtility.keyboardInputButton(
-                                currentValue: preferences.formatTime(endDate),
+                                currentValue: preferencesManager.formatTime(endDate),
                                 showingAlert: $showEndTimeTextInput,
                                 inputText: $endTimeText,
                                 accessibilityId: "end_time_text_input_button",
@@ -405,7 +407,7 @@ struct EndShiftView: View {
                 }
             })
         .alert("Enter End Date", isPresented: $showEndDateTextInput) {
-            TextField(preferences.formatDate(Date()), text: $endDateText)
+            TextField(preferencesManager.formatDate(Date()), text: $endDateText)
                 .keyboardType(.numbersAndPunctuation)
             Button("Set Date") {
                 setEndDateFromText()
@@ -414,10 +416,10 @@ struct EndShiftView: View {
                 endDateText = ""
             }
         } message: {
-            Text("Format: \(preferences.formatDate(Date()))")
+            Text("Format: \(preferencesManager.formatDate(Date()))")
         }
         .alert("Enter End Time", isPresented: $showEndTimeTextInput) {
-            TextField(preferences.formatTime(Date()), text: $endTimeText)
+            TextField(preferencesManager.formatTime(Date()), text: $endTimeText)
                 .keyboardType(.numbersAndPunctuation)
             Button("Set Time") {
                 setEndTimeFromText()
@@ -426,7 +428,7 @@ struct EndShiftView: View {
                 endTimeText = ""
             }
         } message: {
-            Text("Format: \(preferences.formatTime(Date()))")
+            Text("Format: \(preferencesManager.formatTime(Date()))")
         }
         .alert("Enter Tank Level", isPresented: $showTankTextInput) {
             TextField("0 to 8", text: $tankText)
@@ -551,7 +553,7 @@ struct EndShiftView: View {
                 endDateText = ""
             }
         } else {
-            print("⚠️ [EndShiftView] Failed to parse date: '\(endDateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferences.formatDate(Date()))')")
+            debugMessage("Failed to parse date: '\(endDateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferencesManager.formatDate(Date()))')")
         }
     }
 
@@ -578,7 +580,7 @@ struct EndShiftView: View {
                 endTimeText = ""
             }
         } else {
-            print("⚠️ [EndShiftView] Failed to parse time: '\(endTimeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferences.formatTime(Date()))')")
+            debugMessage("Failed to parse time: '\(endTimeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferencesManager.formatTime(Date()))')")
         }
     }
 

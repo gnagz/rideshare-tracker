@@ -10,10 +10,12 @@ import SwiftUI
 
 @main
 struct RideshareTrackerApp: App {
-    @StateObject private var preferences = AppPreferences.shared
+    @StateObject private var preferencesManager = PreferencesManager.shared
     @StateObject private var dataManager = ShiftDataManager.shared
     @StateObject private var expenseManager = ExpenseDataManager.shared
     @StateObject private var syncLifecycleManager = SyncLifecycleManager.shared
+    @StateObject private var importExportManager = ImportExportManager.shared
+    @StateObject private var backupRestoreManager = BackupRestoreManager.shared
     @State private var showTestNameAlert = false
     @State private var testName = ""
 
@@ -30,10 +32,12 @@ struct RideshareTrackerApp: App {
     var body: some Scene {
         WindowGroup {
             MainTabView()
-                .environmentObject(preferences)
+                .environmentObject(preferencesManager)
                 .environmentObject(dataManager)
                 .environmentObject(expenseManager)
                 .environmentObject(syncLifecycleManager)
+                .environmentObject(importExportManager)
+                .environmentObject(backupRestoreManager)
                 .alert("Running UI Test", isPresented: $showTestNameAlert) {
                     Button("OK") {
                         showTestNameAlert = false

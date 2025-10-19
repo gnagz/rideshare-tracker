@@ -10,12 +10,35 @@ import Foundation
 @MainActor
 class ShiftDataManager: ObservableObject {
     static let shared = ShiftDataManager()
-    
+
     @Published var shifts: [RideshareShift] = []
-    
+    @Published var lastError: ShiftDataError?
+
+    private let preferencesManager = PreferencesManager.shared
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
     private init() {
         loadShifts()
         migrateImportedTollImages() // One-time migration: convert old toll images to .importedToll type
+    }
+    
+    // MARK: - Error Types
+    
+    enum ShiftDataError: LocalizedError {
+        case decodingFailed(Error)
+        case encodingFailed(Error)
+        case userDefaultsUnavailable
+        
+        var errorDescription: String? {
+            switch self {
+            case .decodingFailed(let error):
+                return "Failed to load saved shifts: \(error.localizedDescription)"
+            case .encodingFailed(let error):
+                return "Failed to save shifts: \(error.localizedDescription)"
+            case .userDefaultsUnavailable:
+                return "Settings storage is unavailable"
+            }
+        }
     }
     
     // Public initializer for SwiftUI environment object usage
@@ -31,19 +54,21 @@ class ShiftDataManager: ObservableObject {
         debugMessage("=== LOADING SHIFTS FROM USERDEFAULTS ===")
         if let data = UserDefaults.standard.data(forKey: "shifts") {
             debugMessage("Found shifts data in UserDefaults: \(data.count) bytes")
-            if let decodedShifts = try? JSONDecoder().decode([RideshareShift].self, from: data) {
-                shifts = decodedShifts
-                debugMessage("Successfully decoded \(decodedShifts.count) shifts")
+            do {
+                shifts = try JSONDecoder().decode([RideshareShift].self, from: data)
+                debugMessage("Successfully decoded \(shifts.count) shifts")
 
                 var totalAttachments = 0
-                for (index, shift) in decodedShifts.enumerated().prefix(5) {
+                for (index, shift) in shifts.enumerated().prefix(5) {
                     let attachmentCount = shift.imageAttachments.count
                     totalAttachments += attachmentCount
                     debugMessage("  Shift \(index): ID=\(shift.id), attachments=\(attachmentCount)")
                 }
                 debugMessage("Total attachments loaded: \(totalAttachments)")
-            } else {
+            } catch {
                 debugMessage("ERROR: Failed to decode shifts from UserDefaults data")
+                lastError = .decodingFailed(error)
+                // Set lastError for UI observation; do not throw to allow app startup even with corrupted data.
             }
         } else {
             debugMessage("No shifts data found in UserDefaults")
@@ -53,8 +78,12 @@ class ShiftDataManager: ObservableObject {
     
     
     func saveShifts() {
-        if let encodedData = try? JSONEncoder().encode(shifts) {
+        do {
+            let encodedData = try JSONEncoder().encode(shifts)
             UserDefaults.standard.set(encodedData, forKey: "shifts")
+        } catch {
+            lastError = .encodingFailed(error)
+            // Set lastError for UI observation; do not throw to avoid crashing during save operations; no debugMessage to avoid log clutter during frequent saves.
         }
     }
     
@@ -92,7 +121,7 @@ class ShiftDataManager: ObservableObject {
     }
     
     func deleteShift(_ shift: RideshareShift) {
-        if AppPreferences.shared.incrementalSyncEnabled {
+        if preferences.incrementalSyncEnabled {
             // Cloud sync enabled: soft delete for sync propagation
             if let index = shifts.firstIndex(where: { $0.id == shift.id }) {
                 shifts[index].isDeleted = true

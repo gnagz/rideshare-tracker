@@ -1314,6 +1314,17 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         photoImage.tap()
         debugMessage("✅ Step 9: Tapped photo image at index \(photoIndex) (id: '\(photoIdentifier)')")
 
+        // NEW: UIImagePickerController requires tapping "Choose" button after selecting photo
+        debugMessage("📸 Step 9a: Looking for 'Choose' button...")
+        let chooseButton = app.buttons["Choose"]
+        if chooseButton.waitForExistence(timeout: 2) {
+            debugMessage("📸 Step 9b: Found 'Choose' button, tapping...")
+            chooseButton.tap()
+            debugMessage("✅ Step 9c: Tapped 'Choose' button")
+        } else {
+            debugMessage("⚠️ Step 9b: 'Choose' button not found - photo picker may have auto-dismissed")
+        }
+
         // Wait for photo library to dismiss (Check that "Photos" tab button no longer exists)
         debugMessage("📸 Step 10: Waiting for photo library to dismiss...")
         let photosTabButton = app.buttons["Photos"]
@@ -1338,9 +1349,8 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
 
         // Verify photo was added (look for photo count indicator)
         debugMessage("📸 Step 12: Checking for photo count indicator...")
-        let hasPhotoIndicator = app.staticTexts.allElementsBoundByIndex.contains { element in
-            element.label.contains("photo") && element.label.contains("selected")
-        }
+        let photoIndicator = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'photo' AND label CONTAINS 'selected'")).firstMatch
+        let hasPhotoIndicator = photoIndicator.waitForExistence(timeout: 5)
         debugMessage("📸 Step 12a: Photo indicator found: \(hasPhotoIndicator)")
         XCTAssertTrue(hasPhotoIndicator, "Should show photo count indicator after adding photo")
         debugMessage("✅ Successfully returned to shift form with photo attached")

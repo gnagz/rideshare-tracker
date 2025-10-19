@@ -9,10 +9,12 @@ import SwiftUI
 
 struct ShiftRowView: View {
     let shift: RideshareShift
-    @EnvironmentObject var preferences: AppPreferences
-    
+    @EnvironmentObject var preferencesManager: PreferencesManager
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
     private func formatDateTime(_ date: Date) -> String {
-        return "\(preferences.formatDate(date)) \(preferences.formatTime(date))"
+        return "\(preferencesManager.formatDate(date)) \(preferencesManager.formatTime(date))"
     }
     
     var body: some View {

@@ -10,15 +10,38 @@ import Foundation
 @MainActor
 class ExpenseDataManager: ObservableObject {
     static let shared = ExpenseDataManager()
-    
+
     @Published var expenses: [ExpenseItem] = []
+    @Published var lastError: ExpenseDataError?
     private let expensesKey = "expenses_data"
-    
+
+    private let preferencesManager = PreferencesManager.shared
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
     private init() {
         loadExpenses()
     }
     
-    // Public initializer for SwiftUI environment object usage  
+    // MARK: - Error Types
+    
+    enum ExpenseDataError: LocalizedError {
+        case decodingFailed(Error)
+        case encodingFailed(Error)
+        case userDefaultsUnavailable
+        
+        var errorDescription: String? {
+            switch self {
+            case .decodingFailed(let error):
+                return "Failed to load saved expenses: \(error.localizedDescription)"
+            case .encodingFailed(let error):
+                return "Failed to save expenses: \(error.localizedDescription)"
+            case .userDefaultsUnavailable:
+                return "Settings storage is unavailable"
+            }
+        }
+    }
+    
+    // Public initializer for SwiftUI environment object usage
     convenience init(forEnvironment: Bool = false) {
         if forEnvironment {
             self.init()
@@ -27,17 +50,32 @@ class ExpenseDataManager: ObservableObject {
         }
     }
     
+//    private func loadExpenses() {
+//        if let data = UserDefaults.standard.data(forKey: expensesKey),
+//           let decodedExpenses = try? JSONDecoder().decode([ExpenseItem].self, from: data) {
+//            expenses = decodedExpenses
+//        } else {
+//            lastError = .decodingFailed(DecodingError.dataCorrupted(DecodingError.Context(codingPath: [], debugDescription: "Failed to decode expenses data")))
+//        }
+//    }
     private func loadExpenses() {
-        if let data = UserDefaults.standard.data(forKey: expensesKey),
-           let decodedExpenses = try? JSONDecoder().decode([ExpenseItem].self, from: data) {
-            expenses = decodedExpenses
+        if let data = UserDefaults.standard.data(forKey: expensesKey) {
+            do {
+                expenses = try JSONDecoder().decode([ExpenseItem].self, from: data)
+            } catch {
+                lastError = .decodingFailed(error)
+            }
+        } else {
+            lastError = .decodingFailed(DecodingError.dataCorrupted(DecodingError.Context(codingPath: [], debugDescription: "No data found for expenses")))
         }
     }
     
-    
     func saveExpenses() {
-        if let encoded = try? JSONEncoder().encode(expenses) {
+        do {
+            let encoded = try JSONEncoder().encode(expenses)
             UserDefaults.standard.set(encoded, forKey: expensesKey)
+        } catch {
+            lastError = .encodingFailed(error)
         }
     }
     
@@ -75,7 +113,7 @@ class ExpenseDataManager: ObservableObject {
     }
     
     func deleteExpense(_ expense: ExpenseItem) {
-        if AppPreferences.shared.incrementalSyncEnabled {
+        if preferences.incrementalSyncEnabled {
             // Cloud sync enabled: soft delete for sync propagation
             if let index = expenses.firstIndex(where: { $0.id == expense.id }) {
                 expenses[index].isDeleted = true
@@ -90,7 +128,7 @@ class ExpenseDataManager: ObservableObject {
     }
     
     func deleteExpenses(at offsets: IndexSet) {
-        if AppPreferences.shared.incrementalSyncEnabled {
+        if preferences.incrementalSyncEnabled {
             // Cloud sync enabled: soft delete for sync propagation
             for index in offsets.sorted(by: >) {
                 expenses[index].isDeleted = true

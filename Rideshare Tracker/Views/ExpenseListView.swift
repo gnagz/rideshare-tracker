@@ -10,11 +10,13 @@ import SwiftUI
 struct ExpenseListView: View {
     @EnvironmentObject var expenseManager: ExpenseDataManager
     @EnvironmentObject var dataManager: ShiftDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @State private var selectedDate = Date()
     @State private var showingAddExpense = false
     @State private var showingDatePicker = false
     @State private var showingMainMenu = false
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
     
     private var currentMonthExpenses: [ExpenseItem] {
         expenseManager.expensesForMonth(selectedDate).sorted { 
@@ -214,7 +216,7 @@ struct ExpenseListView: View {
                 MainMenuView()
                     .environmentObject(dataManager)
                     .environmentObject(expenseManager)
-                    .environmentObject(preferences)
+                    .environmentObject(preferencesManager)
             }
         }
         .navigationViewStyle(.columns)
@@ -245,10 +247,12 @@ struct ExpenseListView: View {
 
 struct ExpenseRowView: View {
     let expense: ExpenseItem
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @State private var showingImageViewer = false
     @State private var thumbnailImages: [UIImage] = []
-    
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
     private var dayOfMonth: String {
         let calendar = Calendar.current
         let day = calendar.component(.day, from: expense.date)

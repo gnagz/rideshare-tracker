@@ -12,8 +12,10 @@ import PhotosUI
 struct EditShiftView: View {
     @Binding var shift: RideshareShift
     @EnvironmentObject var dataManager: ShiftDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @Environment(\.presentationMode) var presentationMode
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
     
     // Start shift data
     @State private var startDate: Date
@@ -166,7 +168,7 @@ struct EditShiftView: View {
             }
         )
         .alert("Enter Start Date", isPresented: $showStartDateTextInput) {
-            TextField(preferences.formatDate(Date()), text: $startDateText)
+            TextField(preferencesManager.formatDate(Date()), text: $startDateText)
                 .keyboardType(.numbersAndPunctuation)
             Button("Set Date") {
                 setStartDateFromText()
@@ -175,10 +177,10 @@ struct EditShiftView: View {
                 startDateText = ""
             }
         } message: {
-            Text("Format: \(preferences.formatDate(Date()))")
+            Text("Format: \(preferencesManager.formatDate(Date()))")
         }
         .alert("Enter Start Time", isPresented: $showStartTimeTextInput) {
-            TextField(preferences.formatTime(Date()), text: $startTimeText)
+            TextField(preferencesManager.formatTime(Date()), text: $startTimeText)
                 .keyboardType(.numbersAndPunctuation)
             Button("Set Time") {
                 setStartTimeFromText()
@@ -187,7 +189,7 @@ struct EditShiftView: View {
                 startTimeText = ""
             }
         } message: {
-            Text("Format: \(preferences.formatTime(Date()))")
+            Text("Format: \(preferencesManager.formatTime(Date()))")
         }
         .alert("Enter Start Tank Level", isPresented: $showStartTankTextInput) {
             TextField("0 to 8", text: $startTankText)
@@ -202,7 +204,7 @@ struct EditShiftView: View {
             Text("Enter: 0 (Empty) to 8 (Full)")
         }
         .alert("Enter End Date", isPresented: $showEndDateTextInput) {
-            TextField(preferences.formatDate(Date()), text: $endDateText)
+            TextField(preferencesManager.formatDate(Date()), text: $endDateText)
                 .keyboardType(.numbersAndPunctuation)
             Button("Set Date") {
                 setEndDateFromText()
@@ -211,10 +213,10 @@ struct EditShiftView: View {
                 endDateText = ""
             }
         } message: {
-            Text("Format: \(preferences.formatDate(Date()))")
+            Text("Format: \(preferencesManager.formatDate(Date()))")
         }
         .alert("Enter End Time", isPresented: $showEndTimeTextInput) {
-            TextField(preferences.formatTime(Date()), text: $endTimeText)
+            TextField(preferencesManager.formatTime(Date()), text: $endTimeText)
                 .keyboardType(.numbersAndPunctuation)
             Button("Set Time") {
                 setEndTimeFromText()
@@ -223,7 +225,7 @@ struct EditShiftView: View {
                 endTimeText = ""
             }
         } message: {
-            Text("Format: \(preferences.formatTime(Date()))")
+            Text("Format: \(preferencesManager.formatTime(Date()))")
         }
         .alert("Enter End Tank Level", isPresented: $showEndTankTextInput) {
             TextField("0 to 8", text: $endTankText)
@@ -265,7 +267,7 @@ struct EditShiftView: View {
                         Text("Date")
                             .foregroundColor(.primary)
                         Spacer()
-                        Text(preferences.formatDate(startDate))
+                        Text(preferencesManager.formatDate(startDate))
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -282,7 +284,7 @@ struct EditShiftView: View {
                             .labelsHidden()
 
                         KeyboardInputUtility.keyboardInputButton(
-                            currentValue: preferences.formatDate(startDate),
+                            currentValue: preferencesManager.formatDate(startDate),
                             showingAlert: $showStartDateTextInput,
                             inputText: $startDateText,
                             accessibilityId: "start_date_text_input_button",
@@ -296,7 +298,7 @@ struct EditShiftView: View {
                         Text("Time")
                             .foregroundColor(.primary)
                         Spacer()
-                        Text(preferences.formatTime(startDate))
+                        Text(preferencesManager.formatTime(startDate))
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -313,7 +315,7 @@ struct EditShiftView: View {
                             .labelsHidden()
 
                         KeyboardInputUtility.keyboardInputButton(
-                            currentValue: preferences.formatTime(startDate),
+                            currentValue: preferencesManager.formatTime(startDate),
                             showingAlert: $showStartTimeTextInput,
                             inputText: $startTimeText,
                             accessibilityId: "start_time_text_input_button",
@@ -383,7 +385,7 @@ struct EditShiftView: View {
                         Text("Date")
                             .foregroundColor(.primary)
                         Spacer()
-                        Text(preferences.formatDate(endDate))
+                        Text(preferencesManager.formatDate(endDate))
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -400,7 +402,7 @@ struct EditShiftView: View {
                             .labelsHidden()
 
                         KeyboardInputUtility.keyboardInputButton(
-                            currentValue: preferences.formatDate(endDate),
+                            currentValue: preferencesManager.formatDate(endDate),
                             showingAlert: $showEndDateTextInput,
                             inputText: $endDateText,
                             accessibilityId: "end_date_text_input_button",
@@ -414,7 +416,7 @@ struct EditShiftView: View {
                         Text("Time")
                             .foregroundColor(.primary)
                         Spacer()
-                        Text(preferences.formatTime(endDate))
+                        Text(preferencesManager.formatTime(endDate))
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -431,7 +433,7 @@ struct EditShiftView: View {
                             .labelsHidden()
 
                         KeyboardInputUtility.keyboardInputButton(
-                            currentValue: preferences.formatTime(endDate),
+                            currentValue: preferencesManager.formatTime(endDate),
                             showingAlert: $showEndTimeTextInput,
                             inputText: $endTimeText,
                             accessibilityId: "end_time_text_input_button",
@@ -756,7 +758,7 @@ struct EditShiftView: View {
                 )
                 shift.imageAttachments.append(attachment)
             } catch {
-                print("Failed to save shift photo \(index): \(error)")
+                debugMessage("Failed to save shift photo \(index): \(error)")
                 // Continue with other photos even if one fails
             }
         }
@@ -835,7 +837,7 @@ struct EditShiftView: View {
         formatter.dateFormat = preferences.dateFormat
 
         if let date = formatter.date(from: startDateText) {
-            print("✅ [EditShiftView] Start date parsed successfully: '\(startDateText)' using format '\(preferences.dateFormat)'")
+            debugMessage("Start date parsed successfully: '\(startDateText)' using format '\(preferences.dateFormat)'")
             // Preserve the time from current startDate, only update the date part
             let calendar = Calendar.current
             let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
@@ -855,7 +857,7 @@ struct EditShiftView: View {
                 startDateText = ""
             }
         } else {
-            print("⚠️ [EditShiftView] Failed to parse start date: '\(startDateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferences.formatDate(Date()))')")
+            debugMessage("Failed to parse start date: '\(startDateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferencesManager.formatDate(Date()))')")
         }
     }
 
@@ -864,7 +866,7 @@ struct EditShiftView: View {
         formatter.dateFormat = preferences.timeFormat
 
         if let time = formatter.date(from: startTimeText) {
-            print("✅ [EditShiftView] Start time parsed successfully: '\(startTimeText)' using format '\(preferences.timeFormat)'")
+            debugMessage("Start time parsed successfully: '\(startTimeText)' using format '\(preferences.timeFormat)'")
             let calendar = Calendar.current
             let dateComponents = calendar.dateComponents([.year, .month, .day], from: startDate)
             let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
@@ -882,7 +884,7 @@ struct EditShiftView: View {
                 startTimeText = ""
             }
         } else {
-            print("⚠️ [EditShiftView] Failed to parse start time: '\(startTimeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferences.formatTime(Date()))')")
+            debugMessage("Failed to parse start time: '\(startTimeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferencesManager.formatTime(Date()))')")
         }
     }
 
@@ -898,7 +900,7 @@ struct EditShiftView: View {
         formatter.dateFormat = preferences.dateFormat
 
         if let date = formatter.date(from: endDateText) {
-            print("✅ [EditShiftView] End date parsed successfully: '\(endDateText)' using format '\(preferences.dateFormat)'")
+            debugMessage("End date parsed successfully: '\(endDateText)' using format '\(preferences.dateFormat)'")
             // Preserve the time from current endDate, only update the date part
             let calendar = Calendar.current
             let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
@@ -918,7 +920,7 @@ struct EditShiftView: View {
                 endDateText = ""
             }
         } else {
-            print("⚠️ [EditShiftView] Failed to parse end date: '\(endDateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferences.formatDate(Date()))')")
+            debugMessage("Failed to parse end date: '\(endDateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferencesManager.formatDate(Date()))')")
         }
     }
 
@@ -927,7 +929,7 @@ struct EditShiftView: View {
         formatter.dateFormat = preferences.timeFormat
 
         if let time = formatter.date(from: endTimeText) {
-            print("✅ [EditShiftView] End time parsed successfully: '\(endTimeText)' using format '\(preferences.timeFormat)'")
+            debugMessage("End time parsed successfully: '\(endTimeText)' using format '\(preferences.timeFormat)'")
             let calendar = Calendar.current
             let dateComponents = calendar.dateComponents([.year, .month, .day], from: endDate)
             let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
@@ -945,7 +947,7 @@ struct EditShiftView: View {
                 endTimeText = ""
             }
         } else {
-            print("⚠️ [EditShiftView] Failed to parse end time: '\(endTimeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferences.formatTime(Date()))')")
+            debugMessage("Failed to parse end time: '\(endTimeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferencesManager.formatTime(Date()))')")
         }
     }
 

@@ -10,9 +10,11 @@ import PhotosUI
 
 struct EditExpenseView: View {
     @EnvironmentObject var expenseManager: ExpenseDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @Environment(\.presentationMode) var presentationMode
-    
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
     let expense: ExpenseItem
     let isSheet: Bool
     
@@ -114,7 +116,7 @@ struct EditExpenseView: View {
                         Text("Date")
                             .foregroundColor(.primary)
                         Spacer()
-                        Text(preferences.formatDate(selectedDate))
+                        Text(preferencesManager.formatDate(selectedDate))
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)

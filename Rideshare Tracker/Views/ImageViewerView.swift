@@ -12,46 +12,67 @@ struct ImageViewerView: View {
     let startingIndex: Int
     @Binding var isPresented: Bool
 
+    // Optional: Image attachments for metadata display/editing
+    var attachments: [ImageAttachment]?
+    var isEditMode: Bool = false
+    var onSaveAttachment: ((Int, ImageAttachment) -> Void)?
+
     @State private var currentIndex: Int
     @State private var scale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
+    @State private var showingMetadata: Bool = false
 
-    init(images: Binding<[UIImage]>, startingIndex: Int = 0, isPresented: Binding<Bool>) {
+    init(images: Binding<[UIImage]>, startingIndex: Int = 0, isPresented: Binding<Bool>, attachments: [ImageAttachment]? = nil, isEditMode: Bool = false, onSaveAttachment: ((Int, ImageAttachment) -> Void)? = nil) {
         self._images = images
         self.startingIndex = startingIndex
         self._isPresented = isPresented
+        self.attachments = attachments
+        self.isEditMode = isEditMode
+        self.onSaveAttachment = onSaveAttachment
         self._currentIndex = State(initialValue: startingIndex)
+    }
+
+    private var currentAttachment: ImageAttachment? {
+        guard let attachments = attachments, currentIndex < attachments.count else {
+            return nil
+        }
+        return attachments[currentIndex]
     }
     
     var body: some View {
         NavigationView {
-            ZStack {
-                Color.black.ignoresSafeArea()
+            VStack(spacing: 0) {
+                // Image display area
+                ZStack {
+                    Color.black
 
-                if !images.isEmpty && currentIndex < images.count {
-                    TabView(selection: $currentIndex) {
-                        ForEach(0..<images.count, id: \.self) { index in
-                            ZoomableImageView(image: images[index])
-                                .tag(index)
+                    if !images.isEmpty && currentIndex < images.count {
+                        TabView(selection: $currentIndex) {
+                            ForEach(0..<images.count, id: \.self) { index in
+                                ZoomableImageView(image: images[index])
+                                    .tag(index)
+                            }
                         }
-                    }
-                    .tabViewStyle(.page(indexDisplayMode: images.count > 1 ? .automatic : .never))
-                    .indexViewStyle(.page(backgroundDisplayMode: .always))
-                } else {
-                    // Debug: Show why content is not displaying
-                    VStack {
-                        Text("Debug Info:")
-                            .foregroundColor(.white)
-                        Text("Images count: \(images.count)")
-                            .foregroundColor(.white)
-                        Text("Current index: \(currentIndex)")
-                            .foregroundColor(.white)
-                        Text("Starting index: \(startingIndex)")
-                            .foregroundColor(.white)
+                        .tabViewStyle(.page(indexDisplayMode: images.count > 1 ? .automatic : .never))
+                        .indexViewStyle(.page(backgroundDisplayMode: .always))
                     }
                 }
+
+                // Metadata section (if attachments provided)
+                if currentAttachment != nil {
+                    MetadataSection(
+                        attachment: currentAttachment!,
+                        isEditMode: isEditMode,
+                        isExpanded: $showingMetadata,
+                        onSave: { updatedAttachment in
+                            onSaveAttachment?(currentIndex, updatedAttachment)
+                        }
+                    )
+                    .background(Color(.systemBackground))
+                }
             }
+            .ignoresSafeArea(edges: currentAttachment == nil ? .all : .top)
             .navigationTitle("Photo \(currentIndex + 1) of \(images.count)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -64,7 +85,7 @@ struct ImageViewerView: View {
                     }
                     .foregroundColor(.white)
                 }
-                
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: shareCurrentImage) {
                         Image(systemName: "square.and.arrow.up")
@@ -74,7 +95,7 @@ struct ImageViewerView: View {
             }
         }
         .onAppear {
-            debugMessage("ImageViewerView onAppear: images.count=\(images.count), startingIndex=\(startingIndex), currentIndex=\(currentIndex)")
+            debugMessage("ImageViewerView onAppear: images.count=\(images.count), startingIndex=\(startingIndex), currentIndex=\(currentIndex), attachments=\(attachments?.count ?? 0)")
         }
     }
     
@@ -96,6 +117,174 @@ struct ImageViewerView: View {
             }
             
             window.rootViewController?.present(activityView, animated: true)
+        }
+    }
+}
+
+struct MetadataSection: View {
+    let attachment: ImageAttachment
+    let isEditMode: Bool
+    @Binding var isExpanded: Bool
+    let onSave: (ImageAttachment) -> Void
+
+    @State private var editedType: AttachmentType
+    @State private var editedDescription: String
+
+    init(attachment: ImageAttachment, isEditMode: Bool, isExpanded: Binding<Bool>, onSave: @escaping (ImageAttachment) -> Void) {
+        self.attachment = attachment
+        self.isEditMode = isEditMode
+        self._isExpanded = isExpanded
+        self.onSave = onSave
+        self._editedType = State(initialValue: attachment.type)
+        self._editedDescription = State(initialValue: attachment.description ?? "")
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Collapsible header
+            Button(action: {
+                withAnimation {
+                    isExpanded.toggle()
+                }
+            }) {
+                HStack {
+                    Image(systemName: "info.circle")
+                    Text("Photo Information")
+                        .font(.headline)
+                    Spacer()
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                }
+                .padding()
+                .background(Color(.systemGray6))
+            }
+            .foregroundColor(.primary)
+
+            // Metadata content
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Type field (editable in edit mode, locked for system-generated)
+                    HStack {
+                        Text("Type:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .frame(width: 100, alignment: .leading)
+
+                        if isEditMode && !attachment.type.isSystemGenerated {
+                            Picker("Type", selection: $editedType) {
+                                ForEach(AttachmentType.allCases.filter { !$0.isSystemGenerated }, id: \.self) { type in
+                                    Text(type.displayName).tag(type)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .onChange(of: editedType) { oldValue, newValue in
+                                saveChanges()
+                            }
+                        } else {
+                            HStack {
+                                Image(systemName: attachment.type.systemImage)
+                                Text(attachment.type.displayName)
+                            }
+                            if attachment.type.isSystemGenerated {
+                                Image(systemName: "lock.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        Spacer()
+                    }
+
+                    // Description field (always editable in edit mode)
+                    HStack(alignment: .top) {
+                        Text("Description:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .frame(width: 100, alignment: .leading)
+
+                        if isEditMode {
+                            TextField("Add description", text: $editedDescription, axis: .vertical)
+                                .textFieldStyle(.roundedBorder)
+                                .lineLimit(3...6)
+                                .onChange(of: editedDescription) { oldValue, newValue in
+                                    saveChanges()
+                                }
+                        } else {
+                            Text(attachment.description ?? "No description")
+                                .foregroundColor(attachment.description == nil ? .secondary : .primary)
+                        }
+                        Spacer()
+                    }
+
+                    Divider()
+
+                    // Read-only metadata
+                    MetadataRow(label: "Created", value: formatDate(attachment.createdDate))
+                    MetadataRow(label: "Filename", value: attachment.filename)
+
+                    if let fileSize = attachment.fileSize {
+                        MetadataRow(label: "File Size", value: formatFileSize(fileSize))
+                    }
+
+                    if let dimensions = attachment.imageDimensions {
+                        MetadataRow(label: "Dimensions", value: formatDimensions(dimensions))
+                    }
+
+                    if let location = attachment.location {
+                        MetadataRow(label: "Location", value: formatCoordinates(location))
+                        if let address = location.address {
+                            MetadataRow(label: "Address", value: address)
+                        }
+                    }
+                }
+                .padding()
+            }
+        }
+    }
+
+    private func saveChanges() {
+        let updated = ImageAttachment(
+            filename: attachment.filename,
+            type: editedType,
+            description: editedDescription.isEmpty ? nil : editedDescription,
+            fileSize: attachment.fileSize,
+            imageDimensions: attachment.imageDimensions,
+            location: attachment.location
+        )
+        onSave(updated)
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
+    private func formatFileSize(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
+    private func formatDimensions(_ size: CGSize) -> String {
+        "\(Int(size.width)) × \(Int(size.height)) px"
+    }
+
+    private func formatCoordinates(_ location: ImageAttachment.Location) -> String {
+        String(format: "%.6f, %.6f", location.latitude, location.longitude)
+    }
+}
+
+struct MetadataRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .top) {
+            Text(label + ":")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .frame(width: 100, alignment: .leading)
+            Text(value)
+                .font(.subheadline)
+            Spacer()
         }
     }
 }

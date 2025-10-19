@@ -10,8 +10,10 @@ import PhotosUI
 
 struct AddExpenseView: View {
     @EnvironmentObject var expenseManager: ExpenseDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @Environment(\.presentationMode) var presentationMode
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
     
     @State private var selectedDate = Date()
     @State private var selectedCategory = ExpenseCategory.vehicle
@@ -82,7 +84,7 @@ struct AddExpenseView: View {
                         Text("Date")
                             .foregroundColor(.primary)
                         Spacer()
-                        Text(preferences.formatDate(selectedDate))
+                        Text(preferencesManager.formatDate(selectedDate))
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)

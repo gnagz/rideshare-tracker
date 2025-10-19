@@ -10,9 +10,11 @@ import SwiftUI
 import UIKit
 
 struct PreferencesView: View {
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @EnvironmentObject var dataManager: ShiftDataManager
     @Environment(\.presentationMode) var presentationMode
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
     
     @State private var currentDate = Date()
     @FocusState private var focusedField: FocusedField?
@@ -79,7 +81,7 @@ struct PreferencesView: View {
                     HStack {
                         Text("Week Start Day")
                         Spacer()
-                        Picker("", selection: $preferences.weekStartDay) {
+                        Picker("", selection: $preferencesManager.preferences.weekStartDay) {
                             Text("Sunday").tag(1)
                             Text("Monday").tag(2)
                             Text("Tuesday").tag(3)
@@ -95,7 +97,7 @@ struct PreferencesView: View {
                     HStack {
                         Text("Date Format")
                         Spacer()
-                        Picker("", selection: $preferences.dateFormat) {
+                        Picker("", selection: $preferencesManager.preferences.dateFormat) {
                             ForEach(dateFormatExamples, id: \.0) { format, example in
                                 Text(example).tag(format)
                             }
@@ -107,7 +109,7 @@ struct PreferencesView: View {
                     HStack {
                         Text("Time Format")
                         Spacer()
-                        Picker("", selection: $preferences.timeFormat) {
+                        Picker("", selection: $preferencesManager.preferences.timeFormat) {
                             ForEach(timeFormatExamples, id: \.0) { format, example in
                                 Text(example).tag(format)
                             }
@@ -119,7 +121,7 @@ struct PreferencesView: View {
                     HStack {
                         Text("Time Zone")
                         Spacer()
-                        Picker("", selection: $preferences.timeZoneIdentifier) {
+                        Picker("", selection: $preferencesManager.preferences.timeZoneIdentifier) {
                             ForEach(commonTimeZones, id: \.0) { identifier, displayName in
                                 Text(displayName).tag(identifier)
                             }
@@ -133,7 +135,7 @@ struct PreferencesView: View {
                     HStack {
                         Text("Gas Tank Capacity (gallons)")
                         Spacer()
-                        TextField("Gallons", value: $preferences.tankCapacity, format: .number)
+                        TextField("Gallons", value: $preferencesManager.preferences.tankCapacity, format: .number)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
@@ -147,7 +149,7 @@ struct PreferencesView: View {
                     HStack {
                         Text("Gas Price (per gallon)")
                         Spacer()
-                        CurrencyTextField(placeholder: "$0.00", value: $preferences.gasPrice)
+                        CurrencyTextField(placeholder: "$0.00", value: $preferencesManager.preferences.gasPrice)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                             .overlay(
@@ -161,7 +163,7 @@ struct PreferencesView: View {
                     HStack {
                         Text("Standard Mileage Rate")
                         Spacer()
-                        CurrencyTextField(placeholder: "$0.67", value: $preferences.standardMileageRate)
+                        CurrencyTextField(placeholder: "$0.67", value: $preferencesManager.preferences.standardMileageRate)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                             .overlay(
@@ -175,7 +177,7 @@ struct PreferencesView: View {
                         .foregroundColor(.secondary)
                         .padding(.top, 4)
                     
-                    Toggle("Tips are tax deductible", isOn: $preferences.tipDeductionEnabled)
+                    Toggle("Tips are tax deductible", isOn: $preferencesManager.preferences.tipDeductionEnabled)
                     
                     Text("Tips are deductible through tax year 2028 under current IRS rules.")
                         .font(.caption)
@@ -185,7 +187,7 @@ struct PreferencesView: View {
                     HStack {
                         Text("Effective Tax Rate (%)")
                         Spacer()
-                        CalculatorTextField(placeholder: "22.0", value: $preferences.effectivePersonalTaxRate, formatter: .mileage)
+                        CalculatorTextField(placeholder: "22.0", value: $preferencesManager.preferences.effectivePersonalTaxRate, formatter: .mileage)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                             .focused($focusedField, equals: .taxRate)
@@ -213,7 +215,7 @@ struct PreferencesView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
-                        preferences.savePreferences()
+                        preferencesManager.savePreferences()
                         presentationMode.wrappedValue.dismiss()
                     }
                 }

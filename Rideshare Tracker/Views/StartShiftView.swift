@@ -11,8 +11,10 @@ import PhotosUI
 @MainActor
 struct StartShiftView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @Environment(\.presentationMode) var presentationMode
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
     
     var onShiftStarted: ((Date) -> Void)? = nil
     
@@ -81,7 +83,7 @@ struct StartShiftView: View {
             }
         )
         .alert("Enter Date", isPresented: $showDateTextInput) {
-            TextField(preferences.formatDate(Date()), text: $dateText)
+            TextField(preferencesManager.formatDate(Date()), text: $dateText)
                 .keyboardType(.numbersAndPunctuation)
             Button("Set Date") {
                 setDateFromText()
@@ -90,10 +92,10 @@ struct StartShiftView: View {
                 dateText = ""
             }
         } message: {
-            Text("Format: \(preferences.formatDate(Date()))")
+            Text("Format: \(preferencesManager.formatDate(Date()))")
         }
         .alert("Enter Time", isPresented: $showTimeTextInput) {
-            TextField(preferences.formatTime(Date()), text: $timeText)
+            TextField(preferencesManager.formatTime(Date()), text: $timeText)
                 .keyboardType(.numbersAndPunctuation)
             Button("Set Time") {
                 setTimeFromText()
@@ -102,7 +104,7 @@ struct StartShiftView: View {
                 timeText = ""
             }
         } message: {
-            Text("Format: \(preferences.formatTime(Date()))")
+            Text("Format: \(preferencesManager.formatTime(Date()))")
         }
         .alert("Enter Tank Level", isPresented: $showTankTextInput) {
             TextField("0 to 8", text: $tankText)
@@ -129,7 +131,7 @@ struct StartShiftView: View {
                         Text("Date")
                             .foregroundColor(.primary)
                         Spacer()
-                        Text(preferences.formatDate(startDate))
+                        Text(preferencesManager.formatDate(startDate))
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -150,7 +152,7 @@ struct StartShiftView: View {
                             .labelsHidden()
 
                         KeyboardInputUtility.keyboardInputButton(
-                            currentValue: preferences.formatDate(startDate),
+                            currentValue: preferencesManager.formatDate(startDate),
                             showingAlert: $showDateTextInput,
                             inputText: $dateText,
                             accessibilityId: "start_date_text_input_button",
@@ -167,7 +169,7 @@ struct StartShiftView: View {
                         Text("Time")
                             .foregroundColor(.primary)
                         Spacer()
-                        Text(preferences.formatTime(startDate))
+                        Text(preferencesManager.formatTime(startDate))
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -188,7 +190,7 @@ struct StartShiftView: View {
                             .labelsHidden()
 
                         KeyboardInputUtility.keyboardInputButton(
-                            currentValue: preferences.formatTime(startDate),
+                            currentValue: preferencesManager.formatTime(startDate),
                             showingAlert: $showTimeTextInput,
                             inputText: $timeText,
                             accessibilityId: "start_time_text_input_button",
@@ -342,7 +344,7 @@ struct StartShiftView: View {
                 dateText = "" // Clear the text field
             }
         } else {
-            print("⚠️ [StartShiftView] Failed to parse date: '\(dateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferences.formatDate(Date()))')")
+            print("⚠️ [StartShiftView] Failed to parse date: '\(dateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferencesManager.formatDate(Date()))')")
         }
     }
 
@@ -370,7 +372,7 @@ struct StartShiftView: View {
                 timeText = "" // Clear the text field
             }
         } else {
-            print("⚠️ [StartShiftView] Failed to parse time: '\(timeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferences.formatTime(Date()))')")
+            print("⚠️ [StartShiftView] Failed to parse time: '\(timeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferencesManager.formatTime(Date()))')")
         }
     }
 
