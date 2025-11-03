@@ -34,10 +34,22 @@ struct ImageViewerView: View {
     }
 
     private var currentAttachment: ImageAttachment? {
-        guard let attachments = attachments, currentIndex < attachments.count else {
-            return nil
+        // If attachments provided and valid, use them
+        if let attachments = attachments, currentIndex < attachments.count {
+            return attachments[currentIndex]
         }
-        return attachments[currentIndex]
+
+        // Fallback: Create temporary attachment from images array
+        if currentIndex < images.count {
+            return ImageAttachment(
+                filename: "photo_\(currentIndex + 1).jpg",
+                type: .other,
+                description: nil,
+                dateAttached: Date()
+            )
+        }
+
+        return nil
     }
     
     var body: some View {
@@ -59,16 +71,18 @@ struct ImageViewerView: View {
                     }
                 }
 
-                // Metadata section (if attachments provided)
-                if currentAttachment != nil {
+                // Metadata section (if attachment data available)
+                if currentAttachment != nil, currentIndex < images.count {
                     MetadataSection(
                         attachment: currentAttachment!,
+                        currentImage: images[currentIndex],
                         isEditMode: isEditMode,
                         isExpanded: $showingMetadata,
                         onSave: { updatedAttachment in
                             onSaveAttachment?(currentIndex, updatedAttachment)
                         }
                     )
+                    .id(currentIndex)  // Force refresh when photo index changes (but not when metadata changes)
                     .background(Color(.systemBackground))
                 }
             }
@@ -86,6 +100,39 @@ struct ImageViewerView: View {
                     .foregroundColor(.white)
                 }
 
+                // Previous photo button
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            if currentIndex > 0 {
+                                currentIndex -= 1
+                            }
+                        }) {
+                            Image(systemName: "chevron.left")
+                                .foregroundColor(.white)
+                                .opacity(currentIndex > 0 ? 1.0 : 0.3)
+                        }
+                        .disabled(currentIndex == 0)
+                        .accessibilityIdentifier("previous_photo_button")
+
+                        Text("Photo \(currentIndex + 1) of \(images.count)")
+                            .foregroundColor(.white)
+                            .font(.headline)
+
+                        Button(action: {
+                            if currentIndex < images.count - 1 {
+                                currentIndex += 1
+                            }
+                        }) {
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.white)
+                                .opacity(currentIndex < images.count - 1 ? 1.0 : 0.3)
+                        }
+                        .disabled(currentIndex == images.count - 1)
+                        .accessibilityIdentifier("next_photo_button")
+                    }
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: shareCurrentImage) {
                         Image(systemName: "square.and.arrow.up")
@@ -95,7 +142,7 @@ struct ImageViewerView: View {
             }
         }
         .onAppear {
-            debugMessage("ImageViewerView onAppear: images.count=\(images.count), startingIndex=\(startingIndex), currentIndex=\(currentIndex), attachments=\(attachments?.count ?? 0)")
+            debugMessage("ImageViewerView onAppear: images.count=\(images.count), startingIndex=\(startingIndex), currentIndex=\(currentIndex), attachments=\(attachments?.count ?? 0), currentAttachment=\(currentAttachment != nil ? "YES" : "NO")")
         }
     }
     
@@ -123,6 +170,7 @@ struct ImageViewerView: View {
 
 struct MetadataSection: View {
     let attachment: ImageAttachment
+    let currentImage: UIImage
     let isEditMode: Bool
     @Binding var isExpanded: Bool
     let onSave: (ImageAttachment) -> Void
@@ -130,8 +178,13 @@ struct MetadataSection: View {
     @State private var editedType: AttachmentType
     @State private var editedDescription: String
 
-    init(attachment: ImageAttachment, isEditMode: Bool, isExpanded: Binding<Bool>, onSave: @escaping (ImageAttachment) -> Void) {
+    // KNOWN ISSUE: Metadata doesn't update when swiping between photos in TabView
+    // The MetadataSection is created once with initial attachment data and doesn't
+    // react to changes in currentIndex. Need to add .id() or .onChange() to force refresh.
+
+    init(attachment: ImageAttachment, currentImage: UIImage, isEditMode: Bool, isExpanded: Binding<Bool>, onSave: @escaping (ImageAttachment) -> Void) {
         self.attachment = attachment
+        self.currentImage = currentImage
         self.isEditMode = isEditMode
         self._isExpanded = isExpanded
         self.onSave = onSave
@@ -158,6 +211,7 @@ struct MetadataSection: View {
                 .background(Color(.systemGray6))
             }
             .foregroundColor(.primary)
+            .accessibilityIdentifier("photo_information_button")
 
             // Metadata content
             if isExpanded {
@@ -176,6 +230,7 @@ struct MetadataSection: View {
                                 }
                             }
                             .pickerStyle(.menu)
+                            .accessibilityIdentifier("type_picker")
                             .onChange(of: editedType) { oldValue, newValue in
                                 saveChanges()
                             }
@@ -204,6 +259,7 @@ struct MetadataSection: View {
                             TextField("Add description", text: $editedDescription, axis: .vertical)
                                 .textFieldStyle(.roundedBorder)
                                 .lineLimit(3...6)
+                                .accessibilityIdentifier("description_text_field")
                                 .onChange(of: editedDescription) { oldValue, newValue in
                                     saveChanges()
                                 }
@@ -217,23 +273,7 @@ struct MetadataSection: View {
                     Divider()
 
                     // Read-only metadata
-                    MetadataRow(label: "Created", value: formatDate(attachment.createdDate))
-                    MetadataRow(label: "Filename", value: attachment.filename)
-
-                    if let fileSize = attachment.fileSize {
-                        MetadataRow(label: "File Size", value: formatFileSize(fileSize))
-                    }
-
-                    if let dimensions = attachment.imageDimensions {
-                        MetadataRow(label: "Dimensions", value: formatDimensions(dimensions))
-                    }
-
-                    if let location = attachment.location {
-                        MetadataRow(label: "Location", value: formatCoordinates(location))
-                        if let address = location.address {
-                            MetadataRow(label: "Address", value: address)
-                        }
-                    }
+                    MetadataRow(label: "Date Attached", value: formatDate(attachment.dateAttached))
                 }
                 .padding()
             }
@@ -242,12 +282,11 @@ struct MetadataSection: View {
 
     private func saveChanges() {
         let updated = ImageAttachment(
+            id: attachment.id,  // Preserve original ID for matching in parent view
             filename: attachment.filename,
             type: editedType,
             description: editedDescription.isEmpty ? nil : editedDescription,
-            fileSize: attachment.fileSize,
-            imageDimensions: attachment.imageDimensions,
-            location: attachment.location
+            dateAttached: attachment.dateAttached
         )
         onSave(updated)
     }
@@ -257,18 +296,6 @@ struct MetadataSection: View {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: date)
-    }
-
-    private func formatFileSize(_ bytes: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
-    }
-
-    private func formatDimensions(_ size: CGSize) -> String {
-        "\(Int(size.width)) × \(Int(size.height)) px"
-    }
-
-    private func formatCoordinates(_ location: ImageAttachment.Location) -> String {
-        String(format: "%.6f, %.6f", location.latitude, location.longitude)
     }
 }
 

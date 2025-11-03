@@ -19,6 +19,9 @@
 		352AA3FE2EA48A360022763D /* PreferencesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352AA3FD2EA48A360022763D /* PreferencesManager.swift */; };
 		352AA3FF2EA48A360022763D /* PreferencesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352AA3FD2EA48A360022763D /* PreferencesManager.swift */; };
 		352AA4022EA4C1C10022763D /* DebugUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3538E6372E9021CC00D18302 /* DebugUtilities.swift */; };
+		352AA4142EAEDC700022763D /* TankLevelUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352AA4132EAEDC700022763D /* TankLevelUtilities.swift */; };
+		352AA4152EAEDDE50022763D /* TankLevelUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352AA4132EAEDC700022763D /* TankLevelUtilities.swift */; };
+		352AA4162EAEDDE50022763D /* TankLevelUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352AA4132EAEDC700022763D /* TankLevelUtilities.swift */; };
 		3531FC532E498727000F2CD7 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3531FC502E498727000F2CD7 /* ContentView.swift */; };
 		3531FC542E498727000F2CD7 /* Rideshare_TrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3531FC512E498727000F2CD7 /* Rideshare_TrackerApp.swift */; };
 		3531FC5B2E498828000F2CD7 /* RideshareShift.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3531FC5A2E498828000F2CD7 /* RideshareShift.swift */; };
@@ -100,6 +103,8 @@
 		352AA3F52EA42A690022763D /* ImportExportManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportExportManager.swift; sourceTree = "<group>"; };
 		352AA3F82EA42CBC0022763D /* BackupRestoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupRestoreManager.swift; sourceTree = "<group>"; };
 		352AA3FD2EA48A360022763D /* PreferencesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesManager.swift; sourceTree = "<group>"; };
+		352AA4112EABD9960022763D /* preferences-textfields.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "preferences-textfields.txt"; sourceTree = "<group>"; };
+		352AA4132EAEDC700022763D /* TankLevelUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TankLevelUtilities.swift; sourceTree = "<group>"; };
 		3531FC242E497ECC000F2CD7 /* Rideshare Tracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Rideshare Tracker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3531FC312E497ECD000F2CD7 /* Rideshare TrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Rideshare TrackerTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3531FC3B2E497ECD000F2CD7 /* Rideshare TrackerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Rideshare TrackerUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -191,6 +196,7 @@
 		3531FC1B2E497ECC000F2CD7 = {
 			isa = PBXGroup;
 			children = (
+				352AA4112EABD9960022763D /* preferences-textfields.txt */,
 				357F17772E857B3800262CFA /* Debug Text & Visual Pauses.xctestplan */,
 				353424982E52935300B86346 /* CLAUDE.md */,
 				353424992E52935300B86346 /* README.md */,
@@ -300,6 +306,7 @@
 		3538E6392E9021CC00D18302 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				352AA4132EAEDC700022763D /* TankLevelUtilities.swift */,
 				352AA3F32EA3FB320022763D /* ErrorHandlingUtilities.swift */,
 				3538E64C2E918D9D00D18302 /* KeyboardInputUtility.swift */,
 				3538E6372E9021CC00D18302 /* DebugUtilities.swift */,
@@ -516,6 +523,7 @@
 				35F153AA2E66A6EA00927F88 /* CloudSyncManager.swift in Sources */,
 				352827022E6D4170000A426E /* CalculatorTextField.swift in Sources */,
 				3528271C2E6E1AA5000A426E /* CurrencyTextField.swift in Sources */,
+				352AA4142EAEDC700022763D /* TankLevelUtilities.swift in Sources */,
 				3597BA712E5D4BE6003DA956 /* BackupRestoreView.swift in Sources */,
 				3597BA722E5D4BE6003DA956 /* ImportExportView.swift in Sources */,
 				3531FC5D2E498840000F2CD7 /* AppPreferences.swift in Sources */,
@@ -547,6 +555,7 @@
 				357F179E2E8A269900262CFA /* CloudSyncManager.swift in Sources */,
 				3538E63C2E9021D600D18302 /* DebugUtilities.swift in Sources */,
 				357F179D2E8A269300262CFA /* ImageManager.swift in Sources */,
+				352AA4152EAEDDE50022763D /* TankLevelUtilities.swift in Sources */,
 				3538E6472E9067EC00D18302 /* ImageViewerView.swift in Sources */,
 				357F179C2E8A268200262CFA /* AppPreferences.swift in Sources */,
 				357F179F2E8A26A100262CFA /* SyncLifecycleManager.swift in Sources */,
@@ -567,6 +576,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				352AA4162EAEDDE50022763D /* TankLevelUtilities.swift in Sources */,
 				352AA4022EA4C1C10022763D /* DebugUtilities.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

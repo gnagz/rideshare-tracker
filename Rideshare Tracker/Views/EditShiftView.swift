@@ -67,6 +67,8 @@ struct EditShiftView: View {
     @State private var existingAttachments: [ImageAttachment] = []
     @State private var existingImages: [UIImage] = []
     @State private var attachmentsMarkedForDeletion: [ImageAttachment] = []
+    @State private var attachmentMetadataEdits: [UUID: ImageAttachment] = [:]  // Track metadata changes for EXISTING attachments
+    @State private var pendingAttachments: [ImageAttachment] = []  // Track full ImageAttachment objects for NEW photos (preserves UUIDs)
 
     // UIImagePickerController state
     @State private var showingCameraPicker = false
@@ -152,12 +154,34 @@ struct EditShiftView: View {
             ImageViewerView(
                 images: $viewerImages,
                 startingIndex: viewerStartIndex,
-                isPresented: $showingImageViewer
-            )
-            .onAppear {
-                if viewerImages.isEmpty {
-                    viewerImages = loadAllImages()
+                isPresented: $showingImageViewer,
+                attachments: currentAttachments,  // Pass merged attachments (existing with edits + new pending)
+                isEditMode: true,  // Enable metadata editing
+                onSaveAttachment: { index, editedAttachment in
+                    debugMessage("📝 onSaveAttachment called: index=\(index), type=\(editedAttachment.type), desc=\(editedAttachment.description ?? "nil")")
+                    debugMessage("📊 State: existingAttachments.count=\(existingAttachments.count), photoImages.count=\(photoImages.count)")
+
+                    // Determine if this is an existing attachment or a new photo
+                    if index < existingAttachments.count {
+                        // Editing existing attachment - store in attachmentMetadataEdits
+                        debugMessage("✏️ Storing in attachmentMetadataEdits for existing photo ID: \(editedAttachment.id)")
+                        attachmentMetadataEdits[editedAttachment.id] = editedAttachment
+                    } else {
+                        // Editing new photo - update the persisted attachment (preserves UUID across viewer sessions)
+                        let newPhotoIndex = index - existingAttachments.count
+                        debugMessage("➕ Updating pendingAttachments[\(newPhotoIndex)] for new photo")
+                        if newPhotoIndex < pendingAttachments.count {
+                            pendingAttachments[newPhotoIndex] = editedAttachment
+                        }
+                        debugMessage("✅ pendingAttachments now has \(pendingAttachments.count) entries")
+                    }
                 }
+            )
+        }
+        .onChange(of: showingImageViewer) { oldValue, newValue in
+            // Reload images every time viewer opens to ensure newly added photos are included
+            if newValue {
+                viewerImages = loadAllImages()
             }
         }
         .imagePickerSheets(
@@ -165,6 +189,14 @@ struct EditShiftView: View {
             showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
             onImageSelected: { image in
                 photoImages.append(image)
+                // Create a corresponding ImageAttachment with default metadata
+                let attachment = ImageAttachment(
+                    filename: "pending_\(pendingAttachments.count + 1).jpg",
+                    type: .other,
+                    description: nil,
+                    dateAttached: Date()
+                )
+                pendingAttachments.append(attachment)
             }
         )
         .alert("Enter Start Date", isPresented: $showStartDateTextInput) {
@@ -672,6 +704,27 @@ struct EditShiftView: View {
         }
     }
 
+    /// Returns attachments with metadata edits applied for both existing and new photos
+    private var currentAttachments: [ImageAttachment] {
+        // Start with existing attachments and apply any metadata edits
+        var attachments = existingAttachments
+        for (id, editedAttachment) in attachmentMetadataEdits {
+            if let index = attachments.firstIndex(where: { $0.id == id }) {
+                attachments[index] = editedAttachment
+            }
+        }
+
+        // Add pending attachments for new photos (not yet saved to disk)
+        // Use the persisted ImageAttachment objects to preserve UUIDs across viewer sessions
+        for (index, _) in photoImages.enumerated() {
+            if index < pendingAttachments.count {
+                attachments.append(pendingAttachments[index])
+            }
+        }
+
+        return attachments
+    }
+
     private var photosSection: some View {
         PhotosSection(
             photoImages: $photoImages,
@@ -744,19 +797,41 @@ struct EditShiftView: View {
         }
 
         // Handle photo changes
-        // Step 1: Update attachments array (remove deleted, keep existing)
-        shift.imageAttachments = existingAttachments
+        // Step 1a: Apply metadata edits to existing attachments
+        var updatedAttachments = existingAttachments
+        for (id, editedAttachment) in attachmentMetadataEdits {
+            if let index = updatedAttachments.firstIndex(where: { $0.id == id }) {
+                updatedAttachments[index] = editedAttachment
+            }
+        }
+
+        // Step 1b: Update attachments array (with edited metadata, remove deleted, keep existing)
+        shift.imageAttachments = updatedAttachments
 
         // Save new photos and add them to the shift
+        debugMessage("💾 Saving \(photoImages.count) new photos")
+        debugMessage("📋 pendingAttachments has \(pendingAttachments.count) entries")
+
         for (index, image) in photoImages.enumerated() {
+            guard index < pendingAttachments.count else { continue }
+
             do {
+                let pendingAttachment = pendingAttachments[index]
+                let imageType = pendingAttachment.type
+                let imageDescription = pendingAttachment.description
+
+                debugMessage("📸 Saving photo \(index): type=\(imageType), desc=\(imageDescription ?? "nil")")
+
                 let attachment = try ImageManager.shared.saveImage(
                     image,
                     for: shift.id,
                     parentType: .shift,
-                    type: .other // Default type for user-added photos
+                    type: imageType,
+                    description: imageDescription
                 )
+
                 shift.imageAttachments.append(attachment)
+                debugMessage("✅ Photo \(index) saved with type=\(attachment.type), desc=\(attachment.description ?? "nil")")
             } catch {
                 debugMessage("Failed to save shift photo \(index): \(error)")
                 // Continue with other photos even if one fails

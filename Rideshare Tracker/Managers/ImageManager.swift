@@ -96,16 +96,16 @@ class ImageManager: ObservableObject {
     }
     
     // MARK: - Image Processing
-    
+
     private func processImage(_ image: UIImage) -> (fullSize: Data?, thumbnail: Data?) {
         // Resize image if needed
         let processedImage = resizeImage(image, maxSize: maxImageSize)
         let thumbnailImage = resizeImage(image, maxSize: thumbnailSize)
-        
+
         // Convert to JPEG with compression
         let fullSizeData = processedImage.jpegData(compressionQuality: compressionQuality)
         let thumbnailData = thumbnailImage.jpegData(compressionQuality: 0.9) // Higher quality for thumbnails
-        
+
         return (fullSizeData, thumbnailData)
     }
     
@@ -179,25 +179,14 @@ class ImageManager: ObservableObject {
             throw lastError!
         }
 
-        // Capture metadata
-        let fileSize = Int64(fullSizeData.count)
-        let imageDimensions = image.size
-        // Note: Location capture would require CLLocationManager and permissions
-        // For now, location is nil (will be added in future enhancement)
-        let location: ImageAttachment.Location? = nil
-
-        debugMessage("Captured metadata: fileSize=\(fileSize), dimensions=\(imageDimensions)")
-
-        // Create attachment with metadata
+        // Create attachment with simple metadata
         let attachment = ImageAttachment(
             filename: filename,
             type: type,
             description: description,
-            fileSize: fileSize,
-            imageDimensions: imageDimensions,
-            location: location
+            dateAttached: Date()  // Current date/time
         )
-        debugMessage("Created ImageAttachment: ID=\(attachment.id)")
+        debugMessage("Created ImageAttachment: ID=\(attachment.id), dateAttached=\(attachment.dateAttached)")
         debugMessage("=== IMAGE SAVE COMPLETE ===")
 
         return attachment

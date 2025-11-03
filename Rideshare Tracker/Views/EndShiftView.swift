@@ -56,6 +56,10 @@ struct EndShiftView: View {
     @State private var viewerImages: [UIImage] = []
     @State private var viewerStartIndex: Int = 0
 
+    // Metadata editing state (for unsaved photos)
+    // Store the full ImageAttachment objects to preserve UUIDs across viewer sessions
+    @State private var pendingAttachments: [ImageAttachment] = []
+
     enum FocusedField {
         case endMileage, refuelGallons, refuelCost, trips, netFare, tips, promotions, totalTolls, tollsReimbursed, parkingFees, miscFees
     }
@@ -88,7 +92,15 @@ struct EndShiftView: View {
             ImageViewerView(
                 images: $viewerImages,
                 startingIndex: viewerStartIndex,
-                isPresented: $showingImageViewer
+                isPresented: $showingImageViewer,
+                attachments: pendingAttachments,
+                isEditMode: true,  // Enable metadata editing in EndShiftView
+                onSaveAttachment: { index, editedAttachment in
+                    // Update the persisted attachment (preserves UUID across viewer sessions)
+                    if index < pendingAttachments.count {
+                        pendingAttachments[index] = editedAttachment
+                    }
+                }
             )
         }
         .imagePickerSheets(
@@ -96,6 +108,14 @@ struct EndShiftView: View {
             showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
             onImageSelected: { image in
                 photoImages.append(image)
+                // Create a corresponding ImageAttachment with default metadata
+                let attachment = ImageAttachment(
+                    filename: "pending_\(pendingAttachments.count + 1).jpg",
+                    type: .other,
+                    description: nil,
+                    dateAttached: Date()
+                )
+                pendingAttachments.append(attachment)
             }
         )
     }
@@ -489,15 +509,22 @@ struct EndShiftView: View {
         }
         shift.standardMileageRate = preferences.standardMileageRate
 
-        // Save photos and create attachments
+        // Save photos and create attachments with user-edited metadata
         for (index, image) in photoImages.enumerated() {
+            guard index < pendingAttachments.count else { continue }
+
             do {
+                let pendingAttachment = pendingAttachments[index]
+
+                // Save image to disk with metadata from pendingAttachment
                 let attachment = try ImageManager.shared.saveImage(
                     image,
                     for: shift.id,
                     parentType: .shift,
-                    type: .other // Default type for user-added photos
+                    type: pendingAttachment.type,
+                    description: pendingAttachment.description
                 )
+
                 shift.imageAttachments.append(attachment)
             } catch {
                 print("Failed to save shift photo \(index): \(error)")

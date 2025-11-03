@@ -554,6 +554,7 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
 
                 if textFields.count > 0 {
                     debugPrint("Preference fields are accessible")
+                    debugPrint("\(textFields)")
                 }
             } else {
                 debugPrint("Could not reach Preferences screen")

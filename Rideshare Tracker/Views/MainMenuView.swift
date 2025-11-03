@@ -31,6 +31,7 @@ struct MainMenuView: View {
                         Button("Done") {
                             presentationMode.wrappedValue.dismiss()
                         }
+                        .accessibilityIdentifier("main_menu_done_button")
                     }
                 }
         }

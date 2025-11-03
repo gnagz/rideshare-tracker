@@ -150,6 +150,7 @@ if [[ -z "$PROJECT_FILE" ]]; then
 fi
 
 PROJECT_NAME=$(basename "$PROJECT_FILE" .xcodeproj)
+SCHEME_NAME="$PROJECT_NAME"
 echo "🔍 Found project: $PROJECT_NAME"
 
 # Discover test targets
@@ -580,6 +581,7 @@ if [[ ${#TEST_TARGETS[@]} -gt 0 ]]; then
     fi
     if [[ $DEBUG_MODE == true ]]; then
         env_vars+=(DEBUG=1)
+        SCHEME_NAME="Debug Text & Visual Pauses"
     fi
 
     # Build command with optional environment variables and coverage setting
@@ -587,14 +589,14 @@ if [[ ${#TEST_TARGETS[@]} -gt 0 ]]; then
         cmd=(
             env "${env_vars[@]}"
             xcodebuild test
-            -scheme "$PROJECT_NAME"
+            -scheme "$SCHEME_NAME"
             -destination "platform=iOS Simulator,arch=arm64,OS=18.6,name=iPhone 15 Pro iOS 18.6"
             -parallel-testing-enabled NO
         )
     else
         cmd=(
             xcodebuild test
-            -scheme "$PROJECT_NAME"
+            -scheme "$SCHEME_NAME"
             -destination "platform=iOS Simulator,arch=arm64,OS=18.6,name=iPhone 15 Pro iOS 18.6"
             -parallel-testing-enabled NO
         )

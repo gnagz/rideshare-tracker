@@ -92,6 +92,8 @@ struct PreferencesView: View {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .fixedSize()
+                        .accessibilityIdentifier("week_start_day_picker")
+                        .accessibilityValue(String(preferencesManager.preferences.weekStartDay))
                     }
                     
                     HStack {
@@ -104,6 +106,8 @@ struct PreferencesView: View {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .fixedSize()
+                        .accessibilityIdentifier("date_format_picker")
+                        .accessibilityValue(preferencesManager.preferences.dateFormat)
                     }
                     
                     HStack {
@@ -116,8 +120,10 @@ struct PreferencesView: View {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .fixedSize()
+                        .accessibilityIdentifier("time_format_picker")
+                        .accessibilityValue(preferencesManager.preferences.timeFormat)
                     }
-                    
+
                     HStack {
                         Text("Time Zone")
                         Spacer()
@@ -128,9 +134,11 @@ struct PreferencesView: View {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .fixedSize()
+                        .accessibilityIdentifier("time_zone_picker")
+                        .accessibilityValue(preferencesManager.preferences.timeZoneIdentifier)
                     }
                 }
-                
+
                 Section("Vehicle Settings") {
                     HStack {
                         Text("Gas Tank Capacity (gallons)")
@@ -145,6 +153,7 @@ struct PreferencesView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .tankCapacity ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("tank_capacity_field")
                     }
                     HStack {
                         Text("Gas Price (per gallon)")
@@ -156,9 +165,10 @@ struct PreferencesView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .gasPrice ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("gas_price_field")
                     }
                 }
-                
+
                 Section("Tax Settings") {
                     HStack {
                         Text("Standard Mileage Rate")
@@ -170,20 +180,22 @@ struct PreferencesView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .mileageRate ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("mileage_rate_field")
                     }
-                    
+
                     Text("Standard mileage rate is the IRS-approved rate for tax deductions. Update this annually.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.top, 4)
-                    
+
                     Toggle("Tips are tax deductible", isOn: $preferencesManager.preferences.tipDeductionEnabled)
-                    
+                        .accessibilityIdentifier("tip_deduction_toggle")
+
                     Text("Tips are deductible through tax year 2028 under current IRS rules.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.top, 2)
-                    
+
                     HStack {
                         Text("Effective Tax Rate (%)")
                         Spacer()
@@ -195,6 +207,7 @@ struct PreferencesView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .taxRate ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("tax_rate_field")
                     }
                     
                     Text("Your combined Federal and State tax rate percentages used for estimating your taxes due.")
@@ -218,6 +231,7 @@ struct PreferencesView: View {
                         preferencesManager.savePreferences()
                         presentationMode.wrappedValue.dismiss()
                     }
+                    .accessibilityIdentifier("preferences_done_button")
                 }
             }
         }

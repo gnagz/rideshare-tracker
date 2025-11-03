@@ -29,8 +29,10 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
     /// Helper to delete all expenses via UI
     private static func cleanupExpensesViaUI() {
         // Delete expenses via UI (we can't access managers directly from UI tests)
-        let app = XCUIApplication()
-        app.launch()
+        // Run on main actor since XCUIApplication requires it
+        MainActor.assumeIsolated {
+            let app = XCUIApplication()
+            app.launch()
 
         // Navigate to Expenses tab
         let expensesTab = app.buttons["Expenses"]
@@ -84,6 +86,7 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
             }
 
             print("🧹 Cleaned up \(totalDeleted) test expenses via UI")
+        }
         }
     }
 
@@ -716,6 +719,494 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
         }
 
         debugPrint("Export and summary test passed")
+    }
+
+    // MARK: - Photo Metadata Tests (Phase 3 - TDD Implementation)
+
+    /// Test adding expense with photo metadata
+    /// Tests photo metadata workflow for AddExpense
+    /// Tests: Add expense → Attach 3 photos → Set metadata (Receipt, Maintenance, Other) → Save → Verify metadata persists
+    @MainActor
+    func testAddExpensePhotoMetadataWorkflow() throws {
+        debugMessage("🧪 Testing AddExpense photo metadata workflow")
+
+        let app = launchApp(testName: "testAddExpensePhotoMetadataWorkflow")
+
+        // Navigate to Expenses tab
+        navigateToTab("Expenses", in: app)
+
+        debugMessage("📋 Step 1: Opening Add Expense form...")
+        let addExpenseButton = findButton(keyword: "add_expense_button", in: app)
+        waitAndTap(addExpenseButton, timeout: 5)
+
+        XCTAssertTrue(app.navigationBars["Add Expense"].waitForExistence(timeout: 5), "Should open Add Expense screen")
+
+        debugMessage("💰 Step 2: Entering expense details...")
+        let amountField = findTextField(keyword: "expense_amount_input", in: app)
+        enterText("125.50", in: amountField, app: app)
+
+        let descriptionField = findTextField(keyword: "expense_description_input", in: app)
+        enterText("TDD Metadata Test Expense", in: descriptionField, app: app)
+
+        // Scroll down to Photos section
+        debugMessage("📸 Step 3: Scrolling to Photos section...")
+        if app.scrollViews.firstMatch.exists {
+            app.scrollViews.firstMatch.swipeUp()
+            visualDebugPause(1)
+        }
+
+        debugMessage("📸 Step 4: Adding 3 photos with metadata...")
+
+        // Add Photo 1: Receipt type with description
+        addTestPhotoToExpense(in: app, photoNumber: 0)
+        setExpensePhotoMetadata(in: app, index: 0, type: "Receipt", description: "Parts receipt", expectedPhotoCount: 1)
+
+        // Add Photo 2: Invoice type with description
+        addTestPhotoToExpense(in: app, photoNumber: 1)
+        setExpensePhotoMetadata(in: app, index: 1, type: "Maintenance", description: "Invoice for oil change", expectedPhotoCount: 2)
+
+        // Add Photo 3: Other type without description
+        addTestPhotoToExpense(in: app, photoNumber: 2)
+        setExpensePhotoMetadata(in: app, index: 2, type: "Other", description: nil, expectedPhotoCount: 3)
+        
+        debugMessage("💾 Step 5: Saving expense...")
+        let saveButton = findButton(keyword: "save_expense_button", keyword2: "Save", in: app)
+        XCTAssertTrue(saveButton.isEnabled, "Save button should be enabled with valid data")
+        waitAndTap(saveButton)
+
+        // Wait for save to complete and return to list
+        XCTAssertTrue(app.staticTexts["Expenses"].waitForExistence(timeout: 5), "Should return to Expenses list")
+        visualDebugPause(2)
+
+        debugMessage("🔍 Step 6: Finding saved expense in list...")
+        // Find the expense cell we just created
+        let expenseCell = app.cells.containing(.staticText, identifier: "TDD Metadata Test Expense").firstMatch
+        XCTAssertTrue(expenseCell.waitForExistence(timeout: 5), "Should find saved expense in list")
+
+        debugMessage("📊 Step 7: Opening photo viewer from list view thumbnail...")
+        // Find the photo thumbnail image directly using its accessibility identifier
+        let thumbnailImage = app.images.matching(NSPredicate(format: "identifier CONTAINS 'thumbnail_image'")).firstMatch
+        XCTAssertTrue(thumbnailImage.waitForExistence(timeout: 5), "Should find photo thumbnail image")
+        waitAndTap(thumbnailImage)
+        visualDebugPause(1)
+
+        debugMessage("🔍 Step 8: Expanding Photo Information section...")
+        // Expand Photo Information disclosure to see metadata
+        let photoInfoButton = app.buttons["Photo Information"]
+        XCTAssertTrue(photoInfoButton.waitForExistence(timeout: 5), "Photo Information section should exist in viewer")
+        waitAndTap(photoInfoButton)
+        visualDebugPause(1)
+
+        debugMessage("🔍 Step 9: Verifying saved metadata in read-only viewer...")
+        // Verify Photo 1: Receipt type
+        verifyExpensePhotoMetadata(in: app, expectedType: "Receipt", expectedDescription: "Parts receipt", readOnly: true)
+
+        // Navigate to Photo 2 using chevron button
+        debugMessage("➡️ Navigating to Photo 2...")
+        let nextButton = app.buttons["next_photo_button"]
+        XCTAssertTrue(nextButton.waitForExistence(timeout: 3), "Next photo button should exist")
+        waitAndTap(nextButton)
+        visualDebugPause(1)
+
+        // Verify Photo 2: Maintenance type
+        verifyExpensePhotoMetadata(in: app, expectedType: "Maintenance", expectedDescription: "Invoice for oil change", readOnly: true)
+
+        // Navigate to Photo 3 using chevron button
+        debugMessage("➡️ Navigating to Photo 3...")
+        waitAndTap(nextButton)
+        visualDebugPause(1)
+
+        // Verify Photo 3: Other type
+        verifyExpensePhotoMetadata(in: app, expectedType: "Other", expectedDescription: nil, readOnly: true)
+
+        // Close photo viewer
+        let photoViewerDoneButton = findButton(keyword: "Done", in: app)
+        if photoViewerDoneButton.exists {
+            waitAndTap(photoViewerDoneButton)
+        } else {
+            XCTFail("Should find Done button to close photo viewer")
+        }
+
+        debugMessage("✅ Metadata was successfully saved and persisted!")
+        debugMessage("🧪 Test complete: testAddExpensePhotoMetadataWorkflow")
+    }
+
+    /// Test editing expense with photo metadata
+    /// Tests photo metadata workflow for EditExpense
+    /// Tests: Create expense → Add initial photos → Edit expense → Add new photos with metadata → Edit existing photo metadata → Delete photo → Save → Verify changes
+    @MainActor
+    func testEditExpensePhotoMetadataWorkflow() throws {
+        debugMessage("🧪 Testing EditExpense photo metadata workflow")
+
+        let app = launchApp(testName: "testEditExpensePhotoMetadataWorkflow")
+
+        // Navigate to Expenses tab
+        navigateToTab("Expenses", in: app)
+
+        debugMessage("📋 Step 1: Creating initial expense with 2 photos...")
+        let addExpenseButton = findButton(keyword: "add_expense_button", in: app)
+        waitAndTap(addExpenseButton, timeout: 5)
+
+        XCTAssertTrue(app.navigationBars["Add Expense"].waitForExistence(timeout: 5))
+
+        // Enter expense details
+        let amountField = findTextField(keyword: "expense_amount_input", in: app)
+        enterText("250.00", in: amountField, app: app)
+
+        let descriptionField = findTextField(keyword: "expense_description_input", in: app)
+        enterText("TDD Edit Test Expense", in: descriptionField, app: app)
+
+        // Scroll to Photos section
+        if app.scrollViews.firstMatch.exists {
+            app.scrollViews.firstMatch.swipeUp()
+            visualDebugPause(1)
+        }
+
+        // Add 2 initial photos with metadata
+        debugMessage("📸 Adding initial Photo 1: Receipt type...")
+        addTestPhotoToExpense(in: app, photoNumber: 3)
+        setExpensePhotoMetadata(in: app, index: 0, type: "Receipt", description: "Parts receipt for floor mats.", expectedPhotoCount: 1)
+
+        debugMessage("📸 Adding initial Photo 2: Invoice type...")
+        addTestPhotoToExpense(in: app, photoNumber: 4)
+        setExpensePhotoMetadata(in: app, index: 1, type: "Maintenance", description: "Invoice for oil change.", expectedPhotoCount: 2)
+        
+        // Save expense
+        debugMessage("💾 Saving initial expense...")
+        let saveButton = findButton(keyword: "save_expense_button", keyword2: "Save", in: app)
+        waitAndTap(saveButton)
+
+        XCTAssertTrue(app.staticTexts["Expenses"].waitForExistence(timeout: 5))
+        visualDebugPause(2)
+
+        debugMessage("📝 Step 2: Opening expense for editing...")
+        let expenseCell = app.cells.containing(.staticText, identifier: "TDD Edit Test Expense").firstMatch
+        XCTAssertTrue(expenseCell.waitForExistence(timeout: 5))
+        waitAndTap(expenseCell)
+        visualDebugPause(2)
+
+        // Note: Tapping expense cell opens EditExpenseView directly (no separate Edit button needed)
+
+        debugMessage("📸 Step 3: Adding 3rd photo (new) with metadata...")
+        // Scroll to Photos section
+        if app.scrollViews.firstMatch.exists {
+            app.scrollViews.firstMatch.swipeUp()
+            visualDebugPause(1)
+        }
+
+        addTestPhotoToExpense(in: app, photoNumber: 5)
+        // Note: We now have 3 photos total (2 existing + 1 new)
+        setExpensePhotoMetadata(in: app, index: 2, type: "Other", description: "Added in edit", expectedPhotoCount: 3)
+
+        debugMessage("✏️ Step 4: Editing metadata of existing Photo 1...")
+        // Open photo viewer for first photo using thumbnail accessibility identifier
+        let firstPhotoThumbnail = app.buttons["photo_thumbnail_0"]
+        XCTAssertTrue(firstPhotoThumbnail.waitForExistence(timeout: 5), "First photo thumbnail should exist")
+        waitAndTap(firstPhotoThumbnail)
+        visualDebugPause(1)
+
+        // Edit metadata for Photo 1
+        editExpensePhotoMetadata(in: app, newType: "Maintenance", newDescription: "Updated receipt to invoice")
+
+        // Close photo viewer
+        let photo1ViewerDoneButton = findButton(keyword: "Done", in: app)
+        if photo1ViewerDoneButton.exists {
+            waitAndTap(photo1ViewerDoneButton)
+        }
+        visualDebugPause(1)
+
+        debugMessage("🗑️ Step 5: Deleting Photo 2 (index 1)...")
+        // Delete Photo 2 using the delete button on the thumbnail (the X button)
+        let deletePhoto2Button = app.buttons["delete_photo_1"]  // Photo 2 is at index 1
+        XCTAssertTrue(deletePhoto2Button.waitForExistence(timeout: 3), "Delete button for Photo 2 should exist")
+        waitAndTap(deletePhoto2Button)
+        visualDebugPause(1)
+
+        debugMessage("💾 Step 6: Saving edited expense...")
+        let saveEditButton = findButton(keyword: "save_expense_button", keyword2: "Save", in: app)
+        waitAndTap(saveEditButton)
+
+        XCTAssertTrue(app.staticTexts["Expenses"].waitForExistence(timeout: 5))
+        visualDebugPause(2)
+
+        debugMessage("🔍 Step 7: Verifying all changes persisted...")
+        // Reopen expense to verify
+        let updatedExpenseCell = app.cells.containing(.staticText, identifier: "TDD Edit Test Expense").firstMatch
+        XCTAssertTrue(updatedExpenseCell.waitForExistence(timeout: 5))
+        waitAndTap(updatedExpenseCell)
+        visualDebugPause(2)
+
+        // Open photo viewer using first thumbnail
+        let firstThumbnailAfterEdit = app.buttons["photo_thumbnail_0"]
+        XCTAssertTrue(firstThumbnailAfterEdit.waitForExistence(timeout: 5), "First photo thumbnail should exist after edit")
+        waitAndTap(firstThumbnailAfterEdit)
+        visualDebugPause(1)
+
+        // Should now have 2 photos (deleted Photo 2)
+        
+        debugMessage("Expanding Photo Information section...")
+        // Expand Photo Information disclosure to see metadata
+        let photoInfoButton = app.buttons["Photo Information"]
+        XCTAssertTrue(photoInfoButton.waitForExistence(timeout: 5), "Photo Information section should exist in viewer")
+        waitAndTap(photoInfoButton)
+        visualDebugPause(1)
+        
+        // Verify Photo 1 has updated metadata
+        debugMessage("Verifying Photo 1 metadata was updated...")
+        verifyExpensePhotoMetadata(in: app, expectedType: "Maintenance", expectedDescription: "Updated receipt to invoice", readOnly: false)
+
+        // Navigate to Photo 2 using chevron button
+        debugMessage("➡️ Navigating to Photo 2...")
+        let nextButton = app.buttons["next_photo_button"]
+        XCTAssertTrue(nextButton.waitForExistence(timeout: 3), "Next photo button should exist")
+        waitAndTap(nextButton)
+        visualDebugPause(1)
+
+        // Verify Photo 2 (new photo added in edit) has correct metadata
+        debugMessage("Verifying new Photo 2 metadata...")
+        verifyExpensePhotoMetadata(in: app, expectedType: "Other", expectedDescription: "Added in edit", readOnly: false)
+
+        // Verify there's no Photo 3 - next button should be disabled
+        XCTAssertFalse(nextButton.isEnabled, "Next button should be disabled on last photo")
+
+        // Close photo viewer
+        let photo2ViewerDoneButton = findButton(keyword: "Done", in: app)
+        if photo2ViewerDoneButton.exists {
+            waitAndTap(photo2ViewerDoneButton)
+        }
+
+        debugMessage("✅ All edits (metadata changes, new photo, deletion) persisted successfully!")
+        debugMessage("🧪 Test complete: testEditExpensePhotoMetadataWorkflow")
+    }
+
+    // MARK: - Helper Methods for Expense Photo Metadata Tests
+
+    /// Adds a test photo from the photo library for expense (matching shift test pattern)
+    @MainActor
+    private func addTestPhotoToExpense(in app: XCUIApplication, photoNumber: Int) {
+        debugMessage("📸 Adding test photo \(photoNumber)...")
+
+        // Find Add Photo button (using standard PhotosSection identifier)
+        let addPhotoButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Add Photos'")).firstMatch
+        XCTAssertTrue(addPhotoButton.exists, "Add Photos button should exist")
+
+        debugMessage("📸 Step 1: Found Add Photos button")
+        waitAndTap(addPhotoButton)
+        debugMessage("📸 Step 2: Tapped Add Photos button")
+
+        // Handle confirmation dialog (Camera/Photo Library choice)
+        let photoLibraryButton = app.buttons["Photo Library"]
+        debugMessage("📸 Step 3: Waiting for Photo Library button in confirmation dialog...")
+        XCTAssertTrue(photoLibraryButton.waitForExistence(timeout: 3), "Photo Library button should appear in confirmation dialog")
+        debugMessage("📸 Step 4: Photo Library button found")
+
+        waitAndTap(photoLibraryButton)
+        debugMessage("📸 Step 5: Tapped Photo Library button")
+
+        // Allow photo library to load
+        debugMessage("📸 Step 5a: Waiting for photo library to fully load...")
+        Thread.sleep(forTimeInterval: 2.0)
+
+        // Select photo using image element approach (not cells)
+        debugMessage("📸 Step 6: Checking for images in photo library...")
+
+        let images = app.images.allElementsBoundByIndex
+        debugMessage("📸 Step 6a: Found \(images.count) images")
+
+        // Find photo thumbnails by filtering out known UI icons
+        var photoThumbnails: [XCUIElement] = []
+        for (index, image) in images.enumerated() {
+            guard image.exists else {
+                debugMessage("📸 Step 7.\(index): Image \(index) - does not exist, skipping")
+                continue
+            }
+
+            let frame = image.frame
+            let identifier = image.identifier
+            let label = image.label
+
+            debugMessage("📸 Step 7.\(index): Image \(index) - exists:\(image.exists), frame: \(frame), id: '\(identifier)', label: '\(label)'")
+
+            // Skip known UI icons (identified by .fill suffix or chevron)
+            let isKnownIcon = identifier.contains(".fill") || identifier.contains("chevron")
+
+            // Skip huge background containers (off-screen or massive frames)
+            let isBackgroundContainer = frame.width > 500 || frame.height > 500 ||
+                                       frame.origin.x < 0 || frame.origin.y < 0
+
+            if isKnownIcon || isBackgroundContainer {
+                let reason = isKnownIcon ? "known UI icon" : "background container"
+                debugMessage("📸 Step 7.\(index)b: Skipping \(reason) element")
+                continue
+            }
+
+            // Everything else is probably a photo thumbnail
+            photoThumbnails.append(image)
+            debugMessage("📸 Step 7.\(index)a: Found photo thumbnail at index \(photoThumbnails.count - 1)")
+        }
+
+        XCTAssertTrue(photoThumbnails.count > 0, "Should find at least 1 photo thumbnail in photo library, but only found \(photoThumbnails.count)")
+
+        let photoImage = photoThumbnails[photoNumber]
+        let photoIdentifier = photoImage.identifier.isEmpty ? "no-id" : photoImage.identifier
+        let photoLabel = photoImage.label.isEmpty ? "no-label" : photoImage.label
+        debugMessage("📸 Step 7b: Selected photo thumbnail at index '\(photoNumber)', identifier: '\(photoIdentifier)', label: '\(photoLabel)'")
+
+        debugMessage("📷 Step 8: About to tap photo image (id: '\(photoIdentifier)')")
+        photoImage.tap()
+        debugMessage("✅ Step 9: Tapped photo image - picker should auto-dismiss")
+
+        // Wait for photo library to dismiss
+        debugMessage("📸 Step 10: Waiting for photo library to dismiss...")
+        let photosTabButton = app.buttons["Photos"]
+        let libraryDismissed = !photosTabButton.waitForExistence(timeout: 3)
+        debugMessage("📸 Step 10a: Photo library dismissed: \(libraryDismissed)")
+
+        visualDebugPause(2)
+        debugMessage("✅ Photo \(photoNumber) added successfully")
+    }
+
+    /// Sets metadata for an expense photo at the given index
+    @MainActor
+    private func setExpensePhotoMetadata(in app: XCUIApplication, index: Int, type: String, description: String?, expectedPhotoCount: Int) {
+        debugMessage("📝 Setting metadata for photo \(index + 1): type=\(type), description=\(description ?? "none")")
+
+        // Find photo thumbnail by accessibility identifier
+        let thumbnailButton = app.buttons["photo_thumbnail_\(index)"]
+        XCTAssertTrue(thumbnailButton.waitForExistence(timeout: 5), "Photo thumbnail \(index + 1) should exist")
+
+        // Tap the photo thumbnail to open viewer
+        debugMessage("📸 Tapping photo thumbnail \(index + 1)...")
+        waitAndTap(thumbnailButton)
+        //visualDebugPause(2)
+
+        // Expand Photo Information section (critical step!)
+        let photoInfoButton = app.buttons["Photo Information"]
+        XCTAssertTrue(photoInfoButton.waitForExistence(timeout: 5), "Photo Information section should exist in viewer")
+        debugMessage("📂 Expanding Photo Information section...")
+        waitAndTap(photoInfoButton)
+        //visualDebugPause(1)
+
+        // Now metadata controls should be visible - find the type picker
+        let typePicker = app.buttons["type_picker"]
+        XCTAssertTrue(typePicker.waitForExistence(timeout: 3), "Type picker should exist in expanded metadata section")
+        debugMessage("📋 Opening type picker...")
+        waitAndTap(typePicker)
+        //visualDebugPause(1)
+
+        // Select the desired type from the picker menu
+        let typeMenuItem = app.buttons[type].firstMatch
+        XCTAssertTrue(typeMenuItem.waitForExistence(timeout: 3), "Type menu item '\(type)' should exist in picker menu")
+        debugMessage("📋 Selecting type: \(type)...")
+        waitAndTap(typeMenuItem)
+        debugMessage("✅ Type selected, waiting for picker to dismiss and view to refresh...")
+        //visualDebugPause(2)  // Give picker time to dismiss and view to refresh
+
+        // Set description if provided
+        if let description = description {
+            debugMessage("🔍 Looking for description text field...")
+            let descriptionField = app.textFields["description_text_field"]
+            debugMessage("⏳ Waiting for description field to exist...")
+            XCTAssertTrue(descriptionField.waitForExistence(timeout: 5), "Description field should exist in metadata section after type selection")
+            debugMessage("✏️ Changing description to \(description)...")
+            waitAndTap(descriptionField)
+            descriptionField.clearText()
+            
+            descriptionField.typeText(description)
+            debugMessage("✅ Description changed to '\(description)'")
+            //visualDebugPause(1)
+        }
+
+        // Note: Metadata auto-saves on Picker/TextField changes, no Save button needed
+        debugMessage("💾 Metadata saved automatically via onChange handlers")
+        //visualDebugPause(1)
+
+        // Close photo viewer
+        let photoViewerDoneButton = findButton(keyword: "Done", in: app)
+        XCTAssertTrue(photoViewerDoneButton.exists, "Done button should exist to close viewer")
+        debugMessage("✅ Closing viewer...")
+        waitAndTap(photoViewerDoneButton)
+
+        //visualDebugPause(1)
+        debugMessage("✅ Metadata set for photo \(index + 1)")
+    }
+
+    /// Edits metadata for the currently displayed expense photo in the viewer
+    @MainActor
+    private func editExpensePhotoMetadata(in app: XCUIApplication, newType: String, newDescription: String?) {
+        debugMessage("✏️ Editing photo metadata: newType=\(newType), newDescription=\(newDescription ?? "none")")
+
+        // Expand Photo Information section if not already expanded
+        let photoInfoButton = app.buttons["Photo Information"]
+        if photoInfoButton.exists && !photoInfoButton.isSelected {
+            debugMessage("📂 Expanding Photo Information section...")
+            waitAndTap(photoInfoButton)
+            visualDebugPause(1)
+        }
+
+        // Change type using picker
+        let typePicker = app.buttons["type_picker"]
+        XCTAssertTrue(typePicker.waitForExistence(timeout: 3), "Type picker should exist in metadata section")
+        debugMessage("📋 Opening type picker...")
+        waitAndTap(typePicker)
+        visualDebugPause(1)
+
+        let typeMenuItem = app.buttons[newType].firstMatch
+        XCTAssertTrue(typeMenuItem.waitForExistence(timeout: 3), "Type menu item '\(newType)' should exist in picker menu")
+        debugMessage("📋 Changing type to: \(newType)...")
+        waitAndTap(typeMenuItem)
+        visualDebugPause(1)
+
+        // Change description if provided
+        if let newDescription = newDescription {
+            let descriptionField = app.textFields["description_text_field"]
+            XCTAssertTrue(descriptionField.waitForExistence(timeout: 3), "Description field should exist in metadata section")
+            debugMessage("✏️ Changing description to: \(newDescription)...")
+            descriptionField.clearText()
+            
+            descriptionField.typeText(newDescription)
+            visualDebugPause(1)
+        }
+
+        // Note: Metadata auto-saves on Picker/TextField changes, no Save button needed
+        debugMessage("💾 Metadata changes saved automatically via onChange handlers")
+
+        visualDebugPause(1)
+        debugMessage("✅ Photo metadata updated")
+    }
+
+    /// Verifies expense photo metadata matches expected values
+    @MainActor
+    private func verifyExpensePhotoMetadata(in app: XCUIApplication, expectedType: String, expectedDescription: String?, readOnly: Bool = false) {
+        debugMessage("🔍 Verifying metadata: type=\(expectedType), description=\(expectedDescription ?? "none")")
+
+        if readOnly {
+            debugMessage("🔒 Read-only mode: Verifying metadata have expected values as display only")
+            
+            // Look for type indicator
+            let typeLabel = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", expectedType)).firstMatch
+            XCTAssertTrue(typeLabel.exists, "Should display type: \(expectedType)")
+            
+            // Verify description if provided
+            if let expectedDescription = expectedDescription {
+                let descriptionLabel = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", expectedDescription)).firstMatch
+                XCTAssertTrue(descriptionLabel.exists, "Should display description: \(expectedDescription)")
+            }
+        } else {
+            debugMessage("✏️ Edit mode: Verifying metadata controls have expected values")
+            // Verify for type indicator
+            let typePicker = app.buttons["type_picker"]
+            XCTAssertTrue(typePicker.waitForExistence(timeout: 3), "Type picker should exist in metadata section")
+            XCTAssertTrue(typePicker.label.contains(expectedType), "Type picker should show '\(expectedType)', but shows '\(typePicker.label)'")
+            
+            // Verify description if provided
+            let descriptionField = app.textFields["description_text_field"]
+            XCTAssertTrue(descriptionField.exists, "Description field should exist")
+            let descriptionValue = descriptionField.value as? String ?? ""
+            XCTAssertEqual(descriptionValue, expectedDescription, "Description should be '\(expectedDescription)', but is '\(descriptionValue)'")
+        }
+
+        debugMessage("✅ Metadata verified successfully")
     }
 }
 

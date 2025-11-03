@@ -406,8 +406,8 @@ class ImportExportManager: ObservableObject {
                 shift.endDate != nil ? preferencesManager.formatTime(shift.endDate!) : "",
                 String(shift.startMileage),
                 shift.endMileage != nil ? String(shift.endMileage!) : "",
-                String(format: "%.3f", ImportExportManager.tankLevelToDecimal(shift.startTankReading)),
-                shift.endTankReading != nil ? String(format: "%.3f", ImportExportManager.tankLevelToDecimal(shift.endTankReading!)) : "",
+                String(format: "%.3f", TankLevelUtilities.tankLevelToDecimal(shift.startTankReading)),
+                shift.endTankReading != nil ? String(format: "%.3f", TankLevelUtilities.tankLevelToDecimal(shift.endTankReading!)) : "",
                 shift.refuelGallons != nil ? String(shift.refuelGallons!) : "",
                 shift.refuelCost != nil ? String(format: "%.2f", shift.refuelCost!) : "",
                 shift.trips != nil ? String(shift.trips!) : "",
@@ -533,52 +533,6 @@ class ImportExportManager: ObservableObject {
             lastError = .fileWriteError
             throw .fileWriteError
             // Error handling: Set lastError for UI observation, log error, then throw for caller to handle explicitly
-        }
-    }
-    
-    // MARK: - Helper Methods: Tank Level Utilities used for CSV Import/Export and available for conversions
-
-    public static func tankLevelToString(_ level: Double) -> String {
-        switch level {
-        case 0.0: return "E"
-        case 1.0: return "1/8"
-        case 2.0: return "1/4"
-        case 3.0: return "3/8"
-        case 4.0: return "1/2"
-        case 5.0: return "5/8"
-        case 6.0: return "3/4"
-        case 7.0: return "7/8"
-        case 8.0: return "F"
-        default: return String(level)
-        }
-    }
-
-    public static func tankLevelToDecimal(_ level: Double) -> Double {
-        // Convert internal 0-8 scale to 0-1 decimal scale
-        return level / 8.0
-    }
-
-    public static func tankLevelFromString(_ str: String) -> Double {
-        switch str.uppercased() {
-        case "E": return 0.0
-        case "1/8": return 1.0
-        case "1/4": return 2.0
-        case "3/8": return 3.0
-        case "1/2": return 4.0
-        case "5/8": return 5.0
-        case "3/4": return 6.0
-        case "7/8": return 7.0
-        case "F": return 8.0
-        default:
-            // Handle decimal values from CSV (0.0 to 1.0)
-            if let decimal = Double(str) {
-                if decimal <= 1.0 {
-                    // Convert from 0-1 scale to 0-8 scale and round to nearest 1/8
-                    let scaledValue = decimal * 8.0
-                    return round(scaledValue)
-                }
-            }
-            return Double(str) ?? 0.0
         }
     }
     
@@ -814,12 +768,12 @@ class ImportExportManager: ObservableObject {
                 shift.endMileage = Double(value)
             }
         case "StartTankReading":
-            let tankLevel = ImportExportManager.tankLevelFromString(value)
+            let tankLevel = TankLevelUtilities.tankLevelFromString(value)
             shift.startTankReading = tankLevel
             debugMessage("Row \(rowIndex): StartTankReading '\(value)' -> \(tankLevel)/8")
         case "EndTankReading":
             if !value.isEmpty {
-                let tankLevel = ImportExportManager.tankLevelFromString(value)
+                let tankLevel = TankLevelUtilities.tankLevelFromString(value)
                 shift.endTankReading = tankLevel
                 debugMessage("Row \(rowIndex): EndTankReading '\(value)' -> \(tankLevel)/8")
             }

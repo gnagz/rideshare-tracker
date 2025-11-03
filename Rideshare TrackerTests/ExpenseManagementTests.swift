@@ -172,7 +172,7 @@ final class ExpenseManagementTests: RideshareTrackerTestBase {
         XCTAssertEqual(expenseWithImage.isDeleted, false, "Should not be deleted")
 
         // Verify attachment metadata
-        XCTAssertTrue(attachment.createdDate != Date(timeIntervalSince1970: 0), "Attachment should have creation date")
+        XCTAssertTrue(attachment.dateAttached != Date(timeIntervalSince1970: 0), "Attachment should have date attached")
         XCTAssertTrue(attachment.id != UUID(), "Attachment should have unique ID")
     }
 

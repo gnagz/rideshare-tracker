@@ -10,39 +10,34 @@ import CoreGraphics
 
 struct ImageAttachment: Codable, Identifiable, Hashable, Equatable {
     let id: UUID
-    let filename: String
-    let createdDate: Date
+    let filename: String  // Internal filename (UUID-based) - not shown to user
+    let dateAttached: Date  // Date when photo was attached to shift/expense
     let type: AttachmentType
     let description: String?
 
-    // Enhanced metadata (optional for backward compatibility)
-    let fileSize: Int64?
-    let imageDimensions: CGSize?
-    let location: Location?
-
-    /// Location information for image attachments
-    struct Location: Codable, Hashable, Equatable {
-        let latitude: Double
-        let longitude: Double
-        let address: String?  // Reverse-geocoded address (optional)
-    }
-
-    init(filename: String, type: AttachmentType, description: String? = nil, fileSize: Int64? = nil, imageDimensions: CGSize? = nil, location: Location? = nil) {
+    init(filename: String, type: AttachmentType, description: String? = nil, dateAttached: Date = Date()) {
         self.id = UUID()
         self.filename = filename
-        self.createdDate = Date()
+        self.dateAttached = dateAttached
         self.type = type
         self.description = description
-        self.fileSize = fileSize
-        self.imageDimensions = imageDimensions
-        self.location = location
+    }
+
+    // Init that preserves existing ID (for metadata edits)
+    init(id: UUID, filename: String, type: AttachmentType, description: String? = nil, dateAttached: Date) {
+        self.id = id
+        self.filename = filename
+        self.dateAttached = dateAttached
+        self.type = type
+        self.description = description
     }
 }
 
 enum AttachmentType: String, Codable, CaseIterable {
     case receipt = "Receipt"
     case screenshot = "App Screenshot"
-    case gasPump = "Gas Station"
+    case gasPump = "Gas Pump"
+    case dashboard = "Dashboard"
     case damage = "Vehicle Damage"
     case cleaning = "Cleaning Required"
     case maintenance = "Maintenance"
@@ -58,11 +53,12 @@ enum AttachmentType: String, Codable, CaseIterable {
         case .receipt: return "receipt"
         case .screenshot: return "iphone"
         case .gasPump: return "fuelpump"
+        case .dashboard: return "gauge.with.dots.needle.bottom.50percent"
         case .damage: return "exclamationmark.triangle"
         case .cleaning: return "drop"
         case .maintenance: return "wrench"
-        case .importedToll: return "doc.text.image"
-        case .other: return "photo"
+        case .importedToll: return "dollarsign.circle"
+        case .other: return "camera"
         }
     }
 

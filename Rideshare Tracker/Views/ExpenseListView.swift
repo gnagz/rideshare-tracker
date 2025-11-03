@@ -302,6 +302,7 @@ struct ExpenseRowView: View {
                                     .offset(x: 10, y: -10)
                                 : nil
                             )
+                            .accessibilityIdentifier("expense_\(expense.id)_thumbnail_image")
                     } else {
                         Image(systemName: "photo.fill")
                             .font(.caption)
@@ -311,6 +312,7 @@ struct ExpenseRowView: View {
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
+                .accessibilityIdentifier("expense_\(expense.id)_photo_thumbnail")
                 .layoutPriority(1)
             }
             
@@ -341,7 +343,8 @@ struct ExpenseRowView: View {
                 ImageViewerView(
                     images: $thumbnailImages,
                     startingIndex: 0,
-                    isPresented: $showingImageViewer
+                    isPresented: $showingImageViewer,
+                    attachments: expense.imageAttachments  // Pass attachments to show metadata
                 )
             }
         }

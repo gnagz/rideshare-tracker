@@ -1,0 +1,158 @@
+[Attributes: TextField, 0x101f83bd0, {{273.0, 401.0}, {80.0, 34.0}}, placeholderValue: \'Gallons\', value: 14.3
+Element subtree:
+ →TextField, 0x101f83bd0, {{273.0, 401.0}, {80.0, 34.0}}, placeholderValue: \'Gallons\', value: 14.3
+Path to element:
+ →Application, 0x101f6ce70, pid: 71481, label: \'Rideshare Tracker\'
+  ↳Window (Main), 0x101f71390, {{0.0, 0.0}, {393.0, 852.0}}
+   ↳Other, 0x101f7df90, {{0.0, 0.0}, {393.0, 852.0}}
+    ↳Other, 0x101f7e1d0, {{0.0, 69.0}, {393.0, 783.0}}
+     ↳Other, 0x101f7e2f0, {{0.0, 69.0}, {393.0, 783.0}}
+      ↳Other, 0x101f7e410, {{0.0, 69.0}, {393.0, 783.0}}
+       ↳Other, 0x101f7e530, {{0.0, 69.0}, {393.0, 783.0}}
+        ↳Other, 0x101f7e650, {{0.0, 69.0}, {393.0, 783.0}}
+         ↳Other, 0x101f7e770, {{0.0, 69.0}, {393.0, 783.0}}
+          ↳Other, 0x101f7ee30, {{0.0, 69.0}, {393.0, 783.0}}
+           ↳Other, 0x101f7ef50, {{0.0, 69.0}, {393.0, 783.0}}
+            ↳Other, 0x101f7f070, {{0.0, 69.0}, {393.0, 783.0}}
+             ↳Other, 0x101f7f190, {{0.0, 69.0}, {393.0, 783.0}}
+              ↳CollectionView, 0x101f7f2b0, {{0.0, 69.0}, {393.0, 783.0}}
+               ↳Cell, 0x101f833f0, {{20.0, 396.0}, {353.0, 44.0}}
+                ↳Other, 0x101f83750, {{20.0, 396.0}, {353.0, 44.0}}
+                 ↳Other, 0x101f83870, {{20.0, 396.0}, {353.0, 44.0}}
+                  ↳Other, 0x101f83990, {{20.0, 396.0}, {353.0, 44.0}}
+                   ↳TextField, 0x101f83bd0, {{273.0, 401.0}, {80.0, 34.0}}, placeholderValue: \'Gallons\', value: 14.3
+Query chain:
+ →Find: Target Application \'mobi.gnagz.ridesharertracker.Rideshare-Tracker\'
+  Output: {
+    Application, 0x101c2bd90, pid: 71481, label: \'Rideshare Tracker\'
+  }
+  ↪︎Find: Descendants matching type TextField
+    Output: {
+      TextField, 0x101fc96e0, {{273.0, 401.0}, {80.0, 34.0}}, placeholderValue: \'Gallons\', value: 14.3
+      TextField, 0x101fc9fe0, {{273.0, 445.0}, {56.0, 34.0}}, placeholderValue: \'$0.00\', value: $2.90
+      TextField, 0x101fcb300, {{273.0, 545.3}, {56.0, 34.0}}, placeholderValue: \'$0.67\', value: $0.70
+      TextField, 0x101fcda60, {{273.0, 721.3}, {56.0, 34.0}}, placeholderValue: \'22.0\', value: 22
+    }
+    ↪︎Find: Element at index 0
+      Output: {
+        TextField, 0x101fb3e70, {{273.0, 401.0}, {80.0, 34.0}}, placeholderValue: \'Gallons\', value: 14.3
+      }
+, Attributes: TextField, 0x10408bf60, {{273.0, 445.0}, {56.0, 34.0}}, placeholderValue: \'$0.00\', value: $2.90
+Element subtree:
+ →TextField, 0x10408bf60, {{273.0, 445.0}, {56.0, 34.0}}, placeholderValue: \'$0.00\', value: $2.90
+Path to element:
+ →Application, 0x10400e9b0, pid: 71481, label: \'Rideshare Tracker\'
+  ↳Window (Main), 0x104017510, {{0.0, 0.0}, {393.0, 852.0}}
+   ↳Other, 0x104017880, {{0.0, 0.0}, {393.0, 852.0}}
+    ↳Other, 0x1040652d0, {{0.0, 69.0}, {393.0, 783.0}}
+     ↳Other, 0x1040656f0, {{0.0, 69.0}, {393.0, 783.0}}
+      ↳Other, 0x104085dd0, {{0.0, 69.0}, {393.0, 783.0}}
+       ↳Other, 0x104085ef0, {{0.0, 69.0}, {393.0, 783.0}}
+        ↳Other, 0x104086010, {{0.0, 69.0}, {393.0, 783.0}}
+         ↳Other, 0x104086130, {{0.0, 69.0}, {393.0, 783.0}}
+          ↳Other, 0x1040868c0, {{0.0, 69.0}, {393.0, 783.0}}
+           ↳Other, 0x1040869e0, {{0.0, 69.0}, {393.0, 783.0}}
+            ↳Other, 0x104086b00, {{0.0, 69.0}, {393.0, 783.0}}
+             ↳Other, 0x104086c20, {{0.0, 69.0}, {393.0, 783.0}}
+              ↳CollectionView, 0x104086d40, {{0.0, 69.0}, {393.0, 783.0}}
+               ↳Cell, 0x10408b780, {{20.0, 440.0}, {353.0, 44.0}}
+                ↳Other, 0x10408bae0, {{20.0, 440.0}, {353.0, 44.0}}
+                 ↳Other, 0x10408bc00, {{20.0, 440.0}, {353.0, 44.0}}
+                  ↳Other, 0x10408bd20, {{20.0, 440.0}, {353.0, 44.0}}
+                   ↳TextField, 0x10408bf60, {{273.0, 445.0}, {56.0, 34.0}}, placeholderValue: \'$0.00\', value: $2.90
+Query chain:
+ →Find: Target Application \'mobi.gnagz.ridesharertracker.Rideshare-Tracker\'
+  Output: {
+    Application, 0x101f82790, pid: 71481, label: \'Rideshare Tracker\'
+  }
+  ↪︎Find: Descendants matching type TextField
+    Output: {
+      TextField, 0x101fc96d0, {{273.0, 401.0}, {80.0, 34.0}}, placeholderValue: \'Gallons\', value: 14.3
+      TextField, 0x101fc9fd0, {{273.0, 445.0}, {56.0, 34.0}}, placeholderValue: \'$0.00\', value: $2.90
+      TextField, 0x101fcb2f0, {{273.0, 545.3}, {56.0, 34.0}}, placeholderValue: \'$0.67\', value: $0.70
+      TextField, 0x101fcda50, {{273.0, 721.3}, {56.0, 34.0}}, placeholderValue: \'22.0\', value: 22
+    }
+    ↪︎Find: Element at index 1
+      Output: {
+        TextField, 0x101eb71f0, {{273.0, 445.0}, {56.0, 34.0}}, placeholderValue: \'$0.00\', value: $2.90
+      }
+, Attributes: TextField, 0x113f06240, {{273.0, 545.3}, {56.0, 34.0}}, placeholderValue: \'$0.67\', value: $0.70
+Element subtree:
+ →TextField, 0x113f06240, {{273.0, 545.3}, {56.0, 34.0}}, placeholderValue: \'$0.67\', value: $0.70
+Path to element:
+ →Application, 0x101fec6f0, pid: 71481, label: \'Rideshare Tracker\'
+  ↳Window (Main), 0x101fecca0, {{0.0, 0.0}, {393.0, 852.0}}
+   ↳Other, 0x101ffa8d0, {{0.0, 0.0}, {393.0, 852.0}}
+    ↳Other, 0x101ffab10, {{0.0, 69.0}, {393.0, 783.0}}
+     ↳Other, 0x101ffac30, {{0.0, 69.0}, {393.0, 783.0}}
+      ↳Other, 0x101ffad50, {{0.0, 69.0}, {393.0, 783.0}}
+       ↳Other, 0x101ffae70, {{0.0, 69.0}, {393.0, 783.0}}
+        ↳Other, 0x101ffaf90, {{0.0, 69.0}, {393.0, 783.0}}
+         ↳Other, 0x101ffb0b0, {{0.0, 69.0}, {393.0, 783.0}}
+          ↳Other, 0x101ffb770, {{0.0, 69.0}, {393.0, 783.0}}
+           ↳Other, 0x101ffb890, {{0.0, 69.0}, {393.0, 783.0}}
+            ↳Other, 0x101ffb9b0, {{0.0, 69.0}, {393.0, 783.0}}
+             ↳Other, 0x101ffbad0, {{0.0, 69.0}, {393.0, 783.0}}
+              ↳CollectionView, 0x101ffbbf0, {{0.0, 69.0}, {393.0, 783.0}}
+               ↳Cell, 0x113f05a60, {{20.0, 540.3}, {353.0, 44.0}}
+                ↳Other, 0x113f05dc0, {{20.0, 540.3}, {353.0, 44.0}}
+                 ↳Other, 0x113f05ee0, {{20.0, 540.3}, {353.0, 44.0}}
+                  ↳Other, 0x113f06000, {{20.0, 540.3}, {353.0, 44.0}}
+                   ↳TextField, 0x113f06240, {{273.0, 545.3}, {56.0, 34.0}}, placeholderValue: \'$0.67\', value: $0.70
+Query chain:
+ →Find: Target Application \'mobi.gnagz.ridesharertracker.Rideshare-Tracker\'
+  Output: {
+    Application, 0x101eda5c0, pid: 71481, label: \'Rideshare Tracker\'
+  }
+  ↪︎Find: Descendants matching type TextField
+    Output: {
+      TextField, 0x101eeb950, {{273.0, 401.0}, {80.0, 34.0}}, placeholderValue: \'Gallons\', value: 14.3
+      TextField, 0x101eec250, {{273.0, 445.0}, {56.0, 34.0}}, placeholderValue: \'$0.00\', value: $2.90
+      TextField, 0x101eed570, {{273.0, 545.3}, {56.0, 34.0}}, placeholderValue: \'$0.67\', value: $0.70
+      TextField, 0x101eefcd0, {{273.0, 721.3}, {56.0, 34.0}}, placeholderValue: \'22.0\', value: 22
+    }
+    ↪︎Find: Element at index 2
+      Output: {
+        TextField, 0x101cac8b0, {{273.0, 545.3}, {56.0, 34.0}}, placeholderValue: \'$0.67\', value: $0.70
+      }
+, Attributes: TextField, 0x101fdf4b0, {{273.0, 721.3}, {56.0, 34.0}}, placeholderValue: \'22.0\', value: 22
+Element subtree:
+ →TextField, 0x101fdf4b0, {{273.0, 721.3}, {56.0, 34.0}}, placeholderValue: \'22.0\', value: 22
+Path to element:
+ →Application, 0x101fec6f0, pid: 71481, label: \'Rideshare Tracker\'
+  ↳Window (Main), 0x101fecca0, {{0.0, 0.0}, {393.0, 852.0}}
+   ↳Other, 0x101ffb760, {{0.0, 0.0}, {393.0, 852.0}}
+    ↳Other, 0x101ffb9a0, {{0.0, 69.0}, {393.0, 783.0}}
+     ↳Other, 0x101ffbac0, {{0.0, 69.0}, {393.0, 783.0}}
+      ↳Other, 0x101ffbbe0, {{0.0, 69.0}, {393.0, 783.0}}
+       ↳Other, 0x101ffbd00, {{0.0, 69.0}, {393.0, 783.0}}
+        ↳Other, 0x101ffbe20, {{0.0, 69.0}, {393.0, 783.0}}
+         ↳Other, 0x101ffbf40, {{0.0, 69.0}, {393.0, 783.0}}
+          ↳Other, 0x101ffc600, {{0.0, 69.0}, {393.0, 783.0}}
+           ↳Other, 0x101ffc720, {{0.0, 69.0}, {393.0, 783.0}}
+            ↳Other, 0x101ffc840, {{0.0, 69.0}, {393.0, 783.0}}
+             ↳Other, 0x101ffc960, {{0.0, 69.0}, {393.0, 783.0}}
+              ↳CollectionView, 0x101ffca80, {{0.0, 69.0}, {393.0, 783.0}}
+               ↳Cell, 0x101fdecd0, {{20.0, 716.3}, {353.0, 44.0}}
+                ↳Other, 0x101fdf030, {{20.0, 716.3}, {353.0, 44.0}}
+                 ↳Other, 0x101fdf150, {{20.0, 716.3}, {353.0, 44.0}}
+                  ↳Other, 0x101fdf270, {{20.0, 716.3}, {353.0, 44.0}}
+                   ↳TextField, 0x101fdf4b0, {{273.0, 721.3}, {56.0, 34.0}}, placeholderValue: \'22.0\', value: 22
+Query chain:
+ →Find: Target Application \'mobi.gnagz.ridesharertracker.Rideshare-Tracker\'
+  Output: {
+    Application, 0x10405b610, pid: 71481, label: \'Rideshare Tracker\'
+  }
+  ↪︎Find: Descendants matching type TextField
+    Output: {
+      TextField, 0x101eebb20, {{273.0, 401.0}, {80.0, 34.0}}, placeholderValue: \'Gallons\', value: 14.3
+      TextField, 0x101eec420, {{273.0, 445.0}, {56.0, 34.0}}, placeholderValue: \'$0.00\', value: $2.90
+      TextField, 0x101eed740, {{273.0, 545.3}, {56.0, 34.0}}, placeholderValue: \'$0.67\', value: $0.70
+      TextField, 0x101eefea0, {{273.0, 721.3}, {56.0, 34.0}}, placeholderValue: \'22.0\', value: 22
+    }
+    ↪︎Find: Element at index 3
+      Output: {
+        TextField, 0x11403a610, {{273.0, 721.3}, {56.0, 34.0}}, placeholderValue: \'22.0\', value: 22
+      }
+]
+

@@ -233,7 +233,8 @@ struct ShiftDetailView: View {
             ImageViewerView(
                 images: $viewerImages,
                 startingIndex: selectedImageIndex,
-                isPresented: $showingImageViewer
+                isPresented: $showingImageViewer,
+                attachments: shift.imageAttachments  // Pass attachments to show metadata
             )
             .onAppear {
                 if viewerImages.isEmpty {
@@ -484,7 +485,7 @@ struct ShiftDetailView: View {
                     )
             } else {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
-                    ForEach(shift.imageAttachments, id: \.id) { attachment in
+                    ForEach(Array(shift.imageAttachments.enumerated()), id: \.element.id) { index, attachment in
                         AsyncImage(url: ImageManager.shared.imageURL(for: shift.id, parentType: .shift, filename: attachment.filename)) { image in
                             image
                                 .resizable()
@@ -512,6 +513,7 @@ struct ShiftDetailView: View {
                                 showImage(at: attachmentIndex)
                             }
                         }
+                        .accessibilityIdentifier("photo_thumbnail_\(index)")
                     }
                 }
                 .padding()
@@ -523,6 +525,7 @@ struct ShiftDetailView: View {
                 )
             }
         }
+        .accessibilityIdentifier("PhotosSection")
     }
 
     @MainActor

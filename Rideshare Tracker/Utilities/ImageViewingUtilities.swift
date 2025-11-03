@@ -26,19 +26,24 @@ struct ImageViewingUtilities {
         viewerStartIndex: Binding<Int>,
         showingImageViewer: Binding<Bool>
     ) {
+        print("🔍 ImageViewingUtilities showImageViewer: images.count=\(images.count), startIndex=\(startIndex)")
         debugMessage("ImageViewingUtilities showImageViewer: images.count=\(images.count), startIndex=\(startIndex)")
 
         if !images.isEmpty && startIndex < images.count {
+            print("🔍 ImageViewingUtilities: Setting viewerImages to \(images.count) images")
             viewerImages.wrappedValue = images
             viewerStartIndex.wrappedValue = startIndex
+            print("🔍 ImageViewingUtilities: viewerImages set, scheduling sheet open")
 
             // Delay showing the sheet to allow state to propagate
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                print("🔍 ImageViewingUtilities: Opening sheet (showingImageViewer = true)")
                 showingImageViewer.wrappedValue = true
             }
 
             debugMessage("ImageViewingUtilities showImageViewer: Set up viewer with \(images.count) images, starting at \(startIndex)")
         } else {
+            print("🔍 ImageViewingUtilities showImageViewer: FAILED - No images available or invalid index \(startIndex)")
             debugMessage("ImageViewingUtilities showImageViewer: No images available or invalid index \(startIndex)")
         }
     }
@@ -212,6 +217,7 @@ struct PhotoThumbnailView: View {
                 )
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityIdentifier("photo_thumbnail_\(index)")
         .overlay(alignment: .topTrailing) {
             // Delete button - positioned at top-trailing corner
             // Must be in overlay to be rendered on top and receive taps first
@@ -325,11 +331,14 @@ struct PhotosSection: View {
                 PhotoGridView(
                     images: allImages,
                     onView: { index in
+                        print("🔍 PhotosSection onView: index=\(index), showingImageViewer=\(showingImageViewer), allImages.count=\(allImages.count)")
                         debugMessage("PhotosSection onView: index=\(index), showingImageViewer=\(showingImageViewer), allImages.count=\(allImages.count)")
                         guard !showingImageViewer else {
+                            print("🔍 PhotosSection onView: Guard blocked - viewer already showing")
                             debugMessage("PhotosSection onView: Guard blocked - viewer already showing")
                             return
                         }
+                        print("🔍 PhotosSection: Calling showImageViewer with \(allImages.count) images")
                         ImageViewingUtilities.showImageViewer(
                             images: allImages,
                             startIndex: index,
@@ -337,6 +346,7 @@ struct PhotosSection: View {
                             viewerStartIndex: $viewerStartIndex,
                             showingImageViewer: $showingImageViewer
                         )
+                        print("🔍 PhotosSection: showImageViewer returned")
                     },
                     onDelete: { index in
                         guard index < allImages.count else { return }
@@ -369,7 +379,7 @@ struct ImagePickerView: UIViewControllerRepresentable {
         let picker = UIImagePickerController()
         picker.sourceType = sourceType
         picker.delegate = context.coordinator
-        picker.allowsEditing = true  // Enable native iOS crop/rotate editor
+        picker.allowsEditing = false  // Don't crop - we want full image
         return picker
     }
 
@@ -389,10 +399,8 @@ struct ImagePickerView: UIViewControllerRepresentable {
         }
 
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-            // Use edited image if available (from crop/rotate), otherwise use original
-            if let editedImage = info[.editedImage] as? UIImage {
-                parent.onImageSelected(editedImage)
-            } else if let originalImage = info[.originalImage] as? UIImage {
+            // Always use original image (full resolution, not cropped)
+            if let originalImage = info[.originalImage] as? UIImage {
                 parent.onImageSelected(originalImage)
             } else {
                 parent.onCancel()

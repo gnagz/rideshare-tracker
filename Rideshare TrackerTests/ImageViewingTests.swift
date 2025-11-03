@@ -236,7 +236,10 @@ final class ImageViewingTests: XCTestCase {
     }
 
     // MARK: - Enhanced Metadata Tests (TDD for Phase 1)
+    // OBSOLETE: Tests for removed features (fileSize, imageDimensions, location, createdDate)
+    // These features were removed on 2025-10-20 in favor of simplified metadata model
 
+    /*
     @MainActor func testImageAttachmentCapturesFileSize() throws {
         // Test that ImageManager captures file size when saving images
         let testImage = UIImage(systemName: "photo.fill")!
@@ -360,7 +363,7 @@ final class ImageViewingTests: XCTestCase {
         let attachment = ImageAttachment(
             filename: "full-metadata.jpg",
             type: .gasPump,
-            description: "Gas station receipt with location",
+            description: "Gas pump receipt with location",
             fileSize: 2048576,
             imageDimensions: CGSize(width: 1920, height: 1080),
             location: location
@@ -377,7 +380,7 @@ final class ImageViewingTests: XCTestCase {
         // Verify all fields
         XCTAssertEqual(decoded.filename, "full-metadata.jpg")
         XCTAssertEqual(decoded.type, .gasPump)
-        XCTAssertEqual(decoded.description, "Gas station receipt with location")
+        XCTAssertEqual(decoded.description, "Gas pump receipt with location")
         XCTAssertEqual(decoded.fileSize, 2048576)
         XCTAssertEqual(decoded.imageDimensions?.width, 1920)
         XCTAssertEqual(decoded.imageDimensions?.height, 1080)
@@ -386,6 +389,7 @@ final class ImageViewingTests: XCTestCase {
         XCTAssertEqual(decoded.location!.longitude, -122.4194, accuracy: 0.0001)
         XCTAssertEqual(decoded.location?.address, "San Francisco, CA")
     }
+    */
 
     // MARK: - ImageViewerView Metadata Tests (TDD for Phase 2)
 
@@ -395,9 +399,7 @@ final class ImageViewingTests: XCTestCase {
             filename: "test.jpg",
             type: .receipt,
             description: "Test receipt",
-            fileSize: 1024,
-            imageDimensions: CGSize(width: 800, height: 600),
-            location: nil
+            dateAttached: Date()
         )
 
         // Should be able to pass attachments to viewer
@@ -447,9 +449,7 @@ final class ImageViewingTests: XCTestCase {
             filename: "test.jpg",
             type: .receipt,
             description: "Original description",
-            fileSize: 2048,
-            imageDimensions: CGSize(width: 1920, height: 1080),
-            location: nil
+            dateAttached: Date()
         )
 
         // Simulate metadata edit - create new attachment with updated values
@@ -457,9 +457,7 @@ final class ImageViewingTests: XCTestCase {
             filename: original.filename,  // Filename never changes
             type: .gasPump,  // Type changed
             description: "Updated description",  // Description changed
-            fileSize: original.fileSize,  // Metadata preserved
-            imageDimensions: original.imageDimensions,  // Metadata preserved
-            location: original.location  // Metadata preserved
+            dateAttached: original.dateAttached  // Date preserved
         )
 
         // Verify immutability - different instances
@@ -467,7 +465,7 @@ final class ImageViewingTests: XCTestCase {
         XCTAssertEqual(original.filename, edited.filename, "Filename should be preserved")
         XCTAssertNotEqual(original.type, edited.type, "Type should be updated")
         XCTAssertNotEqual(original.description, edited.description, "Description should be updated")
-        XCTAssertEqual(original.fileSize, edited.fileSize, "File size should be preserved")
+        XCTAssertEqual(original.dateAttached, edited.dateAttached, "Date attached should be preserved")
     }
 
     func testSystemGeneratedTypesFilteredFromPicker() throws {
@@ -497,8 +495,8 @@ final class ImageViewingTests: XCTestCase {
 
         let userCreated = ImageAttachment(
             filename: "receipt.jpg",
-            type: .receipt,
-            description: "Gas station receipt"
+            type: .gasPump,
+            description: "Gas pump receipt"
         )
 
         // System-generated type should be flagged
@@ -510,6 +508,8 @@ final class ImageViewingTests: XCTestCase {
                       "receipt should not be marked as system-generated")
     }
 
+    // OBSOLETE: Test for removed metadata formatting helpers
+    /*
     func testMetadataFormattingHelpers() throws {
         // Test helper methods for formatting metadata display
 
@@ -535,13 +535,15 @@ final class ImageViewingTests: XCTestCase {
         XCTAssertEqual(coordsString, "40.7128, -74.0060",
                       "Coordinates should format with precision")
     }
+    */
 
     func testDescriptionAlwaysEditableEvenForSystemGenerated() throws {
         // Test that description field is always editable, even for system-generated images
         let systemGenerated = ImageAttachment(
             filename: "toll-summary.jpg",
             type: .importedToll,
-            description: "Original description"
+            description: "Original description",
+            dateAttached: Date()
         )
 
         // Type should be locked
@@ -553,9 +555,7 @@ final class ImageViewingTests: XCTestCase {
             filename: systemGenerated.filename,
             type: systemGenerated.type,  // Type stays same (locked)
             description: "User added notes about these tolls",  // Description updated
-            fileSize: systemGenerated.fileSize,
-            imageDimensions: systemGenerated.imageDimensions,
-            location: systemGenerated.location
+            dateAttached: systemGenerated.dateAttached
         )
 
         XCTAssertEqual(withUpdatedDescription.type, .importedToll,

@@ -226,4 +226,6 @@ class ShiftDataManager: ObservableObject {
         UserDefaults.standard.set(true, forKey: "didMigrateTollImages_v1")
         debugMessage("=== TOLL IMAGE MIGRATION COMPLETE ===")
     }
+    
+
 }
