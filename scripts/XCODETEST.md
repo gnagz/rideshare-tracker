@@ -46,7 +46,7 @@ Automated test runner for Xcode projects with intelligent test targeting, exclus
                     # Must be used with -u OR -g, not both
 
 -x, --exclude <name> # Exclude specific test function or class (can be repeated)
-                     # Cannot be used with -t (mutually exclusive)
+                     # Can be combined with -t when referencing a test class to exclude specific tests from that class
 
 --dryrun            # Show what would be tested without running
 --visual-debug      # Enable UI_TEST_VISUAL_DEBUG environment variable
