@@ -12,8 +12,10 @@ import PhotosUI
 struct EndShiftView: View {
     @Binding var shift: RideshareShift
     @EnvironmentObject var dataManager: ShiftDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @Environment(\.presentationMode) var presentationMode
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
     
     @State private var endDate = Date()
     @State private var endMileage = ""
@@ -54,6 +56,10 @@ struct EndShiftView: View {
     @State private var viewerImages: [UIImage] = []
     @State private var viewerStartIndex: Int = 0
 
+    // Metadata editing state (for unsaved photos)
+    // Store the full ImageAttachment objects to preserve UUIDs across viewer sessions
+    @State private var pendingAttachments: [ImageAttachment] = []
+
     enum FocusedField {
         case endMileage, refuelGallons, refuelCost, trips, netFare, tips, promotions, totalTolls, tollsReimbursed, parkingFees, miscFees
     }
@@ -86,7 +92,15 @@ struct EndShiftView: View {
             ImageViewerView(
                 images: $viewerImages,
                 startingIndex: viewerStartIndex,
-                isPresented: $showingImageViewer
+                isPresented: $showingImageViewer,
+                attachments: pendingAttachments,
+                isEditMode: true,  // Enable metadata editing in EndShiftView
+                onSaveAttachment: { index, editedAttachment in
+                    // Update the persisted attachment (preserves UUID across viewer sessions)
+                    if index < pendingAttachments.count {
+                        pendingAttachments[index] = editedAttachment
+                    }
+                }
             )
         }
         .imagePickerSheets(
@@ -94,6 +108,14 @@ struct EndShiftView: View {
             showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
             onImageSelected: { image in
                 photoImages.append(image)
+                // Create a corresponding ImageAttachment with default metadata
+                let attachment = ImageAttachment(
+                    filename: "pending_\(pendingAttachments.count + 1).jpg",
+                    type: .other,
+                    description: nil,
+                    dateAttached: Date()
+                )
+                pendingAttachments.append(attachment)
             }
         )
     }
@@ -110,7 +132,7 @@ struct EndShiftView: View {
                             Text("Date")
                                 .foregroundColor(.primary)
                             Spacer()
-                            Text(preferences.formatDate(endDate))
+                            Text(preferencesManager.formatDate(endDate))
                                 .foregroundColor(.primary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -127,7 +149,7 @@ struct EndShiftView: View {
                                 .labelsHidden()
 
                             KeyboardInputUtility.keyboardInputButton(
-                                currentValue: preferences.formatDate(endDate),
+                                currentValue: preferencesManager.formatDate(endDate),
                                 showingAlert: $showEndDateTextInput,
                                 inputText: $endDateText,
                                 accessibilityId: "end_date_text_input_button",
@@ -141,7 +163,7 @@ struct EndShiftView: View {
                             Text("Time")
                                 .foregroundColor(.primary)
                             Spacer()
-                            Text(preferences.formatTime(endDate))
+                            Text(preferencesManager.formatTime(endDate))
                                 .foregroundColor(.primary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -158,7 +180,7 @@ struct EndShiftView: View {
                                 .labelsHidden()
 
                             KeyboardInputUtility.keyboardInputButton(
-                                currentValue: preferences.formatTime(endDate),
+                                currentValue: preferencesManager.formatTime(endDate),
                                 showingAlert: $showEndTimeTextInput,
                                 inputText: $endTimeText,
                                 accessibilityId: "end_time_text_input_button",
@@ -405,7 +427,7 @@ struct EndShiftView: View {
                 }
             })
         .alert("Enter End Date", isPresented: $showEndDateTextInput) {
-            TextField(preferences.formatDate(Date()), text: $endDateText)
+            TextField(preferencesManager.formatDate(Date()), text: $endDateText)
                 .keyboardType(.numbersAndPunctuation)
             Button("Set Date") {
                 setEndDateFromText()
@@ -414,10 +436,10 @@ struct EndShiftView: View {
                 endDateText = ""
             }
         } message: {
-            Text("Format: \(preferences.formatDate(Date()))")
+            Text("Format: \(preferencesManager.formatDate(Date()))")
         }
         .alert("Enter End Time", isPresented: $showEndTimeTextInput) {
-            TextField(preferences.formatTime(Date()), text: $endTimeText)
+            TextField(preferencesManager.formatTime(Date()), text: $endTimeText)
                 .keyboardType(.numbersAndPunctuation)
             Button("Set Time") {
                 setEndTimeFromText()
@@ -426,7 +448,7 @@ struct EndShiftView: View {
                 endTimeText = ""
             }
         } message: {
-            Text("Format: \(preferences.formatTime(Date()))")
+            Text("Format: \(preferencesManager.formatTime(Date()))")
         }
         .alert("Enter Tank Level", isPresented: $showTankTextInput) {
             TextField("0 to 8", text: $tankText)
@@ -487,15 +509,22 @@ struct EndShiftView: View {
         }
         shift.standardMileageRate = preferences.standardMileageRate
 
-        // Save photos and create attachments
+        // Save photos and create attachments with user-edited metadata
         for (index, image) in photoImages.enumerated() {
+            guard index < pendingAttachments.count else { continue }
+
             do {
+                let pendingAttachment = pendingAttachments[index]
+
+                // Save image to disk with metadata from pendingAttachment
                 let attachment = try ImageManager.shared.saveImage(
                     image,
                     for: shift.id,
                     parentType: .shift,
-                    type: .screenshot // Default to screenshot for now - could add type selection later
+                    type: pendingAttachment.type,
+                    description: pendingAttachment.description
                 )
+
                 shift.imageAttachments.append(attachment)
             } catch {
                 print("Failed to save shift photo \(index): \(error)")
@@ -551,7 +580,7 @@ struct EndShiftView: View {
                 endDateText = ""
             }
         } else {
-            print("⚠️ [EndShiftView] Failed to parse date: '\(endDateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferences.formatDate(Date()))')")
+            debugMessage("Failed to parse date: '\(endDateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferencesManager.formatDate(Date()))')")
         }
     }
 
@@ -578,7 +607,7 @@ struct EndShiftView: View {
                 endTimeText = ""
             }
         } else {
-            print("⚠️ [EndShiftView] Failed to parse time: '\(endTimeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferences.formatTime(Date()))')")
+            debugMessage("Failed to parse time: '\(endTimeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferencesManager.formatTime(Date()))')")
         }
     }
 

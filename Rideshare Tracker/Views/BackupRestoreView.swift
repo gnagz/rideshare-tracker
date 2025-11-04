@@ -9,11 +9,13 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct BackupRestoreView: View {
-    @EnvironmentObject var dataManager: ShiftDataManager
+    @EnvironmentObject var shiftManager: ShiftDataManager
     @EnvironmentObject var expenseManager: ExpenseDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @Environment(\.presentationMode) var presentationMode
-    
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
     var body: some View {
         NavigationView {
             TabView {
@@ -22,18 +24,18 @@ struct BackupRestoreView: View {
                         Image(systemName: "externaldrive.fill")
                         Text("Backup")
                     }
-                    .environmentObject(dataManager)
+                    .environmentObject(shiftManager)
                     .environmentObject(expenseManager)
-                    .environmentObject(preferences)
+                    .environmentObject(preferencesManager)
                 
                 RestoreView()
                     .tabItem {
                         Image(systemName: "externaldrive.badge.plus")
                         Text("Restore")
                     }
-                    .environmentObject(dataManager)
+                    .environmentObject(shiftManager)
                     .environmentObject(expenseManager)
-                    .environmentObject(preferences)
+                    .environmentObject(preferencesManager)
             }
             .navigationTitle("Backup/Restore")
             .navigationBarTitleDisplayMode(.inline)
@@ -49,16 +51,19 @@ struct BackupRestoreView: View {
 }
 
 struct BackupView: View {
-    @EnvironmentObject var dataManager: ShiftDataManager
+    @EnvironmentObject var shiftManager: ShiftDataManager
     @EnvironmentObject var expenseManager: ExpenseDataManager
-    @EnvironmentObject var preferences: AppPreferences
-    
+    @EnvironmentObject var preferencesManager: PreferencesManager
+    @EnvironmentObject var backupRestoreManager: BackupRestoreManager
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
     @State private var showingShareSheet = false
     @State private var backupURL: URL?
     @State private var showingBackupAlert = false
     @State private var backupMessage = ""
     
-    var totalShifts: Int { dataManager.activeShifts.count }
+    var totalShifts: Int { shiftManager.activeShifts.count }
     var totalExpenses: Int { expenseManager.activeExpenses.count }
     
     var body: some View {
@@ -157,23 +162,25 @@ struct BackupView: View {
     
     private func createBackup() {
         // Always include all data for full backup
-        let backupURL = preferences.createFullBackup(shifts: dataManager.shifts, expenses: expenseManager.expenses)
-        
-        if let url = backupURL {
+        do {
+            let url = try backupRestoreManager.createFullBackup(shifts: shiftManager.shifts, expenses: expenseManager.expenses, preferences: preferences)
             self.backupURL = url
             showingShareSheet = true
-        } else {
-            backupMessage = "Failed to create backup file"
+        } catch {
+            backupMessage = backupRestoreManager.lastError?.localizedDescription ?? "Failed to create backup file"
             showingBackupAlert = true
         }
     }
 }
 
 struct RestoreView: View {
-    @EnvironmentObject var dataManager: ShiftDataManager
+    @EnvironmentObject var shiftManager: ShiftDataManager
     @EnvironmentObject var expenseManager: ExpenseDataManager
-    @EnvironmentObject var preferences: AppPreferences
-    
+    @EnvironmentObject var preferencesManager: PreferencesManager
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+    @EnvironmentObject var backupRestoreManager: BackupRestoreManager
+
     @State private var showingFilePicker = false
     @State private var showingRestoreAlert = false
     @State private var restoreMessage = ""
@@ -269,19 +276,17 @@ struct RestoreView: View {
         switch result {
         case .success(let urls):
             guard let url = urls.first else { return }
-            
-            let importResult = AppPreferences.importData(from: url)
-            switch importResult {
-            case .success(let backupData):
+
+            do {
+                let backupData = try backupRestoreManager.loadBackup(from: url)
                 pendingBackupData = backupData
                 showingConfirmation = true
-                
-            case .failure(let error):
+            } catch {
                 restoreAlertTitle = "Restore Failed"
-                restoreMessage = error.localizedDescription
+                restoreMessage = backupRestoreManager.lastError?.localizedDescription ?? "Unknown error"
                 showingRestoreAlert = true
             }
-            
+
         case .failure(let error):
             restoreAlertTitle = "Restore Failed"
             restoreMessage = "Failed to access file: \(error.localizedDescription)"
@@ -293,12 +298,12 @@ struct RestoreView: View {
         guard let backupData = pendingBackupData else { return }
         
         // Clear existing data
-        dataManager.shifts.removeAll()
+        shiftManager.shifts.removeAll()
         expenseManager.expenses.removeAll()
         
         // Restore shifts
         for shift in backupData.shifts {
-            dataManager.addShift(shift)
+            shiftManager.addShift(shift)
         }
         
         // Restore expenses
@@ -309,7 +314,7 @@ struct RestoreView: View {
         }
         
         // Restore preferences
-        preferences.importPreferences(backupData.preferences)
+        backupRestoreManager.restoreFromBackup(backupData: backupData, shiftManager: shiftManager, expenseManager: expenseManager, preferencesManager: preferencesManager)
         
         restoreAlertTitle = "Restore Successful"
         restoreMessage = "Successfully restored:\n\n\(backupData.shifts.count) shifts\n\(backupData.expenses?.count ?? 0) expenses\n\nPreferences have been updated."

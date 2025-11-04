@@ -14,48 +14,53 @@ extension XCUIElement {
     /// Clear all text from this element
     func clearText(timeout: TimeInterval = 2.0) {
         // Get the label, defaulting to "text field" if nil or empty
-        let fieldLabel = label.isEmpty ? "text field" : label
-        
-        guard let stringValue = value as? String else {
+        let fieldLabel = self.label.isEmpty ? "text field" : label
+
+        guard let stringValue = self.value as? String else {
             debugMessage("Clear \(fieldLabel) of current value: 'nil'")
             return
         }
-        
+
         debugMessage("Clear \(fieldLabel) of current value: '\(stringValue)'")
 
         // Clear existing text first to ensure clean input
         let characterCount = stringValue.count
-        debugMessage("⚙️ Attempt to clear \(fieldLabel) using Cmd+A delete + \(characterCount) right arrows + \(characterCount) delete keys")
+        debugMessage("⚙️ Attempt to clear \(fieldLabel) using doubletap + delete, Cmd A + delete, and \(characterCount) right arrows + \(characterCount) delete keys")
+        
+        self.tap() // Ensure the element is focused and keyboard is up
+        
+        // Simulate backspace presses to clear existing text
+        let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: stringValue.count)
+        self.typeText(deleteString)
 
-        // First, use Cmd+A and one delete to clear selection - quickest if it works
-        typeKey("a", modifierFlags: .command)
-        typeText(XCUIKeyboardKey.delete.rawValue)
+        // If that doesn't work, try Cmd+A and one delete to clear selection
+        self.typeKey("a", modifierFlags: .command)
+        self.typeText(XCUIKeyboardKey.delete.rawValue)
+        
+        // Move cursor to end of text if the cursor isn't already there
+//        let rightArrowString = String(repeating: XCUIKeyboardKey.rightArrow.rawValue, count: stringValue.count)
 
-        // AGGRESSIVE CLEAR: Move cursor to end, then send many delete keys
-        let rightArrowString = String(repeating: XCUIKeyboardKey.rightArrow.rawValue, count: characterCount)
-        typeText(rightArrowString)
-
-        let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: characterCount)
-        typeText(deleteString)
+        // Simulate more backspace presses to clear existing text
+        self.typeText(deleteString)
 
         // Poll for updated value
         let startTime = Date()
         var currentValue = value as? String
+        let placeholderValue = placeholderValue ?? ""
         while currentValue != nil && !currentValue!.isEmpty && Date().timeIntervalSince(startTime) < timeout {
             currentValue = value as? String
             Thread.sleep(forTimeInterval: 0.1) // Small polling interval
         }
-        
+
         guard let clearedValue = value as? String else {
             debugMessage("✅ After clearing, \(fieldLabel) value is nil.")
             return
         }
-        let clearedValueCharacterCount = clearedValue.count
-        if clearedValueCharacterCount == 0 {
-            debugMessage("✅ After clearing, \(fieldLabel) value is empty.")
+        if clearedValue.isEmpty || clearedValue == placeholderValue {
+            debugMessage("✅ After clearing, \(fieldLabel) value is empty or showing placeholder.")
             return
         }
-        
+            
         debugMessage("❌ After clearing, \(fieldLabel) value is still not empty. Current value: '\(value as? String ?? "")'")
     }
 }
@@ -63,6 +68,128 @@ extension XCUIElement {
 /// Provides common utilities, debug helpers, and lightweight test fixtures
 /// to reduce redundant business logic execution in UI tests
 class RideshareTrackerUITestBase: XCTestCase {
+
+    // MARK: - App Preferences (Read from UI)
+
+    /// Cached app preferences read from PreferencesView UI
+    /// Populated by calling loadAppPreferencesStatic() from class setUp()
+    /// Note: nonisolated(unsafe) because tests run sequentially, not concurrently
+    nonisolated(unsafe) private static var cachedPreferences: [String: String] = [:]
+
+    /// Error thrown when preference cannot be read
+    enum PreferenceError: Error {
+        case preferenceNotFound(String)
+        case navigationFailed(String)
+
+        var localizedDescription: String {
+            switch self {
+            case .preferenceNotFound(let key):
+                return "Required preference '\(key)' not found. Did you call loadAppPreferences()?"
+            case .navigationFailed(let reason):
+                return "Failed to navigate to Preferences: \(reason)"
+            }
+        }
+    }
+
+    /// Get a cached preference value
+    /// Throws PreferenceError.preferenceNotFound if not loaded
+    func getPreference(_ key: String) throws -> String {
+        guard let value = Self.cachedPreferences[key] else {
+            throw PreferenceError.preferenceNotFound(key)
+        }
+        return value
+    }
+
+    /// Navigate to Preferences and read all values from UI
+    /// Call this in setUp() to cache preferences for all tests in the class
+    @MainActor
+    func loadAppPreferences(in app: XCUIApplication) throws {
+        debugMessage("📋 Loading app preferences from PreferencesView...")
+
+        // Navigate to Main Menu (settings button)
+        let settingsButton = app.buttons["settings_button"]
+        guard settingsButton.waitForExistence(timeout: 3) else {
+            throw PreferenceError.navigationFailed("Settings button not found")
+        }
+        waitAndTap(settingsButton)
+
+        // Tap Preferences (it's a static text, not a button)
+        let preferencesText = app.staticTexts["Preferences"]
+        guard preferencesText.waitForExistence(timeout: 3) else {
+            throw PreferenceError.navigationFailed("Preferences text not found")
+        }
+        waitAndTap(preferencesText)
+
+        // Wait for view to load
+        guard app.navigationBars["Preferences"].waitForExistence(timeout: 3) else {
+            throw PreferenceError.navigationFailed("Preferences view did not load")
+        }
+
+        // Read pickers (use .value for accessibility value we added)
+        let weekStartPicker = app.buttons["week_start_day_picker"]
+        let dateFormatPicker = app.buttons["date_format_picker"]
+        let timeFormatPicker = app.buttons["time_format_picker"]
+        let timeZonePicker = app.buttons["time_zone_picker"]
+
+        // Read text fields (use .value)
+        let tankCapacityField = app.textFields["tank_capacity_field"]
+        let gasPriceField = app.textFields["gas_price_field"]
+        let mileageRateField = app.textFields["mileage_rate_field"]
+        let taxRateField = app.textFields["tax_rate_field"]
+
+        // Read toggle (use .value - returns "0" or "1")
+        let tipToggle = app.switches["tip_deduction_toggle"]
+
+        // Store values using accessibilityValue we added
+        Self.cachedPreferences["weekStartDay"] = weekStartPicker.value as? String ?? ""
+        Self.cachedPreferences["dateFormat"] = dateFormatPicker.value as? String ?? ""
+        Self.cachedPreferences["timeFormat"] = timeFormatPicker.value as? String ?? ""
+        Self.cachedPreferences["timeZone"] = timeZonePicker.value as? String ?? ""
+        Self.cachedPreferences["tankCapacity"] = tankCapacityField.value as? String ?? ""
+        Self.cachedPreferences["gasPrice"] = gasPriceField.value as? String ?? ""
+        Self.cachedPreferences["mileageRate"] = mileageRateField.value as? String ?? ""
+        Self.cachedPreferences["tipDeductionEnabled"] = tipToggle.value as? String ?? ""
+        Self.cachedPreferences["taxRate"] = taxRateField.value as? String ?? ""
+
+        debugMessage("✅ Loaded preferences:")
+        for (key, value) in Self.cachedPreferences.sorted(by: { $0.key < $1.key }) {
+            debugMessage("  \(key) = '\(value)'")
+        }
+
+        // Close Preferences view
+        let preferencesDoneButton = app.buttons["preferences_done_button"]
+        if preferencesDoneButton.waitForExistence(timeout: 1) {
+            waitAndTap(preferencesDoneButton)
+        }
+
+        // Close Main Menu view
+        let mainMenuDoneButton = app.buttons["main_menu_done_button"]
+        if mainMenuDoneButton.waitForExistence(timeout: 1) {
+            waitAndTap(mainMenuDoneButton)
+        }
+    }
+
+    // MARK: - Test Operation Alerts
+
+    /// Show a test operation alert in the app UI
+    /// Waits for user to see the message, then dismisses it
+    @MainActor
+    func showOperationAlert(_ message: String, in app: XCUIApplication) {
+        // Wait for and dismiss the operation alert
+        let alert = app.alerts["UI Test Operation"].firstMatch
+        if alert.waitForExistence(timeout: 3) {
+            debugMessage("🔔 Operation alert displayed: \(message)")
+            // Wait 3 seconds for user to see the message
+            Thread.sleep(forTimeInterval: 3.0)
+
+            // Dismiss the alert by tapping OK button
+            let okButton = alert.buttons["OK"]
+            if okButton.exists {
+                okButton.tap()
+                debugMessage("Operation alert dismissed")
+            }
+        }
+    }
 
     // MARK: - Debug Utilities
 
@@ -79,13 +206,13 @@ class RideshareTrackerUITestBase: XCTestCase {
 
     /// Visual verification pause - only pauses when visual debug flags are set
     func visualDebugPause(_ seconds: UInt32 = 2, function: String = #function, file: String = #file) {
-        let visualDebugEnabled = ProcessInfo.processInfo.environment["UI_TEST_VISUAL_DEBUG"] != nil ||
+        let visualDebugEnabled = ProcessInfo.processInfo.environment["VISUAL_DEBUG"] != nil ||
                                 ProcessInfo.processInfo.arguments.contains("-visual-debug")
         if visualDebugEnabled {
             let fileName = (file as NSString).lastPathComponent
-            let message = "Pausing test for \(seconds)s for Visual Observation. Consider taking screenshot."
-            print("DEBUG [\(fileName):\(function)]: \(message)")
+            print("DEBUG [\(fileName):\(function)]: ⏸️ PAUSING FOR \(seconds) SECONDS -  Consider taking screenshot.")
             sleep(seconds)
+            print("DEBUG [\(fileName):\(function)]: ⏸️ PAUSE COMPLETE - Continuing test")
         }
     }
 
@@ -100,7 +227,7 @@ class RideshareTrackerUITestBase: XCTestCase {
         attachment.name = "\(testName)_\(description)"
         attachment.lifetime = .keepAlways
         add(attachment)
-        debugMessage("📸 Screenshot captured: \(attachment.name)")
+        debugMessage("📸 Screenshot captured: \(attachment.name ?? "unknown")")
     }
 
     /// Get the actual field value, accounting for placeholder text
@@ -322,26 +449,8 @@ class RideshareTrackerUITestBase: XCTestCase {
         debugMessage("Field state before tap: exists=\(textField.exists), isEnabled=\(textField.isEnabled), isFocused=\(textField.hasFocus)")
 
         waitAndTap(textField)
-        debugMessage("Field tapped, clearing existing text and typing new text...")
-
-        // Clear existing text first to ensure clean input
-        // AGGRESSIVE CLEAR: Move cursor to end, then send many delete keys
-        // Delete key only works when cursor is positioned after text
-
-        // First, use Cmd+A and one delete to clear selection
-        textField.typeKey("a", modifierFlags: .command)
-        textField.typeText(XCUIKeyboardKey.delete.rawValue)
-
-        // Move cursor to the right (end of any remaining text) - use 20 to cover reasonable field lengths
-        let rightArrowString = String(repeating: XCUIKeyboardKey.rightArrow.rawValue, count: 20)
-        textField.typeText(rightArrowString)
-
-        // Now send delete keys to clear everything from right to left - 20 should be enough
-        let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: 20)
-        textField.typeText(deleteString)
-
-        debugMessage("✅ Cleared using Cmd+A delete + 20 right arrows + 20 delete keys")
-
+        textField.clearText()
+        
         textField.typeText(text)
         debugMessage("Text typed. Field value after typing: '\(textField.value ?? "nil")'")
 

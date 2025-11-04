@@ -11,16 +11,20 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
     @EnvironmentObject var expenseManager: ExpenseDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
+    @EnvironmentObject var importExportManager: ImportExportManager
+    @EnvironmentObject var backupRestoreManager: BackupRestoreManager
     @State private var showingStartShift = false
     @State private var showingMainMenu = false
     @State private var selectedDate = Date()
     @State private var showingDatePicker = false
-    
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
     private func formatWeekRange(for date: Date) -> String {
         let weekInterval = getWeekInterval(for: date)
-        let startDate = preferences.formatDate(weekInterval.start)
-        let endDate = preferences.formatDate(weekInterval.end)
+        let startDate = preferencesManager.formatDate(weekInterval.start)
+        let endDate = preferencesManager.formatDate(weekInterval.end)
         return "\(startDate) - \(endDate)"
     }
     
@@ -128,12 +132,16 @@ struct ContentView: View {
                 MainMenuView()
                     .environmentObject(dataManager)
                     .environmentObject(expenseManager)
-                    .environmentObject(preferences)
+                    .environmentObject(preferencesManager)
             }
         }
         .onAppear {
             debugShiftData()
         }
+        .errorAlert(error: $dataManager.lastError)
+        .errorAlert(error: $expenseManager.lastError)
+        .errorAlert(error: $importExportManager.lastError)
+        .errorAlert(error: $backupRestoreManager.lastError)
     }
     
     private var summaryCardsView: some View {

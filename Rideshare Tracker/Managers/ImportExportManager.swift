@@ -1,8 +1,9 @@
 //
-//  CSVImportManager.swift
+//  ImportExportManager.swift
 //  Rideshare Tracker
 //
 //  Created by Claude AI on 9/28/25.
+//  Renamed from CSVImportManager.swift on 10/18/25.
 //
 
 import Foundation
@@ -28,123 +29,119 @@ struct ExpenseImportResult {
     let expenses: [ExpenseItem]
 }
 
-enum CSVImportError: LocalizedError {
+enum ImportExportError: LocalizedError {
     case invalidFormat
     case fileReadError
+    case fileWriteError
     case missingRequiredColumns([String])
     case noDataRows
+    case exportFailed(Error)
 
     var errorDescription: String? {
         switch self {
         case .invalidFormat:
             return "Invalid CSV file format"
         case .fileReadError:
-            return "Unable to read CSV file"
+            return "Unable to read file"
+        case .fileWriteError:
+            return "Unable to write file"
         case .missingRequiredColumns(let columns):
             return "Missing required columns: \(columns.joined(separator: ", "))"
         case .noDataRows:
             return "CSV file contains no data rows"
+        case .exportFailed(let error):
+            return "Export failed: \(error.localizedDescription)"
         }
     }
 }
 
-// MARK: - CSV Import Manager
+// MARK: - Import / Export Manager
 
 @MainActor
-class CSVImportManager {
+class ImportExportManager: ObservableObject {
+    static let shared = ImportExportManager()
 
-    // MARK: - Secure File Access Utility
+    @Published var lastError: ImportExportError?
 
-    /// Safely access file contents with security-scoped URL handling
-    /// This handles both local files and document picker files automatically
-    private static func secureFileAccess<T>(
-        url: URL,
-        operation: (URL) throws -> T
-    ) -> Result<T, CSVImportError> {
+    private let preferencesManager = PreferencesManager.shared
+    private var preferences: AppPreferences { preferencesManager.preferences }
 
-        debugMessage("Starting secure file access: \(url.lastPathComponent)")
+    private init() {}
 
-        // Handle security-scoped URLs from document picker
-        let hasAccess = url.startAccessingSecurityScopedResource()
-        debugMessage("Security-scoped URL access: \(hasAccess)")
 
-        defer {
-            if hasAccess {
-                url.stopAccessingSecurityScopedResource()
-                debugMessage("Released security-scoped URL access")
-            }
-        }
-
-        do {
-            let result = try operation(url)
-            debugMessage("Secure file access completed successfully")
-            return .success(result)
-        } catch {
-            debugMessage("ERROR: Secure file access failed: \(error.localizedDescription)")
-            return .failure(.fileReadError)
-        }
-    }
-
-    // MARK: - Public Import Methods
+    // MARK: - CSV Import Methods
 
     /// Import shifts from CSV file
-    static func importShifts(from url: URL) -> Result<CSVImportResult, CSVImportError> {
+    func importShifts(from url: URL) throws(ImportExportError) -> CSVImportResult {
+        lastError = nil
         debugMessage("Starting shift CSV import from: \(url.lastPathComponent)")
 
-        return secureFileAccess(url: url) { url in
-            let csvContent = try String(contentsOf: url, encoding: .utf8)
-            let lines = csvContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
-            debugMessage("CSV file loaded: \(lines.count) non-empty lines found")
+        do {
+            let result = try ImportExportManager.secureFileAccess(url: url) { url in
+                let csvContent = try String(contentsOf: url, encoding: .utf8)
+                let lines = csvContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
+                debugMessage("CSV file loaded: \(lines.count) non-empty lines found")
 
-            guard lines.count > 1 else {
-                debugMessage("ERROR: CSV file has insufficient data (\(lines.count) lines)")
-                throw CSVImportError.noDataRows
-            }
-
-            let headers = parseCSVLine(lines[0])
-            debugMessage("CSV headers parsed: \(headers.count) columns - [\(headers.joined(separator: ", "))]")
-
-            var shifts: [RideshareShift] = []
-            debugMessage("Processing \(lines.count - 1) data rows...")
-
-            // Create formatters for parsing
-            let dateFormatter = DateFormatter()
-            let timeFormatter = DateFormatter()
-
-            for i in 1..<lines.count {
-                let values = parseCSVLine(lines[i])
-                debugMessage("Row \(i): Parsed \(values.count) values")
-
-                guard values.count >= headers.count else {
-                    debugMessage("SKIP Row \(i): Insufficient columns (\(values.count) < \(headers.count))")
-                    continue
+                guard lines.count > 1 else {
+                    debugMessage("ERROR: CSV file has insufficient data (\(lines.count) lines)")
+                    throw ImportExportError.noDataRows
                 }
 
-                if let shift = parseShiftFromCSVRow(headers: headers, values: values, rowIndex: i, dateFormatter: dateFormatter, timeFormatter: timeFormatter) {
-                    shifts.append(shift)
-                }
-            }
+                let headers = ImportExportManager.parseCSVLine(lines[0])
+                debugMessage("CSV headers parsed: \(headers.count) columns - [\(headers.joined(separator: ", "))]")
 
-            debugMessage("CSV import completed: \(shifts.count) shifts created successfully")
-            return CSVImportResult(shifts: shifts)
+                var shifts: [RideshareShift] = []
+                debugMessage("Processing \(lines.count - 1) data rows...")
+
+                // Create formatters for parsing
+                let dateFormatter = DateFormatter()
+                let timeFormatter = DateFormatter()
+
+                for i in 1..<lines.count {
+                    let values = ImportExportManager.parseCSVLine(lines[i])
+                    debugMessage("Row \(i): Parsed \(values.count) values")
+
+                    guard values.count >= headers.count else {
+                        debugMessage("SKIP Row \(i): Insufficient columns (\(values.count) < \(headers.count))")
+                        continue
+                    }
+
+                    if let shift = ImportExportManager.parseShiftFromCSVRow(headers: headers, values: values, rowIndex: i, dateFormatter: dateFormatter, timeFormatter: timeFormatter) {
+                        shifts.append(shift)
+                    }
+                }
+
+                debugMessage("CSV import completed: \(shifts.count) shifts created successfully")
+                return CSVImportResult(shifts: shifts)
+            }
+            return result
+        } catch let error as ImportExportError {
+            lastError = error
+            throw error
+            // Error handling: Set lastError for UI observation, then throw for caller to handle explicitly
+        } catch {
+            lastError = .fileReadError
+            throw .fileReadError
+            // Error handling: Convert unknown errors to fileReadError, set lastError, then throw
         }
     }
 
     /// Import tolls from CSV file and update shifts
-    @MainActor
-    static func importTolls(from url: URL, dataManager: ShiftDataManager) -> Result<TollImportResult, CSVImportError> {
+    func importTolls(from url: URL, dataManager: ShiftDataManager) throws(ImportExportError) -> TollImportResult {
+        lastError = nil
         debugMessage("Starting toll CSV import from: \(url.lastPathComponent)")
 
-        return secureFileAccess(url: url) { url in
-            let content = try String(contentsOf: url, encoding: .utf8)
-            let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        do {
+            let result = try ImportExportManager.secureFileAccess(url: url) { url in
+                let content = try String(contentsOf: url, encoding: .utf8)
+                let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
 
-            guard lines.count > 1 else {
-                throw CSVImportError.noDataRows
-            }
+                guard lines.count > 1 else {
+                    throw ImportExportError.noDataRows
+                }
 
-            let headerLine = lines[0]
-            let headers = parseCSVLine(headerLine)
+                let headerLine = lines[0]
+                let headers = ImportExportManager.parseCSVLine(headerLine)
 
             // Find required column indices
             var transactionDateIndex = -1
@@ -170,16 +167,16 @@ class CSVImportManager {
                     transactionDateIndex < 0 ? "Transaction Entry Date/Time" : nil,
                     transactionAmountIndex < 0 ? "Transaction Amount" : nil
                 ].compactMap { $0 }
-                throw CSVImportError.missingRequiredColumns(missingColumns)
+                throw ImportExportError.missingRequiredColumns(missingColumns)
             }
 
             var transactions: [TollTransaction] = []
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "MM/dd/yyyy HH:mm:ss"
 
-            // Process each toll transaction
-            for line in lines.dropFirst() {
-                let values = parseCSVLine(line)
+                // Process each toll transaction
+                for line in lines.dropFirst() {
+                    let values = ImportExportManager.parseCSVLine(line)
                 guard transactionDateIndex < values.count, transactionAmountIndex < values.count else { continue }
 
                 // Parse transaction date (Excel formulas already processed by parseCSVLine)
@@ -246,6 +243,14 @@ class CSVImportManager {
                 // REPLACE (not add to) the existing toll amount
                 dataManager.shifts[shiftIndex].tolls = totalTollsForShift
 
+                // Remove old toll summary images for this specific shift before adding new one (prevents duplicates on re-import)
+                let oldTollImages = dataManager.shifts[shiftIndex].imageAttachments.filter { $0.type == .importedToll }
+                if !oldTollImages.isEmpty {
+                    let shiftDate = dataManager.shifts[shiftIndex].startDate
+                    debugMessage("Removing \(oldTollImages.count) old toll summary image(s) from shift starting \(shiftDate) before adding new one")
+                    dataManager.shifts[shiftIndex].imageAttachments.removeAll { $0.type == .importedToll }
+                }
+
                 // Generate and attach toll summary image
                 if let summaryImage = TollSummaryImageGenerator.generateTollSummaryImage(
                     shiftDate: dataManager.shifts[shiftIndex].startDate,
@@ -258,7 +263,7 @@ class CSVImportManager {
                             summaryImage,
                             for: dataManager.shifts[shiftIndex].id,
                             parentType: .shift,
-                            type: .receipt,
+                            type: .importedToll,
                             description: "Toll Summary - \(tollTransactions.count) transactions"
                         )
                         dataManager.shifts[shiftIndex].imageAttachments.append(attachment)
@@ -279,33 +284,45 @@ class CSVImportManager {
             // Trigger data manager update
             dataManager.objectWillChange.send()
 
-            debugMessage("Toll import completed: Updated \(updatedShifts.count) shifts, generated \(imagesGenerated) images")
-            return TollImportResult(
-                transactions: transactions,
-                updatedShifts: updatedShifts,
-                imagesGenerated: imagesGenerated
-            )
+                debugMessage("Toll import completed: Updated \(updatedShifts.count) shifts, generated \(imagesGenerated) images")
+                return TollImportResult(
+                    transactions: transactions,
+                    updatedShifts: updatedShifts,
+                    imagesGenerated: imagesGenerated
+                )
+            }
+            return result
+        } catch let error as ImportExportError {
+            lastError = error
+            throw error
+            // Error handling: Set lastError for UI observation, then throw for caller to handle explicitly
+        } catch {
+            lastError = .fileReadError
+            throw .fileReadError
+            // Error handling: Convert unknown errors to fileReadError, set lastError, then throw
         }
     }
 
     /// Import expenses from CSV file
-    static func importExpenses(from url: URL) -> Result<ExpenseImportResult, CSVImportError> {
+    func importExpenses(from url: URL) throws(ImportExportError) -> ExpenseImportResult {
+        lastError = nil
         debugMessage("Starting expense CSV import from: \(url.lastPathComponent)")
 
-        return secureFileAccess(url: url) { url in
-            let csvContent = try String(contentsOf: url, encoding: .utf8)
-            let lines = csvContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        do {
+            let result = try ImportExportManager.secureFileAccess(url: url) { url in
+                let csvContent = try String(contentsOf: url, encoding: .utf8)
+                let lines = csvContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
 
-            guard lines.count > 1 else {
-                throw CSVImportError.noDataRows
-            }
+                guard lines.count > 1 else {
+                    throw ImportExportError.noDataRows
+                }
 
-            let headers = parseCSVLine(lines[0])
+                let headers = ImportExportManager.parseCSVLine(lines[0])
             var expenses: [ExpenseItem] = []
             let dateFormatter = DateFormatter()
 
-            for i in 1..<lines.count {
-                let values = parseCSVLine(lines[i])
+                for i in 1..<lines.count {
+                    let values = ImportExportManager.parseCSVLine(lines[i])
                 guard values.count >= headers.count else { continue }
 
                 var date: Date?
@@ -317,9 +334,9 @@ class CSVImportManager {
                     guard index < values.count else { continue }
                     let value = values[index].trimmingCharacters(in: .whitespaces)
 
-                    switch header.lowercased() {
-                    case "date":
-                        date = parseDateFromCSV(value, formatter: dateFormatter)
+                        switch header.lowercased() {
+                        case "date":
+                            date = ImportExportManager.parseDateFromCSV(value, formatter: dateFormatter)
                     case "category":
                         category = ExpenseCategory(rawValue: value)
                     case "description":
@@ -337,15 +354,218 @@ class CSVImportManager {
                 }
             }
 
-            debugMessage("Expense CSV import completed: \(expenses.count) expenses created")
-            return ExpenseImportResult(expenses: expenses)
+                debugMessage("Expense CSV import completed: \(expenses.count) expenses created")
+                return ExpenseImportResult(expenses: expenses)
+            }
+            return result
+        } catch let error as ImportExportError {
+            lastError = error
+            throw error
+            // Error handling: Set lastError for UI observation, then throw for caller to handle explicitly
+        } catch {
+            lastError = .fileReadError
+            throw .fileReadError
+            // Error handling: Convert unknown errors to fileReadError, set lastError, then throw
+        }
+    }
+    
+    // MARK: - CSV Export Functions
+
+    func exportCSVWithRange(shifts: [RideshareShift], preferencesManager: PreferencesManager, selectedRange: DateRangeOption, fromDate: Date, toDate: Date) throws(ImportExportError) -> URL {
+        lastError = nil
+        let preferences = preferencesManager.preferences
+        // Filter shifts by date range and exclude deleted shifts
+        let filteredShifts = shifts.filter { shift in
+            !shift.isDeleted && shift.startDate >= fromDate && shift.startDate <= toDate
+        }
+
+        // Generate CSV content with all input fields and calculated fields
+        let headers = [
+            // Input fields for editing/import
+            "StartDate", "StartTime", "EndDate", "EndTime",
+            "StartMileage", "EndMileage", "StartTankReading", "EndTankReading",
+            "RefuelGallons", "RefuelCost",
+            "Trips", "NetFare", "Tips", "Promotions", "RiderFees",
+            "Tolls", "TollsReimbursed", "ParkingFees", "MiscFees",
+            // Calculated fields for reporting/analysis
+            "C_Duration", "C_ShiftMileage", "C_Revenue", "C_GasCost", "C_GasUsage", "C_MPG",
+            "C_TotalTips", "C_TaxableIncome", "C_DeductibleExpenses",
+            "C_ExpectedPayout", "C_OutOfPocketCosts", "C_CashFlowProfit", "C_ProfitPerHour",
+            // Preference fields for context
+            "P_TankCapacity", "P_GasPrice", "P_StandardMileageRate"
+        ]
+
+        var csvContent = headers.joined(separator: ",") + "\n"
+
+        for shift in filteredShifts.sorted(by: { $0.startDate < $1.startDate }) {
+            let row = [
+                // Input fields for editing/import
+                preferencesManager.formatDate(shift.startDate),
+                preferencesManager.formatTime(shift.startDate),
+                shift.endDate != nil ? preferencesManager.formatDate(shift.endDate!) : "",
+                shift.endDate != nil ? preferencesManager.formatTime(shift.endDate!) : "",
+                String(shift.startMileage),
+                shift.endMileage != nil ? String(shift.endMileage!) : "",
+                String(format: "%.3f", TankLevelUtilities.tankLevelToDecimal(shift.startTankReading)),
+                shift.endTankReading != nil ? String(format: "%.3f", TankLevelUtilities.tankLevelToDecimal(shift.endTankReading!)) : "",
+                shift.refuelGallons != nil ? String(shift.refuelGallons!) : "",
+                shift.refuelCost != nil ? String(format: "%.2f", shift.refuelCost!) : "",
+                shift.trips != nil ? String(shift.trips!) : "",
+                shift.netFare != nil ? String(format: "%.2f", shift.netFare!) : "",
+                shift.tips != nil ? String(format: "%.2f", shift.tips!) : "",
+                shift.promotions != nil ? String(format: "%.2f", shift.promotions!) : "",
+                shift.tolls != nil ? String(format: "%.2f", shift.tolls!) : "",
+                shift.tollsReimbursed != nil ? String(format: "%.2f", shift.tollsReimbursed!) : "",
+                shift.parkingFees != nil ? String(format: "%.2f", shift.parkingFees!) : "",
+                shift.miscFees != nil ? String(format: "%.2f", shift.miscFees!) : "",
+                // Calculated fields for reporting/analysis
+                shift.endDate != nil ? String(format: "%.1f", shift.shiftDuration / 3600.0) : "",
+                String(format: "%.1f", shift.shiftMileage),
+                String(format: "%.2f", shift.revenue),
+                String(format: "%.2f", shift.shiftGasCost(tankCapacity: preferences.tankCapacity)),
+                String(format: "%.2f", shift.shiftGasUsage(tankCapacity: preferences.tankCapacity)),
+                String(format: "%.1f", shift.shiftMPG(tankCapacity: preferences.tankCapacity)),
+                String(format: "%.2f", shift.totalTips),
+                String(format: "%.2f", shift.taxableIncome),
+                String(format: "%.2f", shift.deductibleExpenses(mileageRate: preferences.standardMileageRate)),
+                String(format: "%.2f", shift.expectedPayout),
+                String(format: "%.2f", shift.outOfPocketCosts(tankCapacity: preferences.tankCapacity)),
+                String(format: "%.2f", shift.cashFlowProfit(tankCapacity: preferences.tankCapacity)),
+                String(format: "%.2f", shift.profitPerHour(tankCapacity: preferences.tankCapacity)),
+                // Preference fields for context
+                String(preferences.tankCapacity),
+                String(format: "%.3f", shift.gasPrice),
+                String(format: "%.3f", shift.standardMileageRate)
+            ]
+
+            let escapedRow = row.map { field in
+                if field.contains(",") || field.contains("\"") || field.contains("\n") {
+                    return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+                }
+                return field
+            }
+
+            csvContent += escapedRow.joined(separator: ",") + "\n"
+        }
+
+        // Create filename based on range
+        let timestampFormatter = DateFormatter()
+        timestampFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let timestamp = timestampFormatter.string(from: Date())
+
+        let filename: String
+        if selectedRange == .all {
+            filename = "RideshareTracker_Shifts_at_\(timestamp).csv"
+        } else {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let fromDateString = dateFormatter.string(from: fromDate)
+            let toDateString = dateFormatter.string(from: toDate)
+            filename = "RideshareTracker_Shifts_\(fromDateString)_to_\(toDateString)_at_\(timestamp).csv"
+        }
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let fileURL = tempDir.appendingPathComponent(filename)
+
+        do {
+            try csvContent.write(to: fileURL, atomically: true, encoding: .utf8)
+            return fileURL
+        } catch {
+            debugMessage("Error writing CSV file: \(error)")
+            lastError = .fileWriteError
+            throw .fileWriteError
+            // Error handling: Set lastError for UI observation, log error, then throw for caller to handle explicitly
         }
     }
 
-    // MARK: - CSV Parsing Utilities
+    func exportExpensesCSVWithRange(expenses: [ExpenseItem], preferencesManager: PreferencesManager, selectedRange: DateRangeOption, fromDate: Date, toDate: Date) throws(ImportExportError) -> URL {
+        lastError = nil
+        // Filter expenses first
+        let filteredExpenses = expenses.filter { expense in
+            expense.date >= fromDate && expense.date <= toDate
+        }
 
+        // Generate CSV content
+        var csvContent = "Date,Category,Description,Amount\n"
+
+        for expense in filteredExpenses.sorted(by: { $0.date < $1.date }) {
+            let row = [
+                preferencesManager.formatDate(expense.date),
+                expense.category.rawValue,
+                expense.description,
+                String(format: "%.2f", expense.amount)
+            ]
+
+            let escapedRow = row.map { field in
+                if field.contains(",") || field.contains("\"") || field.contains("\n") {
+                    return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+                }
+                return field
+            }
+
+            csvContent += escapedRow.joined(separator: ",") + "\n"
+        }
+
+        // Create filename based on range
+        let timestampFormatter = DateFormatter()
+        timestampFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let timestamp = timestampFormatter.string(from: Date())
+
+        let filename: String
+        if selectedRange == .all {
+            filename = "RideshareTracker_Expenses_at_\(timestamp).csv"
+        } else {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let fromDateString = dateFormatter.string(from: fromDate)
+            let toDateString = dateFormatter.string(from: toDate)
+            filename = "RideshareTracker_Expenses_\(fromDateString)_to_\(toDateString)_at_\(timestamp).csv"
+        }
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let fileURL = tempDir.appendingPathComponent(filename)
+
+        do {
+            try csvContent.write(to: fileURL, atomically: true, encoding: .utf8)
+            return fileURL
+        } catch {
+            debugMessage("Error writing CSV file: \(error)")
+            lastError = .fileWriteError
+            throw .fileWriteError
+            // Error handling: Set lastError for UI observation, log error, then throw for caller to handle explicitly
+        }
+    }
+    
+    // MARK: - Private Helper Methods: Used for Importing CSV Data
+    
+    /// Safely access file contents with security-scoped URL handling
+    /// This handles both local files and document picker files automatically
+    private static func secureFileAccess<T>(
+        url: URL,
+        operation: (URL) throws -> T
+    ) throws -> T {
+
+        debugMessage("Starting secure file access: \(url.lastPathComponent)")
+
+        // Handle security-scoped URLs from document picker
+        let hasAccess = url.startAccessingSecurityScopedResource()
+        debugMessage("Security-scoped URL access: \(hasAccess)")
+
+        defer {
+            if hasAccess {
+                url.stopAccessingSecurityScopedResource()
+                debugMessage("Released security-scoped URL access")
+            }
+        }
+
+        let result = try operation(url)
+        debugMessage("Secure file access completed successfully")
+        return result
+        // Simple helper: Just handle security-scoped access and propagate any errors to caller
+    }
+    
     /// Parse a CSV line into individual field values, handling Excel formulas and complex quoting
-    static func parseCSVLine(_ line: String) -> [String] {
+    private static func parseCSVLine(_ line: String) -> [String] {
         // Handle toll authority CSV exports with Excel formulas
         // Use a regex-based approach tailored to this specific format
 
@@ -401,7 +621,7 @@ class CSVImportManager {
     }
 
     /// Parse date from CSV value with multiple format support
-    static func parseDateFromCSV(_ dateString: String, formatter: DateFormatter) -> Date? {
+    private static func parseDateFromCSV(_ dateString: String, formatter: DateFormatter) -> Date? {
         debugMessage("Attempting to parse date: '\(dateString)'")
 
         // Try common date formats, including two-digit years
@@ -423,7 +643,7 @@ class CSVImportManager {
     }
 
     /// Parse time from CSV value with multiple format support
-    static func parseTimeFromCSV(_ timeString: String, formatter: DateFormatter) -> Date? {
+    private static func parseTimeFromCSV(_ timeString: String, formatter: DateFormatter) -> Date? {
         debugMessage("Attempting to parse time: '\(timeString)'")
 
         // Try common time formats
@@ -439,13 +659,11 @@ class CSVImportManager {
         debugMessage("Failed to parse time '\(timeString)' with any known format")
         return nil
     }
-
-    // MARK: - Private Helper Methods
-
+   
     /// Parse a shift from CSV row data
     private static func parseShiftFromCSVRow(headers: [String], values: [String], rowIndex: Int, dateFormatter: DateFormatter, timeFormatter: DateFormatter) -> RideshareShift? {
-        let defaultGasPrice = AppPreferences.shared.gasPrice
-        let defaultMileageRate = AppPreferences.shared.standardMileageRate
+        let defaultGasPrice = PreferencesManager.shared.preferences.gasPrice
+        let defaultMileageRate = PreferencesManager.shared.preferences.standardMileageRate
 
         var shift = RideshareShift(
             startDate: Date(),
@@ -550,12 +768,12 @@ class CSVImportManager {
                 shift.endMileage = Double(value)
             }
         case "StartTankReading":
-            let tankLevel = AppPreferences.shared.tankLevelFromString(value)
+            let tankLevel = TankLevelUtilities.tankLevelFromString(value)
             shift.startTankReading = tankLevel
             debugMessage("Row \(rowIndex): StartTankReading '\(value)' -> \(tankLevel)/8")
         case "EndTankReading":
             if !value.isEmpty {
-                let tankLevel = AppPreferences.shared.tankLevelFromString(value)
+                let tankLevel = TankLevelUtilities.tankLevelFromString(value)
                 shift.endTankReading = tankLevel
                 debugMessage("Row \(rowIndex): EndTankReading '\(value)' -> \(tankLevel)/8")
             }
@@ -607,16 +825,17 @@ class CSVImportManager {
             }
         case "GasPrice":
             if !value.isEmpty {
-                let defaultGasPrice = AppPreferences.shared.gasPrice
+                let defaultGasPrice = PreferencesManager.shared.preferences.gasPrice
                 shift.gasPrice = Double(value) ?? defaultGasPrice
             }
         case "StandardMileageRate":
             if !value.isEmpty {
-                let defaultRate = AppPreferences.shared.standardMileageRate
+                let defaultRate = PreferencesManager.shared.preferences.standardMileageRate
                 shift.standardMileageRate = Double(value) ?? defaultRate
             }
         default:
             break
         }
     }
+
 }

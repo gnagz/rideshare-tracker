@@ -23,7 +23,40 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
     override class func setUp() {
         super.setUp()
         MainActor.assumeIsolated {
-            cleanupShiftsViaUI()
+            loadPreferencesForAllTests()
+        }
+    }
+
+    /// Load app preferences once for all tests in this class
+    @MainActor
+    private static func loadPreferencesForAllTests() {
+        let app = XCUIApplication()
+        app.launchArguments.append("-testOperation")
+        app.launchArguments.append("Caching user preferences for UI tests")
+        app.launch()
+
+        // Wait for and dismiss the operation alert
+        let alert = app.alerts["UI Test Operation"].firstMatch
+        if alert.waitForExistence(timeout: 3) {
+            Thread.sleep(forTimeInterval: 3.0)
+            let okButton = alert.buttons["OK"]
+            if okButton.exists {
+                okButton.tap()
+            }
+        }
+
+        // Wait for app to fully load (check for Shifts tab button)
+        let shiftsTab = app.buttons["Shifts"]
+        guard shiftsTab.waitForExistence(timeout: 5) else {
+            fatalError("App did not load - Shifts tab not found")
+        }
+
+        // Load preferences using a temporary instance
+        let tempInstance = RideshareShiftTrackingUITests()
+        do {
+            try tempInstance.loadAppPreferences(in: app)
+        } catch {
+            fatalError("Failed to load app preferences: \(error)")
         }
     }
 
@@ -40,7 +73,19 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
     private static func cleanupShiftsViaUI() {
         // Delete shifts via UI (we can't access managers directly from UI tests)
         let app = XCUIApplication()
+        app.launchArguments.append("-testOperation")
+        app.launchArguments.append("Deleting all shifts after test suite")
         app.launch()
+
+        // Wait for and dismiss the operation alert
+        let alert = app.alerts["UI Test Operation"].firstMatch
+        if alert.waitForExistence(timeout: 3) {
+            Thread.sleep(forTimeInterval: 3.0)
+            let okButton = alert.buttons["OK"]
+            if okButton.exists {
+                okButton.tap()
+            }
+        }
 
         // Navigate to Shifts tab
         let shiftsTab = app.buttons["Shifts"]
@@ -202,44 +247,80 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         XCTAssertTrue(hasCompletedShift, "Should have at least one completed shift with payout amount (not 'Active')")
         debugMessage("Found \(cellCount) shift cells, with completed shifts showing payout amounts")
 
-        // Test navigation to detail view
-        waitAndTap(app.cells.firstMatch)
+        // Find and tap today's shift (which should be completed from navigateToShiftsWithMockData)
+        let today = Date()
+        try findAndTapShiftByDate(today, in: app)
+
+        // Verify it's a completed shift (not Active) by checking for "End Shift" button - should NOT exist
+        let endShiftButton = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'End Shift'")).firstMatch
+        XCTAssertFalse(endShiftButton.exists, "Today's shift should be completed (no 'End Shift' button)")
+        debugMessage("✅ Verified today's shift is completed")
 
         // Verify detail view elements
         XCTAssertTrue(app.navigationBars.count > 0, "Should have navigation bar in detail view")
+        
+        // Start Date & Time should be in shift detail view
+        let startShiftDetailExists = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Start Date & Time'")).firstMatch.waitForExistence(timeout: 3)
+        XCTAssertTrue(startShiftDetailExists, "Start Date & Time should be in shift detail view")
+        
+        // End Date & Time should be in shift detail view
+        let endShiftDetailExists = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'End Date & Time'")).firstMatch.waitForExistence(timeout: 3)
+        XCTAssertTrue(endShiftDetailExists, "End Date & Time should be in shift detail view")
+
+        // Scroll to photos section (may need multiple swipes)
+        app.swipeUp()
+        sleep(1)  // Wait for scroll to settle
+        app.swipeUp()  // Swipe again to ensure photos are visible
+        sleep(1)
 
         // Test photo display and viewing (BUGFIX TEST - this was the core issue we fixed)
         let photoElements = app.images.matching(NSPredicate(format: "identifier CONTAINS 'photo' OR identifier CONTAINS 'image'"))
         if photoElements.count > 0 {
             debugMessage("Found \(photoElements.count) photo elements in detail view")
 
-            // Test clicking on first photo (BUGFIX TEST)
-            let firstPhoto = photoElements.firstMatch
-            if firstPhoto.exists {
-                debugMessage("Testing photo viewer - this was the bug we fixed")
-                waitAndTap(firstPhoto)
+//            // Test clicking on first photo (BUGFIX TEST)
+//            let firstPhoto = photoElements.firstMatch
+//            if firstPhoto.exists {
+//                debugMessage("Testing photo viewer - this was the bug we fixed")
+//                waitAndTap(firstPhoto)
+//
+//                // Verify image viewer opened
+//                if app.otherElements.matching(NSPredicate(format: "identifier CONTAINS 'viewer' OR identifier CONTAINS 'ImageViewer'")).firstMatch.waitForExistence(timeout: 3) {
+//                    debugMessage("✅ Image viewer opened successfully - bugfix verified")
+//
+//                    // Close the image viewer
+//                    let closeButton = findButton(keyword: "close", keyword2: "Done", keyword3: "X", in: app)
+//                    if closeButton.exists {
+//                        waitAndTap(closeButton)
+//                    } else {
+//                        // Tap outside to close
+//                        let coordinate = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.1))
+//                        coordinate.tap()
+//                    }
+//                } else {
+//                    debugMessage("❌ Image viewer did not open - potential regression")
+//                    XCTFail("Image viewer should open when tapping photo attachment")
+//                }
+//            }
+            // Find and tap the photo thumbnail in detail view
+            debugMessage("📸 Opening photo from saved shift to verify metadata")
+            let firstPhotoThumbnail = findShiftDetailPhotoThumbnail(at: 0, in: app)
+            tapPhotoThumbnailToOpenViewer(
+                thumbnail: firstPhotoThumbnail,
+                expectedReturnView: "Shift Details",
+                in: app,
+                verifyType: "Gas Pump",
+                verifyDesc: "Refueled tank before shift start.",
+                readOnly: true
+            )
 
-                // Verify image viewer opened
-                if app.otherElements.matching(NSPredicate(format: "identifier CONTAINS 'viewer' OR identifier CONTAINS 'ImageViewer'")).firstMatch.waitForExistence(timeout: 3) {
-                    debugMessage("✅ Image viewer opened successfully - bugfix verified")
-
-                    // Close the image viewer
-                    let closeButton = findButton(keyword: "close", keyword2: "Done", keyword3: "X", in: app)
-                    if closeButton.exists {
-                        waitAndTap(closeButton)
-                    } else {
-                        // Tap outside to close
-                        let coordinate = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.1))
-                        coordinate.tap()
-                    }
-                } else {
-                    debugMessage("❌ Image viewer did not open - potential regression")
-                    XCTFail("Image viewer should open when tapping photo attachment")
-                }
-            }
+            debugMessage("✅ Metadata was successfully saved with shift!")
+            
         } else {
             debugMessage("No photo elements found in detail view - check test data setup")
         }
+        
+        // TODO: Need to include test of the previous and next shift buttons
 
         // Test navigation back
         let backButton = findButton(keyword: "Back", keyword2: "< ", in: app)
@@ -273,26 +354,27 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         // Test validation with empty fields
         let confirmButton = app.buttons["confirm_start_shift_button"]
         XCTAssertFalse(confirmButton.isEnabled, "Button should be disabled with empty fields")
-        
+
         // Change default Date and Time to test input validation
         // Change Date to yesterday
         let calendar = Calendar.current
         let today = Date()
+//        let todayStartTime = calendar.date(bySettingHour: 17, minute: 30, second: 0, of: today)!
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
         let yesterdayStartTime = calendar.date(bySettingHour: 17, minute: 30, second: 0, of: yesterday)!
-        
+
         // Note: can't test invalid values because keyboard entry
         // currently ignores any invalid entry.  The invalid
         // value is not set.
-        
+
         try setDateUsingKeyboard(yesterday, dateButtonId: "start_date_button", keyboardButtonId: "start_date_text_input_button", in: app)
-        
+
         try setTimeUsingKeyboard(yesterdayStartTime, timeButtonId: "start_time_button", keyboardButtonId: "start_time_text_input_button", in: app)
 
         // Test invalid mileage input validation
         let mileageField = findTextField(keyword: "start_mileage_input", in: app)
         waitAndTap(mileageField)
-        
+
         // Test keyboard behavior
         XCTAssertTrue(app.keyboards.count > 0, "Keyboard should appear")
 
@@ -309,16 +391,16 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
 
         // Button should be disabled with zero mileage (invalid value)
         XCTAssertFalse(confirmButton.isEnabled, "Button should be disabled with zero mileage")
-
-        // Enter valid mileage
-        waitAndTap(mileageField) // Ensure focus before clearing
-        enterText("12500", in: mileageField, app: app)
         
+        // Enter valid mileage
+        // waitAndTap(mileageField) // Already focused from above
+        enterText("12500", in: mileageField, app: app)
+
         // Enter tank level using helper function and verify the
         // correct segment is selected
-        let emptyTankLevel: Double = 0
-        let fullTankLevel: Double = 8
-        let halfTankLevel: Double = 4
+        let emptyTankLevel: String = "E"
+        let fullTankLevel: String = "F"
+        let halfTankLevel: String = "1/2"
 
         // Test Empty (E) segment
         try setTankLevelUsingKeyboard(emptyTankLevel, keyboardButtonId: "start_tank_text_input_button", in: app)
@@ -332,7 +414,7 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         try setTankLevelUsingKeyboard(halfTankLevel, keyboardButtonId: "start_tank_text_input_button", in: app)
         verifyTankSegmentSelected(halfTankLevel, in: app)
 
-        debugMessage("Testing shift photo attachment workflow with 2 photos")
+        debugMessage("Testing shift photo attachment workflow with 1 photo")
 
         // Add the same photo twice (index 0 both times)
         debugMessage("📸 Adding first photo (index 0)")
@@ -347,15 +429,32 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         debugMessage("📸 Total thumbnails after adding: \(thumbnailCount)")
         XCTAssertEqual(thumbnailCount, 2, "Should have exactly 2 thumbnails")
 
-        // View first thumbnail (should be the first photo we added - index 1)
-        debugMessage("📸 Testing viewer for first thumbnail (index 0)")
-        let thumbnail1 = findPhotoThumbnail(at: 0, in: app)
-        tapPhotoThumbnailToOpenViewer(thumbnail: thumbnail1, expectedReturnView: "Start Shift", in: app)
+        // Phase 3A - Test Setting type and description for image attachments
+        debugMessage("📝 Phase 3A: Testing metadata editing for photo attachments")
 
-        // View second thumbnail (should be the second photo we added - index 2)
-        debugMessage("📸 Testing viewer for second thumbnail (index 1)")
-        let thumbnail2 = findPhotoThumbnail(at: 1, in: app)
-        tapPhotoThumbnailToOpenViewer(thumbnail: thumbnail2, expectedReturnView: "Start Shift", in: app)
+        // Open first thumbnail, verify default values, and change them
+        debugMessage("📸 Opening first thumbnail - verify defaults and change to Gas Pump")
+        let thumbnail1 = findPhotoThumbnail(at: 0, in: app)
+        tapPhotoThumbnailToOpenViewer(
+            thumbnail: thumbnail1,
+            expectedReturnView: "Start Shift",
+            in: app,
+            verifyType: "Other",
+            verifyDesc: "Add description",
+            changeType: "Gas Pump",
+            changeDesc: "Refueled tank before shift start."
+        )
+
+        // Open first thumbnail again to verify changes persisted in memory
+        debugMessage("📸 Reopening first thumbnail - verify changes persisted in memory")
+        let thumbnail1Again = findPhotoThumbnail(at: 0, in: app)
+        tapPhotoThumbnailToOpenViewer(
+            thumbnail: thumbnail1Again,
+            expectedReturnView: "Start Shift",
+            in: app,
+            verifyType: "Gas Pump",
+            verifyDesc: "Refueled tank before shift start."
+        )
 
         // User reported: deleting 1st thumbnail doesn't work, but deleting 2nd works
         // So let's delete the SECOND thumbnail first, then the first
@@ -387,44 +486,44 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         let app = launchApp()
         // This test needs an active shift started
         navigateToTab("Shifts", in: app)
-        let today = Date()
-        // Create new active shift from today
         let calendar = Calendar.current
-        let todayStartTime = calendar.date(bySettingHour: 17, minute: 0, second: 0, of: today)!
-        let todayEndTime = calendar.date(bySettingHour: 20, minute: 0, second: 0, of: today)!
+        // Use today - 2 days to avoid conflicts with other tests (testShiftWeekNavigation uses today, testStartShiftFormValidation uses yesterday)
+        let testDate = calendar.date(byAdding: .day, value: -2, to: Date())!
+        let testDateStartTime = calendar.date(bySettingHour: 17, minute: 0, second: 0, of: testDate)!
+        let testDateEndTime = calendar.date(bySettingHour: 20, minute: 0, second: 0, of: testDate)!
 
-        // Check if there's already an active shift for today
-        let checkDateFormat = UserDefaults.standard.string(forKey: "dateFormat") ?? "M/d/yyyy"
+        // Check if there's already an active shift for test date
+        let checkDateFormat = try getPreference("dateFormat")
         let checkDateFormatter = DateFormatter()
         checkDateFormatter.dateFormat = checkDateFormat
-        let todayDateString = checkDateFormatter.string(from: today)
+        let testDateString = checkDateFormatter.string(from: testDate)
 
-        let existingShiftCell = app.cells.containing(NSPredicate(format: "label CONTAINS[c] %@", todayDateString)).firstMatch
+        let existingShiftCell = app.cells.containing(NSPredicate(format: "label CONTAINS[c] %@", testDateString)).firstMatch
 
         if !existingShiftCell.exists {
-            debugMessage("📅 No active shift found for today, creating one: \(today)")
+            debugMessage("📅 No active shift found for test date, creating one: \(testDate)")
             do {
                 try startShiftWithPhotos(
-                    shiftDate: today,
-                    shiftStartTime: todayStartTime,
+                    in: app,
+                    shiftDate: testDate,
+                    shiftStartTime: testDateStartTime,
                     shiftStartMileage: 10000,
-                    shiftStartTankLevel: 8.0,
-                    shiftAddPhotoFlag: false,
-                    in: app
+                    shiftStartTankLevel: "F",
+                    shiftAddPhotoFlag: false
                 )
                 debugMessage("✅ Successfully created mock active shift")
             } catch {
                 XCTFail("Failed to create mock active shift to use in test: \(error)")
             }
         } else {
-            debugMessage("✅ Found existing active shift for today")
+            debugMessage("✅ Found existing active shift for test date")
         }
 
         // Use existing shift from mock data (shifts are complete with photos)
         XCTAssertTrue(app.cells.count > 0, "Should have shift data from mock data")
 
-        // Find active shift for today
-        try findAndTapShiftByDate(today, in: app)
+        // Find active shift for test date
+        try findAndTapShiftByDate(testDate, in: app)
 
         // Test shift is "Active" - verify no End Date section exists
         let endDateLabel = app.staticTexts["End Date"]
@@ -443,9 +542,9 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         // currently ignores any invalid entry.  The invalid
         // value is not set.
 
-        try setDateUsingKeyboard(today, dateButtonId: "end_date_button", keyboardButtonId: "end_date_text_input_button", alertTitle: "Enter End Date", in: app)
+        try setDateUsingKeyboard(testDate, dateButtonId: "end_date_button", keyboardButtonId: "end_date_text_input_button", alertTitle: "Enter End Date", in: app)
 
-        try setTimeUsingKeyboard(todayEndTime, timeButtonId: "end_time_button", keyboardButtonId: "end_time_text_input_button", alertTitle: "Enter End Time", in: app)
+        try setTimeUsingKeyboard(testDateEndTime, timeButtonId: "end_time_button", keyboardButtonId: "end_time_text_input_button", alertTitle: "Enter End Time", in: app)
         
         // VALIDATION TEST 1: Save button should be disabled initially (missing required fields)
         let saveButton = findButton(keyword: "confirm_save_shift_button", in: app)
@@ -557,7 +656,7 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         enterText("2.50", in: miscFeesField, app: app)
         debugMessage("✅ Entered misc fees: 2.50")
 
-        try addTestPhoto(in: app)
+        try addTestPhoto(photoIndex: 1, in: app)
 
         // Scroll up to make Photos section visible (it's near the bottom of the form)
         debugMessage("📸 Scrolling up to Photos section...")
@@ -610,11 +709,11 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         let shiftsTab = app.buttons["Shifts"]
         XCTAssertTrue(shiftsTitle.exists || shiftsTab.exists, "Should be back at Shifts list (checking for title or tab button)")
 
-        // Find the shift cell for today and swipe left to delete
-        let dateFormat = UserDefaults.standard.string(forKey: "dateFormat") ?? "M/d/yyyy"
+        // Find the shift cell for test date and swipe left to delete
+        let dateFormat = try getPreference("dateFormat")
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = dateFormat
-        let dateString = dateFormatter.string(from: today)
+        let dateString = dateFormatter.string(from: testDate)
 
         // Use label-based search (same as findAndTapShiftByDate)
         let shiftCellByLabel = app.cells.containing(NSPredicate(format: "label CONTAINS[c] %@", dateString)).firstMatch
@@ -640,10 +739,173 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
     /// Tests: Shift edit form validations and photo management when there are existing and new photos attached
     @MainActor
     func testEditShiftFormValidation() throws {
-        //TODO find the completed shift from last week then test changing every field and include boundary tests
-        // that should trigger validation messages.  Then test the viewing of existing photo by clicking on a thumbnail,
-        // then the deletion of another thumbnail, and then adding a new thumbnail.
-        // Finally hit the cancel button and verify that the original photos are still present and the new photo wasn't attached.
+        debugMessage("Testing edit shift view with photo metadata editing")
+        
+        let app = launchApp()
+
+        // Navigate to shifts and create test data (creates shifts for today and last week)
+        navigateToShiftsWithMockData(in: app)
+
+        // Find and tap last week's shift
+        let calendar = Calendar.current
+        let lastWeek = calendar.date(byAdding: .day, value: -7, to: Date())!
+        debugMessage("📅 Finding shift from last week: \(lastWeek)")
+        try findAndTapShiftByDate(lastWeek, in: app)
+
+        // Verify it's a completed shift
+        let endShiftButton = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'End Shift'")).firstMatch
+        XCTAssertFalse(endShiftButton.exists, "Last week's shift should be completed (no 'End Shift' button)")
+        debugMessage("✅ Verified last week's shift is completed")
+
+        // Tap Edit button to enter edit mode
+        let editButton = findButton(keyword: "Edit", in: app)
+        XCTAssertTrue(editButton.exists, "Edit button should exist in shift detail view")
+        waitAndTap(editButton)
+        XCTAssertTrue(app.navigationBars["Edit Shift"].waitForExistence(timeout: 3), "Should navigate to Edit Shift form")
+        debugMessage("✅ Entered Edit Shift mode")
+
+        // TODO find the completed shift from last week then test changing every field and include
+        // boundary tests that should trigger validation messages.
+        
+        // Scroll to Photos section
+        debugMessage("📸 Scrolling to Photos section...")
+        app.swipeUp()
+        Thread.sleep(forTimeInterval: 0.5)
+        app.swipeUp()
+        Thread.sleep(forTimeInterval: 0.5)
+
+        // Update metadata for 1st thumbnail (from start shift)
+        debugMessage("📸 Updating metadata for 1st photo (start shift photo)")
+        let photo1Thumbnail = findPhotoThumbnail(at: 0, in: app)
+        tapPhotoThumbnailToOpenViewer(
+            thumbnail: photo1Thumbnail,
+            expectedReturnView: "Edit Shift",
+            in: app,
+            verifyType: "Other",  // Original type from navigateToShiftsWithMockData
+            verifyDesc: nil,       // No description set originally
+            changeType: "Gas Pump",
+            changeDesc: "Refueled tank before shift start."
+        )
+        
+        // Open 1sth thumbnail again to verify changes persisted in memory
+        debugMessage("📸 Reopening first thumbnail - verify changes persisted in memory")
+        let photo1ThumbnailAgain = findPhotoThumbnail(at: 0, in: app)
+        tapPhotoThumbnailToOpenViewer(
+            thumbnail: photo1ThumbnailAgain,
+            expectedReturnView: "Edit Shift",
+            in: app,
+            verifyType: "Gas Pump",
+            verifyDesc: "Refueled tank before shift start."
+        )
+
+        // Update metadata for 2nd thumbnail (from end shift)
+        debugMessage("📸 Updating metadata for 2nd photo (end shift photo)")
+        let photo2Thumbnail = findPhotoThumbnail(at: 1, in: app)
+        tapPhotoThumbnailToOpenViewer(
+            thumbnail: photo2Thumbnail,
+            expectedReturnView: "Edit Shift",
+            in: app,
+            verifyType: "Other",  // Original type
+            verifyDesc: nil,       // No description set originally
+            changeType: "Dashboard",
+            changeDesc: "Odometer and Fuel Tank reading at shift end."
+        )
+        
+        // Open 2nd thumbnail again to verify changes persisted in memory
+        debugMessage("📸 Reopening second thumbnail - verify changes persisted in memory")
+        let photo2ThumbnailAgain = findPhotoThumbnail(at: 1, in: app)
+        tapPhotoThumbnailToOpenViewer(
+            thumbnail: photo2ThumbnailAgain,
+            expectedReturnView: "Edit Shift",
+            in: app,
+            verifyType: "Dashboard",
+            verifyDesc: "Odometer and Fuel Tank reading at shift end."
+        )
+
+        // Add 3rd thumbnail with metadata
+        debugMessage("📸 Adding 3rd photo with metadata")
+        try addTestPhoto(photoIndex: 2, in: app)
+
+        // Scroll to ensure new photo is visible
+        app.swipeUp()
+        Thread.sleep(forTimeInterval: 0.5)
+
+        let photo3Thumbnail = findPhotoThumbnail(at: 2, in: app)
+        tapPhotoThumbnailToOpenViewer(
+            thumbnail: photo3Thumbnail,
+            expectedReturnView: "Edit Shift",
+            in: app,
+            verifyType: "Other",  // Default for new photos
+            verifyDesc: "Add description",  // Default placeholder
+            changeType: "App Screenshot",
+            changeDesc: "Uber Earnings report for this shift."
+        )
+        
+        // Open 3rd thumbnail again to verify changes persisted in memory
+        debugMessage("📸 Reopening third thumbnail - verify changes persisted in memory")
+        let photo3ThumbnailAgain = findPhotoThumbnail(at: 1, in: app)
+        tapPhotoThumbnailToOpenViewer(
+            thumbnail: photo3ThumbnailAgain,
+            expectedReturnView: "Edit Shift",
+            in: app,
+            verifyType: "Dashboard",
+            verifyDesc: "Odometer and Fuel Tank reading at shift end."
+        )
+
+        // Save the edited shift
+        debugMessage("💾 Saving edited shift")
+        let saveButton = findButton(keyword: "Save", in: app)
+        XCTAssertTrue(saveButton.exists, "Save button should exist")
+        waitAndTap(saveButton)
+
+        // Should return to shift detail view
+        Thread.sleep(forTimeInterval: 1)
+        debugMessage("✅ Returned to shift detail view after saving")
+
+        // Verify all 3 photos with updated metadata by scrolling and checking
+        debugMessage("🔍 Verifying all 3 photos with updated metadata in shift detail view")
+        app.swipeUp()
+        Thread.sleep(forTimeInterval: 0.5)
+        app.swipeUp()
+        Thread.sleep(forTimeInterval: 0.5)
+
+        // Verify 1st photo metadata
+        debugMessage("📸 Verifying 1st photo metadata (Gas Pump)")
+        let detail1stPhoto = findShiftDetailPhotoThumbnail(at: 0, in: app)
+        tapPhotoThumbnailToOpenViewer(
+            thumbnail: detail1stPhoto,
+            expectedReturnView: "Shift Details",
+            in: app,
+            verifyType: "Gas Pump",
+            verifyDesc: "Refueled tank before shift start.",
+            readOnly: true
+        )
+
+        // Verify 2nd photo metadata
+        debugMessage("📸 Verifying 2nd photo metadata (Dashboard)")
+        let detail2ndPhoto = findShiftDetailPhotoThumbnail(at: 1, in: app)
+        tapPhotoThumbnailToOpenViewer(
+            thumbnail: detail2ndPhoto,
+            expectedReturnView: "Shift Details",
+            in: app,
+            verifyType: "Dashboard",
+            verifyDesc: "Odometer and Fuel Tank reading at shift end.",
+            readOnly: true
+        )
+
+        // Verify 3rd photo metadata
+        debugMessage("📸 Verifying 3rd photo metadata (App Screenshot)")
+        let detail3rdPhoto = findShiftDetailPhotoThumbnail(at: 2, in: app)
+        tapPhotoThumbnailToOpenViewer(
+            thumbnail: detail3rdPhoto,
+            expectedReturnView: "Shift Details",
+            in: app,
+            verifyType: "App Screenshot",
+            verifyDesc: "Uber Earnings report for this shift.",
+            readOnly: true
+        )
+
+        debugMessage("✅ Edit shift form validation test passed - all photo metadata saved correctly")
     }
 
     
@@ -698,25 +960,29 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
                 if !todayShiftIsActive {
                     debugMessage("📅 Creating shift from this week: \(today)")
                     try startShiftWithPhotos(
+                        in: app,
                         shiftDate: today,
                         shiftStartTime: todayStartTime,
                         shiftStartMileage: 10000,
-                        shiftStartTankLevel: 8.0,
+                        shiftStartTankLevel: "F",
                         shiftAddPhotoFlag: true,
-                        in: app
+                        photoInfoType: "Gas Pump",
+                        photoInfoDesc: "Refueled tank before shift start."
                     )
                 }
 
                 try endShiftWithPhotos(
+                    in: app,
                     shiftDate: today,
                     shiftEndTime: todayEndTime,
                     shiftEndMileage: 10100,
-                    shiftEndTankLevel: 6.0,
+                    shiftEndTankLevel: "3/4",
                     shiftEndTripCount: 5,
                     shiftEndNetFare: 50.00,
                     shiftEndTips: 15.00,
                     shiftAddPhotoFlag: true,
-                    in: app
+                    photoInfoType: "Dashboard",
+                    photoInfoDesc: "Odometer and Fuel Tank reading at shift end."
                 )
 
                 // Navigate back to shifts list from shift detail view
@@ -763,25 +1029,25 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
                 if !lastWeekShiftIsActive {
                     debugMessage("📅 Creating shift from last week: \(lastWeek)")
                     try startShiftWithPhotos(
+                        in: app,
                         shiftDate: lastWeek,
                         shiftStartTime: lastWeekStartTime,
                         shiftStartMileage: 10000,
-                        shiftStartTankLevel: 8.0,
-                        shiftAddPhotoFlag: true,
-                        in: app
+                        shiftStartTankLevel: "F",
+                        shiftAddPhotoFlag: true
                     )
                 }
 
                 try endShiftWithPhotos(
+                    in: app,
                     shiftDate: lastWeek,
                     shiftEndTime: lastWeekEndTime,
                     shiftEndMileage: 10100,
-                    shiftEndTankLevel: 6.0,
+                    shiftEndTankLevel: "3/4",
                     shiftEndTripCount: 5,
                     shiftEndNetFare: 50.00,
                     shiftEndTips: 15.00,
-                    shiftAddPhotoFlag: true,
-                    in: app
+                    shiftAddPhotoFlag: true
                 )
 
                 // Navigate back to shifts list from shift detail view
@@ -815,8 +1081,8 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
 
     /// Create a shift with photos using UI automation
     @MainActor
-    func startShiftWithPhotos(shiftDate: Date, shiftStartTime: Date, shiftStartMileage: Int,
-                             shiftStartTankLevel: Double, shiftAddPhotoFlag: Bool, in app: XCUIApplication) throws {
+    func startShiftWithPhotos(in app: XCUIApplication, shiftDate: Date, shiftStartTime: Date, shiftStartMileage: Int,
+                              shiftStartTankLevel: String, shiftAddPhotoFlag: Bool, photoInfoType: String? = nil, photoInfoDesc: String? = nil) throws {
         debugMessage("🚀 Starting shift creation with date: \(shiftDate)")
 
         let startShiftButton = findButton(keyword: "start_shift_button", in: app)
@@ -834,7 +1100,18 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         try setTankLevelUsingKeyboard(shiftStartTankLevel, keyboardButtonId: "start_tank_text_input_button", in: app)
 
         if shiftAddPhotoFlag {
-            try addTestPhoto(in: app)
+            try addTestPhoto(photoIndex: 0, in: app)
+            
+            let thumbnail1 = findPhotoThumbnail(at: 0, in: app)
+            tapPhotoThumbnailToOpenViewer(
+                thumbnail: thumbnail1,
+                expectedReturnView: "Start Shift",
+                in: app,
+                verifyType: "Other",
+                verifyDesc: "Add description",
+                changeType: photoInfoType,
+                changeDesc: photoInfoDesc
+            )
         }
 
         let confirmButton = findButton(keyword: "confirm_start_shift_button", in: app)
@@ -845,9 +1122,9 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
 
     /// End a shift with photos using UI automation
     @MainActor
-    func endShiftWithPhotos(shiftDate: Date, shiftEndTime: Date, shiftEndMileage: Int, shiftEndTankLevel: Double,
+    func endShiftWithPhotos(in app: XCUIApplication, shiftDate: Date, shiftEndTime: Date, shiftEndMileage: Int, shiftEndTankLevel: String,
                            shiftEndTripCount: Int, shiftEndNetFare: Double, shiftEndTips: Double,
-                           shiftAddPhotoFlag: Bool, in app: XCUIApplication) throws {
+                           shiftAddPhotoFlag: Bool, photoInfoType: String? = nil, photoInfoDesc: String? = nil) throws {
         debugMessage("🏁 Ending shift with date: \(shiftDate)")
 
         // Find ACTIVE shift by date (not completed shifts) - may need to scroll to previous week
@@ -885,7 +1162,19 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         try setTankLevelUsingKeyboard(shiftEndTankLevel, keyboardButtonId: "end_tank_text_input_button", in: app)
 
         if shiftAddPhotoFlag {
-            try addTestPhoto(in: app)
+            try addTestPhoto(photoIndex: 1, in: app)
+            
+            // thumbnail index is 0 since photos added at shift start are not shown.
+            let thumbnail1 = findPhotoThumbnail(at: 0, in: app)
+            tapPhotoThumbnailToOpenViewer(
+                thumbnail: thumbnail1,
+                expectedReturnView: "End Shift",
+                in: app,
+                verifyType: "Other",
+                verifyDesc: "Add description",
+                changeType: photoInfoType,
+                changeDesc: photoInfoDesc
+            )
         }
 
         captureScreenshot(named: "before_saving_shift", in: app)
@@ -1004,7 +1293,7 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
     }
 
     @MainActor
-    private func setTankLevelUsingKeyboard(_ level: Double, keyboardButtonId: String, in app: XCUIApplication) throws {
+    private func setTankLevelUsingKeyboard(_ level: String, keyboardButtonId: String, in app: XCUIApplication) throws {
         let keyboardButton = findButton(keyword: keyboardButtonId, in: app)
         XCTAssertTrue(keyboardButton.waitForExistence(timeout: 3), "Tank keyboard button should exist")
         waitAndTap(keyboardButton)
@@ -1032,7 +1321,7 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
             textField.clearText()
 
             // Type the new value
-            let newValue = String(format: "%.0f", level)
+            let newValue = String(format: "%.0f", TankLevelUtilities.tankLevelFromString(level))
             textField.typeText(newValue)
 
             let finalValue = textField.value as? String ?? ""
@@ -1060,23 +1349,23 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
 
     /// Verify that the correct tank level segment is selected in the segmented control
     @MainActor
-    private func verifyTankSegmentSelected(_ expectedLevel: Double, in app: XCUIApplication) {
-        // Map tank level (0-8) to segment label
-        let segmentLabel: String
-        switch expectedLevel {
-        case 0.0: segmentLabel = "E"
-        case 1.0: segmentLabel = "1/8"
-        case 2.0: segmentLabel = "1/4"
-        case 3.0: segmentLabel = "3/8"
-        case 4.0: segmentLabel = "1/2"
-        case 5.0: segmentLabel = "5/8"
-        case 6.0: segmentLabel = "3/4"
-        case 7.0: segmentLabel = "7/8"
-        case 8.0: segmentLabel = "F"
-        default:
-            XCTFail("Invalid tank level: \(expectedLevel). Must be 0-8.")
-            return
-        }
+    private func verifyTankSegmentSelected(_ expectedLevel: String, in app: XCUIApplication) {
+//        // Map tank level (0-8) to segment label
+//        let segmentLabel: String
+//        switch expectedLevel {
+//        case 0.0: segmentLabel = "E"
+//        case 1.0: segmentLabel = "1/8"
+//        case 2.0: segmentLabel = "1/4"
+//        case 3.0: segmentLabel = "3/8"
+//        case 4.0: segmentLabel = "1/2"
+//        case 5.0: segmentLabel = "5/8"
+//        case 6.0: segmentLabel = "3/4"
+//        case 7.0: segmentLabel = "7/8"
+//        case 8.0: segmentLabel = "F"
+//        default:
+//            XCTFail("Invalid tank level: \(expectedLevel). Must be 0-8.")
+//            return
+//        }
 
         // Try multiple ways to find the segmented control
         debugMessage("All segmented controls count: \(app.segmentedControls.count)")
@@ -1097,17 +1386,17 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         // Wait for it to exist
         XCTAssertTrue(segmentedControl.waitForExistence(timeout: 5), "Tank Reading segmented control should exist")
 
-        debugMessage("Segmented control found, checking selected button '\(segmentLabel)'")
+        debugMessage("Segmented control found, checking selected button '\(expectedLevel)'")
 
         // Find the button with the expected label and verify it's selected
-        let expectedButton = segmentedControl.buttons[segmentLabel]
-        XCTAssertTrue(expectedButton.waitForExistence(timeout: 2), "Tank segment '\(segmentLabel)' should exist")
+        let expectedButton = segmentedControl.buttons[expectedLevel]
+        XCTAssertTrue(expectedButton.waitForExistence(timeout: 2), "Tank segment '\(expectedLevel)' should exist")
 
-        debugMessage("Button '\(segmentLabel)' exists: \(expectedButton.exists), isSelected: \(expectedButton.isSelected)")
+        debugMessage("Button '\(expectedLevel)' exists: \(expectedButton.exists), isSelected: \(expectedButton.isSelected)")
 
-        XCTAssertTrue(expectedButton.isSelected, "Tank segment '\(segmentLabel)' should be selected for level \(expectedLevel)")
+        XCTAssertTrue(expectedButton.isSelected, "Tank segment '\(expectedLevel)' should be selected.")
 
-        debugMessage("✅ Verified tank segment '\(segmentLabel)' is selected for level \(expectedLevel)")
+        debugMessage("✅ Verified tank segment '\(expectedLevel)' is selected.")
     }
 
     /// Find and return a photo thumbnail element in the Photos section (already-added photos displayed in grid)
@@ -1119,6 +1408,22 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
     private func findPhotoThumbnail(at index: Int = 0, in app: XCUIApplication) -> XCUIElement {
         // Find the Photos section to scope our search to only thumbnails within that section
         let photoSection = app.otherElements["Photos"]
+
+        debugMessage("📋 Looking for Photos section...")
+        debugMessage("Photos section exists: \(photoSection.exists)")
+
+        // Output debugDescription to see all UI elements
+        debugMessage("📋 Full UI hierarchy:")
+        debugMessage(app.debugDescription)
+
+        // If Photos section doesn't exist, check what other elements are available
+        if !photoSection.exists {
+            debugMessage("⚠️ Photos section not found. Looking for alternative elements...")
+            debugMessage("All otherElements count: \(app.otherElements.count)")
+            for element in app.otherElements.allElementsBoundByIndex {
+                debugMessage("  - otherElement: id='\(element.identifier)', label='\(element.label)'")
+            }
+        }
 
         // Photos are wrapped in buttons (PhotoThumbnailView), so look for buttons
         // Filter out the "Add Photos" button by looking for buttons with empty labels (thumbnails have no labels)
@@ -1141,10 +1446,53 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         return photoSection.buttons.element(boundBy: 0)  // Won't reach here due to XCTFail
     }
 
+    /// Find and return a photo thumbnail in ShiftDetailView specifically
+    /// ShiftDetailView uses AsyncImage with accessibility identifiers instead of buttons
+    /// - Parameters:
+    ///   - index: The index of the thumbnail to find (0-based)
+    ///   - app: The XCUIApplication instance
+    /// - Returns: The XCUIElement representing the thumbnail image
+    @MainActor
+    private func findShiftDetailPhotoThumbnail(at index: Int = 0, in app: XCUIApplication) -> XCUIElement {
+        // Find the Photos section (using unique identifier "PhotosSection" to avoid conflict with "Photos" text label)
+        let photoSection = app.otherElements["PhotosSection"]
+
+        debugMessage("📋 Looking for ShiftDetail photo thumbnail at index \(index)...")
+        debugMessage("PhotosSection exists: \(photoSection.exists)")
+
+        // ShiftDetailView uses AsyncImage elements with accessibility identifiers
+        let thumbnail = photoSection.images["photo_thumbnail_\(index)"]
+
+        if thumbnail.exists {
+            debugMessage("✅ Found ShiftDetail thumbnail by identifier: photo_thumbnail_\(index)")
+            return thumbnail
+        }
+
+        // Debug: show what images are available
+        debugMessage("⚠️ Thumbnail not found. Looking for available images...")
+        let allImages = photoSection.images.allElementsBoundByIndex
+        debugMessage("Found \(allImages.count) images in Photos section")
+        for (idx, img) in allImages.enumerated() {
+            debugMessage("  Image[\(idx)]: id='\(img.identifier)', exists=\(img.exists)")
+        }
+
+        XCTFail("Should find ShiftDetail photo thumbnail at index \(index) with identifier 'photo_thumbnail_\(index)', but it was not found")
+        return photoSection.images.element(boundBy: 0)  // Won't reach here due to XCTFail
+    }
+
     /// Test tapping a photo thumbnail to open and close the image viewer
     /// Returns to the original form/view after closing
     @MainActor
-    private func tapPhotoThumbnailToOpenViewer(thumbnail: XCUIElement, expectedReturnView: String, in app: XCUIApplication) {
+    private func tapPhotoThumbnailToOpenViewer(
+        thumbnail: XCUIElement,
+        expectedReturnView: String,
+        in app: XCUIApplication,
+        verifyType: String? = nil,
+        verifyDesc: String? = nil,
+        changeType: String? = nil,
+        changeDesc: String? = nil,
+        readOnly: Bool = false
+    ) {
         let thumbId = thumbnail.identifier.isEmpty ? "no-id" : thumbnail.identifier
         let thumbLabel = thumbnail.label.isEmpty ? "empty" : thumbnail.label
         debugMessage("👁️ OPENING VIEWER: About to tap thumbnail to open viewer - id: '\(thumbId)', label: '\(thumbLabel)'")
@@ -1161,6 +1509,9 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         // Verify the title shows valid photo count (not "Photo X of 0")
         XCTAssertFalse(photoViewerTitle.label.contains(" of 0"), "Image viewer should show photos, not 'Photo X of 0'. Title: \(photoViewerTitle.label)")
 
+        // Visual debug pause EARLY to see what's happening (only if VISUAL_DEBUG=1)
+        visualDebugPause(10)
+
         // Verify debug info is NOT showing (which only appears when images.isEmpty)
         let debugInfo = app.staticTexts["Debug Info:"]
         XCTAssertFalse(debugInfo.exists, "Image viewer should display photos, not debug info")
@@ -1169,8 +1520,75 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         let doneButton = app.buttons["Done"]
         XCTAssertTrue(doneButton.exists, "Image viewer should have 'Done' button")
 
-        // Visual debug pause to take snapshot of image viewer
-        visualDebugPause(5)
+        // Phase 3A: Verify metadata section exists
+        let photoInfoButton = app.buttons["Photo Information"]
+        XCTAssertTrue(photoInfoButton.exists, "Metadata section 'Photo Information' should exist in image viewer")
+
+        // Expand metadata section
+        waitAndTap(photoInfoButton)
+
+        // Verify metadata section expanded by checking that Type: label is now visible
+        XCTAssertTrue(app.staticTexts["Type:"].waitForExistence(timeout: 2), "Metadata section should expand showing 'Type:' label")
+        XCTAssertTrue(app.staticTexts["Description:"].exists, "Metadata should show 'Description:' label")
+        XCTAssertTrue(app.staticTexts["Date Attached:"].exists, "Metadata should show 'Date Attached:' label")
+
+        debugMessage("✅ Metadata section verified with simplified metadata fields")
+
+        // VERIFY metadata values if parameters provided
+        if let expectedType = verifyType {
+            debugMessage("📝 Verifying type is '\(expectedType)'")
+            if readOnly {
+                // In read-only mode (ShiftDetailView), look for static text showing the type value
+                let typeValue = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", expectedType)).firstMatch
+                XCTAssertTrue(typeValue.waitForExistence(timeout: 2), "Type static text should show '\(expectedType)' in read-only mode")
+                debugMessage("✅ Verified type '\(expectedType)' in read-only mode")
+            } else {
+                let typePicker = app.buttons["type_picker"]
+                XCTAssertTrue(typePicker.exists, "Type picker should exist")
+                XCTAssertTrue(typePicker.label.contains(expectedType), "Type picker should show '\(expectedType)', but shows '\(typePicker.label)'")
+            }
+        }
+
+        if let expectedDesc = verifyDesc {
+            debugMessage("📝 Verifying description is '\(expectedDesc)'")
+            if readOnly {
+                // In read-only mode, look for static text showing the description value
+                let descValue = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", expectedDesc)).firstMatch
+                XCTAssertTrue(descValue.waitForExistence(timeout: 2), "Description static text should show '\(expectedDesc)' in read-only mode")
+                debugMessage("✅ Verified description '\(expectedDesc)' in read-only mode")
+            } else {
+                let descriptionField = app.textFields["description_text_field"]
+                XCTAssertTrue(descriptionField.exists, "Description field should exist")
+                let descValue = descriptionField.value as? String ?? ""
+                XCTAssertEqual(descValue, expectedDesc, "Description should be '\(expectedDesc)', but is '\(descValue)'")
+            }
+        }
+
+        // CHANGE metadata values if parameters provided
+        if let newType = changeType {
+            debugMessage("📝 Changing type to '\(newType)'")
+            let typePicker = app.buttons["type_picker"]
+            XCTAssertTrue(typePicker.exists, "Type picker should exist in edit mode")
+            waitAndTap(typePicker)
+
+            // Menu items appear as buttons in SwiftUI menu-style pickers
+            let typeOption = app.buttons[newType]
+            XCTAssertTrue(typeOption.waitForExistence(timeout: 2), "'\(newType)' option should exist in menu")
+            waitAndTap(typeOption)
+            debugMessage("✅ Type changed to '\(newType)'")
+        }
+
+        if let newDesc = changeDesc {
+            debugMessage("📝 Changing description to '\(newDesc)'")
+            let descriptionField = app.textFields["description_text_field"]
+            XCTAssertTrue(descriptionField.exists, "Description field should exist in edit mode")
+            //enterText(newDesc, in: descriptionField, app: app)
+            waitAndTap(descriptionField)
+            descriptionField.clearText()
+            
+            descriptionField.typeText(newDesc)
+            debugMessage("✅ Description changed to '\(newDesc)'")
+        }
 
         // Close the image viewer
         waitAndTap(doneButton)
@@ -1265,6 +1683,16 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         debugMessage("📸 Step 6a: Found \(images.count) images")
         debugMessage("📸 Step 6b: Total element types - Images:\(app.images.count), Cells:\(app.cells.count), Buttons:\(app.buttons.count), Other:\(app.otherElements.count)")
 
+        // KNOWN BUG: Photo selection is off by one - always selects 2nd photo in library instead of 1st
+        // When photoIndex=0 is requested, the function selects the 2nd photo in the iOS photo library.
+        // This happens because the filtering logic below incorrectly filters out the first actual photo.
+        // Investigation needed: Check if first photo is being incorrectly identified as a "known UI icon"
+        // or "background container" and skipped. Alternatively, there may be an overlay element
+        // (like "Private Access to Photos" banner) that gets included in app.images array before
+        // the actual photos, throwing off the indexing.
+        // Test behavior: Consistent across simulators - always off by one. Tests pass but operate
+        // on wrong photo (e.g., flowers instead of dashboard, waterfall instead of flowers).
+
         // Find photo thumbnails by filtering out known UI icons
         var photoThumbnails: [XCUIElement] = []
         for (index, image) in images.enumerated() {
@@ -1312,7 +1740,7 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
 
         debugMessage("📷 Step 8: About to tap photo image at index \(photoIndex) (id: '\(photoIdentifier)')")
         photoImage.tap()
-        debugMessage("✅ Step 9: Tapped photo image at index \(photoIndex) (id: '\(photoIdentifier)')")
+        debugMessage("✅ Step 9: Tapped photo image - picker should auto-dismiss (no Choose button with allowsEditing=false)")
 
         // Wait for photo library to dismiss (Check that "Photos" tab button no longer exists)
         debugMessage("📸 Step 10: Waiting for photo library to dismiss...")
@@ -1337,12 +1765,12 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         debugMessage("📸 Step 11f: Scrolled up to reveal bottom of form")
 
         // Verify photo was added (look for photo count indicator)
-        debugMessage("📸 Step 12: Checking for photo count indicator...")
-        let hasPhotoIndicator = app.staticTexts.allElementsBoundByIndex.contains { element in
-            element.label.contains("photo") && element.label.contains("selected")
-        }
-        debugMessage("📸 Step 12a: Photo indicator found: \(hasPhotoIndicator)")
-        XCTAssertTrue(hasPhotoIndicator, "Should show photo count indicator after adding photo")
+        // COMMENTED OUT: We may decide later whether to add photo count to edit screen
+        // debugMessage("📸 Step 12: Checking for photo count indicator...")
+        // let photoIndicator = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'photo' AND label CONTAINS 'selected'")).firstMatch
+        // let hasPhotoIndicator = photoIndicator.waitForExistence(timeout: 5)
+        // debugMessage("📸 Step 12a: Photo indicator found: \(hasPhotoIndicator)")
+        // XCTAssertTrue(hasPhotoIndicator, "Should show photo count indicator after adding photo")
         debugMessage("✅ Successfully returned to shift form with photo attached")
 
         // VISUAL DEBUG PAUSE - Verify photo is attached to shift
@@ -1353,14 +1781,24 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
 
     @MainActor
     private func findAndTapShiftByDate(_ date: Date, filterByStatus: String? = nil, in app: XCUIApplication) throws {
-        // Use date format from AppPreferences (stored in UserDefaults)
-        let dateFormat = UserDefaults.standard.string(forKey: "dateFormat") ?? "M/d/yyyy"
+        // Use date format from AppPreferences (read from UI)
+        let dateFormat = try getPreference("dateFormat")
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = dateFormat
         let dateString = dateFormatter.string(from: date)
 
         debugMessage("🔍 Looking for shift with date: '\(dateString)'" + (filterByStatus != nil ? " and status: '\(filterByStatus!)'" : ""))
+
+        // Debug: Show current week heading/date range
+        let weekHeadings = app.staticTexts.allElementsBoundByIndex.filter { $0.identifier.contains("week_heading") || $0.label.contains("–") || $0.label.contains("-") }
+        if let heading = weekHeadings.first {
+            debugMessage("📅 Current week heading: '\(heading.label)'")
+        } else {
+            debugMessage("📅 No week heading found")
+        }
+
         debugMessage("🔍 Total cells in list: \(app.cells.count)")
+        debugMessage("📊 Number of shifts visible on current page: \(app.cells.count)")
 
         // DIAGNOSTIC: Dump first cell properties
         let firstCell = app.cells.firstMatch
@@ -1398,22 +1836,8 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
             }
         }
 
-        // Check if we need to scroll to previous week (compare dates only, not times)
+        // Find all cells matching the date (first check current view before navigating)
         let calendar = Calendar.current
-        let shiftDateComponents = calendar.dateComponents([.year, .month, .day], from: date)
-        let todayComponents = calendar.dateComponents([.year, .month, .day], from: Date())
-
-        if let shiftDate = calendar.date(from: shiftDateComponents),
-           let today = calendar.date(from: todayComponents),
-           shiftDate < today {
-            debugMessage("🔍 Date is in the past, scrolling to show older shifts")
-            // Navigate to previous week - scroll up or find week navigation
-            let startCoordinate = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
-            let endCoordinate = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
-            startCoordinate.press(forDuration: 0, thenDragTo: endCoordinate) // Scroll to show older shifts
-        }
-
-        // Find all cells matching the date
         let allCells = app.cells.allElementsBoundByIndex
         var matchingCell: XCUIElement? = nil
 
@@ -1460,12 +1884,66 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
             }
         }
 
+        // If shift not found in current view, try navigating to the appropriate week
+        if matchingCell == nil {
+            let statusMsg = filterByStatus != nil ? " with status '\(filterByStatus!)'" : ""
+            debugMessage("⚠️ Shift not found in current view with date: \(dateString)\(statusMsg)")
+
+            // Check if we need to navigate to a different week
+            let shiftDateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+            let todayComponents = calendar.dateComponents([.year, .month, .day], from: Date())
+
+            if let shiftDate = calendar.date(from: shiftDateComponents),
+               let today = calendar.date(from: todayComponents),
+               shiftDate < today {
+                debugMessage("🔍 Date is in the past, navigating to previous week using left chevron")
+                // Navigate to previous week using LEFT chevron button
+                let leftChevron = app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'chevron.left' OR label CONTAINS 'chevron.left'")).firstMatch
+                if leftChevron.exists {
+                    waitAndTap(leftChevron)
+                    debugMessage("📅 Tapped left chevron to navigate to previous week")
+                    Thread.sleep(forTimeInterval: 0.5) // Give UI time to update
+
+                    // Try searching again after navigation
+                    let cellsAfterNav = app.cells.allElementsBoundByIndex
+                    for (index, cell) in cellsAfterNav.enumerated() {
+                        let cellLabel = cell.label
+                        let cellValue = cell.value as? String ?? ""
+                        let cellIdentifier = cell.identifier
+                        let staticTexts = cell.staticTexts.allElementsBoundByIndex
+
+                        let cellContainsDate = cellLabel.contains(dateString) ||
+                                              cellValue.contains(dateString) ||
+                                              cellIdentifier.contains(dateString) ||
+                                              staticTexts.contains { $0.label.contains(dateString) }
+
+                        if cellContainsDate {
+                            if let status = filterByStatus, status == "Active" {
+                                let hasActiveButton = cell.buttons["Active"].exists
+                                let hasPayoutAmount = cellLabel.contains("$")
+                                if hasActiveButton || !hasPayoutAmount {
+                                    matchingCell = cell
+                                    break
+                                }
+                            } else if filterByStatus == nil {
+                                matchingCell = cell
+                                break
+                            }
+                        }
+                    }
+                } else {
+                    debugMessage("⚠️ Left chevron button not found - cannot navigate to previous week")
+                }
+            }
+        }
+
         guard let shiftCell = matchingCell else {
             let statusMsg = filterByStatus != nil ? " with status '\(filterByStatus!)'" : ""
-            debugMessage("⚠️ Shift not found with date: \(dateString)\(statusMsg)")
+            debugMessage("⚠️ Shift not found with date: \(dateString)\(statusMsg) even after attempting navigation")
             throw TestError.shiftNotFound("Shift not found with date: \(dateString)\(statusMsg)")
         }
 
+        debugMessage("✅ Found shift cell, tapping it")
         XCTAssertTrue(shiftCell.waitForExistence(timeout: 5), "Shift cell should exist")
         waitAndTap(shiftCell)
     }

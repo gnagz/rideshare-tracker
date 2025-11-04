@@ -10,9 +10,11 @@ import SwiftUI
 import UIKit
 
 struct PreferencesView: View {
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @EnvironmentObject var dataManager: ShiftDataManager
     @Environment(\.presentationMode) var presentationMode
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
     
     @State private var currentDate = Date()
     @FocusState private var focusedField: FocusedField?
@@ -79,7 +81,7 @@ struct PreferencesView: View {
                     HStack {
                         Text("Week Start Day")
                         Spacer()
-                        Picker("", selection: $preferences.weekStartDay) {
+                        Picker("", selection: $preferencesManager.preferences.weekStartDay) {
                             Text("Sunday").tag(1)
                             Text("Monday").tag(2)
                             Text("Tuesday").tag(3)
@@ -90,50 +92,58 @@ struct PreferencesView: View {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .fixedSize()
+                        .accessibilityIdentifier("week_start_day_picker")
+                        .accessibilityValue(String(preferencesManager.preferences.weekStartDay))
                     }
                     
                     HStack {
                         Text("Date Format")
                         Spacer()
-                        Picker("", selection: $preferences.dateFormat) {
+                        Picker("", selection: $preferencesManager.preferences.dateFormat) {
                             ForEach(dateFormatExamples, id: \.0) { format, example in
                                 Text(example).tag(format)
                             }
                         }
                         .pickerStyle(MenuPickerStyle())
                         .fixedSize()
+                        .accessibilityIdentifier("date_format_picker")
+                        .accessibilityValue(preferencesManager.preferences.dateFormat)
                     }
                     
                     HStack {
                         Text("Time Format")
                         Spacer()
-                        Picker("", selection: $preferences.timeFormat) {
+                        Picker("", selection: $preferencesManager.preferences.timeFormat) {
                             ForEach(timeFormatExamples, id: \.0) { format, example in
                                 Text(example).tag(format)
                             }
                         }
                         .pickerStyle(MenuPickerStyle())
                         .fixedSize()
+                        .accessibilityIdentifier("time_format_picker")
+                        .accessibilityValue(preferencesManager.preferences.timeFormat)
                     }
-                    
+
                     HStack {
                         Text("Time Zone")
                         Spacer()
-                        Picker("", selection: $preferences.timeZoneIdentifier) {
+                        Picker("", selection: $preferencesManager.preferences.timeZoneIdentifier) {
                             ForEach(commonTimeZones, id: \.0) { identifier, displayName in
                                 Text(displayName).tag(identifier)
                             }
                         }
                         .pickerStyle(MenuPickerStyle())
                         .fixedSize()
+                        .accessibilityIdentifier("time_zone_picker")
+                        .accessibilityValue(preferencesManager.preferences.timeZoneIdentifier)
                     }
                 }
-                
+
                 Section("Vehicle Settings") {
                     HStack {
                         Text("Gas Tank Capacity (gallons)")
                         Spacer()
-                        TextField("Gallons", value: $preferences.tankCapacity, format: .number)
+                        TextField("Gallons", value: $preferencesManager.preferences.tankCapacity, format: .number)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
@@ -143,49 +153,53 @@ struct PreferencesView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .tankCapacity ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("tank_capacity_field")
                     }
                     HStack {
                         Text("Gas Price (per gallon)")
                         Spacer()
-                        CurrencyTextField(placeholder: "$0.00", value: $preferences.gasPrice)
+                        CurrencyTextField(placeholder: "$0.00", value: $preferencesManager.preferences.gasPrice)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .gasPrice ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("gas_price_field")
                     }
                 }
-                
+
                 Section("Tax Settings") {
                     HStack {
                         Text("Standard Mileage Rate")
                         Spacer()
-                        CurrencyTextField(placeholder: "$0.67", value: $preferences.standardMileageRate)
+                        CurrencyTextField(placeholder: "$0.67", value: $preferencesManager.preferences.standardMileageRate)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .mileageRate ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("mileage_rate_field")
                     }
-                    
+
                     Text("Standard mileage rate is the IRS-approved rate for tax deductions. Update this annually.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.top, 4)
-                    
-                    Toggle("Tips are tax deductible", isOn: $preferences.tipDeductionEnabled)
-                    
+
+                    Toggle("Tips are tax deductible", isOn: $preferencesManager.preferences.tipDeductionEnabled)
+                        .accessibilityIdentifier("tip_deduction_toggle")
+
                     Text("Tips are deductible through tax year 2028 under current IRS rules.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.top, 2)
-                    
+
                     HStack {
                         Text("Effective Tax Rate (%)")
                         Spacer()
-                        CalculatorTextField(placeholder: "22.0", value: $preferences.effectivePersonalTaxRate, formatter: .mileage)
+                        CalculatorTextField(placeholder: "22.0", value: $preferencesManager.preferences.effectivePersonalTaxRate, formatter: .mileage)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                             .focused($focusedField, equals: .taxRate)
@@ -193,6 +207,7 @@ struct PreferencesView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .stroke(focusedField == .taxRate ? Color.accentColor : Color.clear, lineWidth: 2)
                             )
+                            .accessibilityIdentifier("tax_rate_field")
                     }
                     
                     Text("Your combined Federal and State tax rate percentages used for estimating your taxes due.")
@@ -213,9 +228,10 @@ struct PreferencesView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
-                        preferences.savePreferences()
+                        preferencesManager.savePreferences()
                         presentationMode.wrappedValue.dismiss()
                     }
+                    .accessibilityIdentifier("preferences_done_button")
                 }
             }
         }

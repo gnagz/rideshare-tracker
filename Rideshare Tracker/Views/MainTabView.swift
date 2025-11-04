@@ -8,10 +8,12 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @EnvironmentObject var dataManager: ShiftDataManager
     @EnvironmentObject var expenseManager: ExpenseDataManager
-    
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
     var body: some View {
         TabView {
             ContentView()
@@ -19,16 +21,16 @@ struct MainTabView: View {
                     Image(systemName: "car.fill")
                     Text("Shifts")
                 }
-                .environmentObject(preferences)
+                .environmentObject(preferencesManager)
                 .environmentObject(dataManager)
                 .environmentObject(expenseManager)
-            
+
             ExpenseListView()
                 .tabItem {
                     Image(systemName: "receipt.fill")
                     Text("Expenses")
                 }
-                .environmentObject(preferences)
+                .environmentObject(preferencesManager)
                 .environmentObject(dataManager)
                 .environmentObject(expenseManager)
         }

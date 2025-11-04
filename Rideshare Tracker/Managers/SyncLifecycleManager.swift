@@ -14,10 +14,13 @@ class SyncLifecycleManager: ObservableObject {
     static let shared = SyncLifecycleManager()
     
     private let cloudSyncManager = CloudSyncManager.shared
-    private let preferences = AppPreferences.shared
+    private let preferencesManager = PreferencesManager.shared
     private var cancellables = Set<AnyCancellable>()
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
     
     @Published var lastAutoSyncDate: Date?
+    @Published var lastSyncError: Error?
     
     private init() {
         setupAppLifecycleObservers()
@@ -74,16 +77,17 @@ class SyncLifecycleManager: ObservableObject {
                 ExpenseDataManager.shared.expenses = syncResult.mergedExpenses
                 ExpenseDataManager.shared.saveExpenses()
                 
-                preferences.lastIncrementalSyncDate = Date()
+                preferencesManager.preferences.lastIncrementalSyncDate = Date()
                 lastAutoSyncDate = Date()
-                preferences.savePreferences()
+                preferencesManager.savePreferences()
                 
-                print("Auto-sync completed successfully (\(trigger.rawValue)): \(syncResult.mergedShifts.count) shifts, \(syncResult.mergedExpenses.count) expenses")
+                debugMessage("Auto-sync completed successfully (\(trigger.rawValue)): \(syncResult.mergedShifts.count) shifts, \(syncResult.mergedExpenses.count) expenses")
             }
             
         } catch {
-            print("Auto-sync failed (\(trigger.rawValue)): \(error.localizedDescription)")
-            // Don't show UI errors for background sync - just log them
+            debugMessage("Auto-sync failed (\(trigger.rawValue)): \(error.localizedDescription)")
+            lastSyncError = error
+            // Error is now published for UI observation in IncrementalSyncView
         }
     }
     

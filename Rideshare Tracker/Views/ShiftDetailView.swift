@@ -12,7 +12,7 @@ struct ShiftDetailView: View {
     @State var shift: RideshareShift
     @EnvironmentObject var dataManager: ShiftDataManager
     @EnvironmentObject var expenseManager: ExpenseDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @State private var showingEndShift = false
     @State private var showingEditShift = false
     @State private var showingImageViewer = false
@@ -21,9 +21,11 @@ struct ShiftDetailView: View {
     @State private var isLoadingImages = false
     @State private var viewerImages: [UIImage] = []
     @Environment(\.dismiss) private var dismiss
-    
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
     private func formatDateTime(_ date: Date) -> String {
-        return "\(preferences.formatDate(date)) \(preferences.formatTime(date))"
+        return "\(preferencesManager.formatDate(date)) \(preferencesManager.formatTime(date))"
     }
     
     // Year-to-date calculations using model methods
@@ -231,7 +233,8 @@ struct ShiftDetailView: View {
             ImageViewerView(
                 images: $viewerImages,
                 startingIndex: selectedImageIndex,
-                isPresented: $showingImageViewer
+                isPresented: $showingImageViewer,
+                attachments: shift.imageAttachments  // Pass attachments to show metadata
             )
             .onAppear {
                 if viewerImages.isEmpty {
@@ -352,7 +355,7 @@ struct ShiftDetailView: View {
                 
                 DetailRow("Gross Income", String(format: "$%.2f", yearTotalRevenue))
 
-                if AppPreferences.shared.tipDeductionEnabled {
+                if preferences.tipDeductionEnabled {
                     DetailRow("Deductible Tip Income†", String(format: "$%.2f", yearTotalDeductibleTips))
                 } else {
                     DetailRow("Deductible Tip Income†", "$0.00")
@@ -380,7 +383,7 @@ struct ShiftDetailView: View {
                 // Standard Mileage Method Tax Calculations
                 let incomeTaxMileage = RideshareShift.calculateIncomeTax(
                     taxableIncome: taxableIncomeUsingMileage,
-                    taxRate: AppPreferences.shared.effectivePersonalTaxRate
+                    taxRate: preferences.effectivePersonalTaxRate
                 )
                 let totalTaxMileage = RideshareShift.calculateTotalTax(
                     incomeTax: incomeTaxMileage,
@@ -411,7 +414,7 @@ struct ShiftDetailView: View {
                 // Actual Expenses Method Tax Calculations
                 let incomeTaxActual = RideshareShift.calculateIncomeTax(
                     taxableIncome: taxableIncomeWithActualExpenses,
-                    taxRate: AppPreferences.shared.effectivePersonalTaxRate
+                    taxRate: preferences.effectivePersonalTaxRate
                 )
                 let totalTaxActual = RideshareShift.calculateTotalTax(
                     incomeTax: incomeTaxActual,
@@ -482,8 +485,8 @@ struct ShiftDetailView: View {
                     )
             } else {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
-                    ForEach(shift.imageAttachments, id: \.id) { attachment in
-                        AsyncImage(url: attachment.fileURL(for: shift.id, parentType: .shift)) { image in
+                    ForEach(Array(shift.imageAttachments.enumerated()), id: \.element.id) { index, attachment in
+                        AsyncImage(url: ImageManager.shared.imageURL(for: shift.id, parentType: .shift, filename: attachment.filename)) { image in
                             image
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
@@ -510,6 +513,7 @@ struct ShiftDetailView: View {
                                 showImage(at: attachmentIndex)
                             }
                         }
+                        .accessibilityIdentifier("photo_thumbnail_\(index)")
                     }
                 }
                 .padding()
@@ -521,6 +525,7 @@ struct ShiftDetailView: View {
                 )
             }
         }
+        .accessibilityIdentifier("PhotosSection")
     }
 
     @MainActor

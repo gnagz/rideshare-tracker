@@ -18,7 +18,40 @@ class ImageManager: ObservableObject {
     private let thumbnailSize: CGFloat = 150
     private let compressionQuality: CGFloat = 0.8
     
+    @Published var lastError: ImageManagerError?
+    
     private init() {}
+    
+    // MARK: - Error Types
+    
+    enum ImageManagerError: LocalizedError {
+        case directoryCreationFailed(URL, Error)
+        case imageProcessingFailed
+        case saveFailed(URL, Error)
+        case loadFailed(URL, Error)
+        case deleteFailed(URL, Error)
+        case insufficientDiskSpace(required: Int64, available: Int64)
+        case invalidImageData
+        
+        var errorDescription: String? {
+            switch self {
+            case .directoryCreationFailed(let url, let error):
+                return "Failed to create image directory at \(url.path): \(error.localizedDescription)"
+            case .imageProcessingFailed:
+                return "Failed to process image data"
+            case .saveFailed(let url, let error):
+                return "Failed to save image to \(url.path): \(error.localizedDescription)"
+            case .loadFailed(let url, let error):
+                return "Failed to load image from \(url.path): \(error.localizedDescription)"
+            case .deleteFailed(let url, let error):
+                return "Failed to delete image at \(url.path): \(error.localizedDescription)"
+            case .insufficientDiskSpace(let required, let available):
+                return "Insufficient disk space. Required: \(ByteCountFormatter.string(fromByteCount: required, countStyle: .file)), Available: \(ByteCountFormatter.string(fromByteCount: available, countStyle: .file))"
+            case .invalidImageData:
+                return "Invalid image data provided"
+            }
+        }
+    }
     
     // MARK: - Directory Management
     
@@ -63,16 +96,16 @@ class ImageManager: ObservableObject {
     }
     
     // MARK: - Image Processing
-    
+
     private func processImage(_ image: UIImage) -> (fullSize: Data?, thumbnail: Data?) {
         // Resize image if needed
         let processedImage = resizeImage(image, maxSize: maxImageSize)
         let thumbnailImage = resizeImage(image, maxSize: thumbnailSize)
-        
+
         // Convert to JPEG with compression
         let fullSizeData = processedImage.jpegData(compressionQuality: compressionQuality)
         let thumbnailData = thumbnailImage.jpegData(compressionQuality: 0.9) // Higher quality for thumbnails
-        
+
         return (fullSizeData, thumbnailData)
     }
     
@@ -126,17 +159,34 @@ class ImageManager: ObservableObject {
 
         // Save full-size image
         let imageURL = self.imageURL(for: parentID, parentType: parentType, filename: filename)
-        try fullSizeData.write(to: imageURL)
-        debugMessage("Saved full image: \(imageURL.path)")
+        do {
+            try fullSizeData.write(to: imageURL)
+            debugMessage("Saved full image: \(imageURL.path)")
+        } catch {
+            debugMessage("ERROR: Failed to save full image - \(error.localizedDescription)")
+            lastError = .saveFailed(imageURL, error)
+            throw lastError!
+        }
 
         // Save thumbnail
         let thumbnailURL = self.thumbnailURL(for: parentID, parentType: parentType, filename: filename)
-        try thumbnailData.write(to: thumbnailURL)
-        debugMessage("Saved thumbnail: \(thumbnailURL.path)")
+        do {
+            try thumbnailData.write(to: thumbnailURL)
+            debugMessage("Saved thumbnail: \(thumbnailURL.path)")
+        } catch {
+            debugMessage("ERROR: Failed to save thumbnail - \(error.localizedDescription)")
+            lastError = .saveFailed(thumbnailURL, error)
+            throw lastError!
+        }
 
-        // Create attachment
-        let attachment = ImageAttachment(filename: filename, type: type, description: description)
-        debugMessage("Created ImageAttachment: ID=\(attachment.id)")
+        // Create attachment with simple metadata
+        let attachment = ImageAttachment(
+            filename: filename,
+            type: type,
+            description: description,
+            dateAttached: Date()  // Current date/time
+        )
+        debugMessage("Created ImageAttachment: ID=\(attachment.id), dateAttached=\(attachment.dateAttached)")
         debugMessage("=== IMAGE SAVE COMPLETE ===")
 
         return attachment
@@ -146,14 +196,28 @@ class ImageManager: ObservableObject {
     
     func loadImage(for parentID: UUID, parentType: AttachmentParentType, filename: String) -> UIImage? {
         let url = imageURL(for: parentID, parentType: parentType, filename: filename)
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return UIImage(data: data)
+        do {
+            let data = try Data(contentsOf: url)
+            return UIImage(data: data)
+        } catch {
+            lastError = .loadFailed(url, error)
+            return nil
+            // Return nil on load failure to allow graceful degradation;
+            // no debugMessage to avoid log clutter during frequent loads.
+        }
     }
     
     func loadThumbnail(for parentID: UUID, parentType: AttachmentParentType, filename: String) -> UIImage? {
         let url = thumbnailURL(for: parentID, parentType: parentType, filename: filename)
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return UIImage(data: data)
+        do {
+            let data = try Data(contentsOf: url)
+            return UIImage(data: data)
+        } catch {
+            lastError = .loadFailed(url, error)
+            return nil
+            // Return nil on load failure to allow graceful degradation;
+            // no debugMessage to avoid log clutter during frequent loads.
+        }
     }
     
     // MARK: - Delete Images
@@ -162,16 +226,46 @@ class ImageManager: ObservableObject {
         let imageURL = self.imageURL(for: parentID, parentType: parentType, filename: attachment.filename)
         let thumbnailURL = self.thumbnailURL(for: parentID, parentType: parentType, filename: attachment.filename)
         
-        try? fileManager.removeItem(at: imageURL)
-        try? fileManager.removeItem(at: thumbnailURL)
+        do {
+            try fileManager.removeItem(at: imageURL)
+            debugMessage("Deleted image: \(imageURL.path)")
+        } catch {
+            debugMessage("ERROR: Failed to delete image - \(error.localizedDescription)")
+            lastError = .deleteFailed(imageURL, error)
+            // Set lastError and log error; do not throw to allow partial deletion success.
+        }
+        
+        do {
+            try fileManager.removeItem(at: thumbnailURL)
+            debugMessage("Deleted thumbnail: \(thumbnailURL.path)")
+        } catch {
+            debugMessage("ERROR: Failed to delete thumbnail - \(error.localizedDescription)")
+            lastError = .deleteFailed(thumbnailURL, error)
+            // Set lastError and log error; do not throw to allow partial deletion success.
+        }
     }
     
     func deleteAllImages(for parentID: UUID, parentType: AttachmentParentType) {
         let imageDir = parentDirectory(for: parentID, parentType: parentType)
         let thumbnailDir = thumbnailParentDirectory(for: parentID, parentType: parentType)
         
-        try? fileManager.removeItem(at: imageDir)
-        try? fileManager.removeItem(at: thumbnailDir)
+        do {
+            try fileManager.removeItem(at: imageDir)
+            debugMessage("Deleted image directory: \(imageDir.path)")
+        } catch {
+            debugMessage("ERROR: Failed to delete image directory - \(error.localizedDescription)")
+            lastError = .deleteFailed(imageDir, error)
+            // Set lastError and log error; do not throw to allow partial deletion success.
+        }
+        
+        do {
+            try fileManager.removeItem(at: thumbnailDir)
+            debugMessage("Deleted thumbnail directory: \(thumbnailDir.path)")
+        } catch {
+            debugMessage("ERROR: Failed to delete thumbnail directory - \(error.localizedDescription)")
+            lastError = .deleteFailed(thumbnailDir, error)
+            // Set lastError and log error; do not throw to allow partial deletion success.
+        }
     }
     
     // MARK: - Storage Info
@@ -259,24 +353,5 @@ class ImageManager: ObservableObject {
         }
         
         return totalSize
-    }
-}
-
-// MARK: - Error Handling
-
-enum ImageManagerError: LocalizedError {
-    case imageProcessingFailed
-    case directoryCreationFailed
-    case fileWriteFailed
-    
-    var errorDescription: String? {
-        switch self {
-        case .imageProcessingFailed:
-            return "Failed to process image"
-        case .directoryCreationFailed:
-            return "Failed to create image directory"
-        case .fileWriteFailed:
-            return "Failed to save image file"
-        }
     }
 }

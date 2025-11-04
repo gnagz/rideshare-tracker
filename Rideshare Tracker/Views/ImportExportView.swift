@@ -11,9 +11,12 @@ import UniformTypeIdentifiers
 struct ImportExportView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
     @EnvironmentObject var expenseManager: ExpenseDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
+    @EnvironmentObject var importExportManager: ImportExportManager
     @Environment(\.presentationMode) var presentationMode
-    
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
     var body: some View {
         NavigationView {
             TabView {
@@ -24,7 +27,7 @@ struct ImportExportView: View {
                     }
                     .environmentObject(dataManager)
                     .environmentObject(expenseManager)
-                    .environmentObject(preferences)
+                    .environmentObject(preferencesManager)
                 
                 ExportView()
                     .tabItem {
@@ -33,7 +36,7 @@ struct ImportExportView: View {
                     }
                     .environmentObject(dataManager)
                     .environmentObject(expenseManager)
-                    .environmentObject(preferences)
+                    .environmentObject(preferencesManager)
             }
             .navigationTitle("Import/Export")
             .navigationBarTitleDisplayMode(.inline)
@@ -51,8 +54,11 @@ struct ImportExportView: View {
 struct ImportView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
     @EnvironmentObject var expenseManager: ExpenseDataManager
-    @EnvironmentObject var preferences: AppPreferences
-    
+    @EnvironmentObject var preferencesManager: PreferencesManager
+    @EnvironmentObject var importExportManager: ImportExportManager
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
     @State private var importType: ImportType = .shifts
     @State private var showingFilePicker = false
     @State private var importMessage = ""
@@ -277,12 +283,22 @@ struct ImportView: View {
     }
     
     private func importShifts(from url: URL) {
-        debugPrint("Starting shift import from UI: \(url.lastPathComponent)")
-        let importResult = CSVImportManager.importShifts(from: url)
+        debugMessage("Starting shift import from UI: \(url.lastPathComponent)")
 
-        switch importResult {
-        case .success(let csvResult):
-            debugPrint("CSV import successful, processing \(csvResult.shifts.count) shifts with duplicate action: \(duplicateAction)")
+        let csvResult: CSVImportResult
+        do {
+            csvResult = try importExportManager.importShifts(from: url)
+        } catch {
+            debugMessage("Shift import failed: \(error)")
+            importAlertTitle = "Import Failed"
+            importMessage = importExportManager.lastError?.localizedDescription ?? "Unknown error"
+            showingImportAlert = true
+            return
+        }
+
+        // Import successful, process shifts
+        do {
+            debugMessage("CSV import successful, processing \(csvResult.shifts.count) shifts with duplicate action: \(duplicateAction)")
             var addedCount = 0
             var updatedCount = 0
             var skippedCount = 0
@@ -294,31 +310,31 @@ struct ImportView: View {
                 }
 
                 let isDuplicate = existingShiftIndex != nil
-                debugPrint("Processing shift \(shift.startDate): duplicate=\(isDuplicate), action=\(duplicateAction)")
+                debugMessage("Processing shift \(shift.startDate): duplicate=\(isDuplicate), action=\(duplicateAction)")
 
                 switch duplicateAction {
                 case .merge:
                     dataManager.addShift(shift)
                     addedCount += 1
-                    debugPrint("MERGE: Added shift (total shifts: \(dataManager.shifts.count))")
+                    debugMessage("MERGE: Added shift (total shifts: \(dataManager.shifts.count))")
                 case .replace:
                     if let index = existingShiftIndex {
                         dataManager.shifts[index] = shift
                         updatedCount += 1
-                        debugPrint("REPLACE: Updated existing shift at index \(index)")
+                        debugMessage("REPLACE: Updated existing shift at index \(index)")
                     } else {
                         dataManager.addShift(shift)
                         addedCount += 1
-                        debugPrint("REPLACE: Added new shift (total shifts: \(dataManager.shifts.count))")
+                        debugMessage("REPLACE: Added new shift (total shifts: \(dataManager.shifts.count))")
                     }
                 case .skip:
                     if existingShiftIndex == nil {
                         dataManager.addShift(shift)
                         addedCount += 1
-                        debugPrint("SKIP: Added non-duplicate shift (total shifts: \(dataManager.shifts.count))")
+                        debugMessage("SKIP: Added non-duplicate shift (total shifts: \(dataManager.shifts.count))")
                     } else {
                         skippedCount += 1
-                        debugPrint("SKIP: Skipped duplicate shift")
+                        debugMessage("SKIP: Skipped duplicate shift")
                     }
                 }
             }
@@ -328,25 +344,27 @@ struct ImportView: View {
             if updatedCount > 0 { message += "\n• Updated: \(updatedCount) shifts" }
             if skippedCount > 0 { message += "\n• Skipped: \(skippedCount) duplicates" }
 
-            debugPrint("Import completed: added=\(addedCount), updated=\(updatedCount), skipped=\(skippedCount)")
+            debugMessage("Import completed: added=\(addedCount), updated=\(updatedCount), skipped=\(skippedCount)")
 
             importAlertTitle = "Import Successful"
             importMessage = message
-            showingImportAlert = true
-
-        case .failure(let error):
-            debugMessage("CSV import failed: \(error.localizedDescription)")
-            importAlertTitle = "Import Failed"
-            importMessage = error.localizedDescription
             showingImportAlert = true
         }
     }
     
     private func importExpenses(from url: URL) {
-        let importResult = CSVImportManager.importExpenses(from: url)
+        let csvResult: ExpenseImportResult
+        do {
+            csvResult = try importExportManager.importExpenses(from: url)
+        } catch {
+            debugMessage("Expense import failed: \(error)")
+            importAlertTitle = "Import Failed"
+            importMessage = importExportManager.lastError?.localizedDescription ?? "Unknown error"
+            showingImportAlert = true
+            return
+        }
 
-        switch importResult {
-        case .success(let csvResult):
+        do {
             var addedCount = 0
             var updatedCount = 0
             var skippedCount = 0
@@ -388,30 +406,28 @@ struct ImportView: View {
             importAlertTitle = "Import Successful"
             importMessage = message
             showingImportAlert = true
-
-        case .failure(let error):
-            importAlertTitle = "Import Failed"
-            importMessage = error.localizedDescription
-            showingImportAlert = true
         }
     }
 
     private func importTolls(from url: URL) {
-        let importResult = CSVImportManager.importTolls(from: url, dataManager: dataManager)
+        let tollResult: TollImportResult
+        do {
+            tollResult = try importExportManager.importTolls(from: url, dataManager: dataManager)
+        } catch {
+            debugMessage("Toll import failed: \(error)")
+            importAlertTitle = "Import Failed"
+            importMessage = importExportManager.lastError?.localizedDescription ?? "Unknown error"
+            showingImportAlert = true
+            return
+        }
 
-        switch importResult {
-        case .success(let tollResult):
+        do {
             importAlertTitle = "Toll Import Successful"
             var message = "Import completed:\n\n• Processed: \(tollResult.transactions.count) toll transactions\n• Updated: \(tollResult.updatedShifts.count) shifts"
             if tollResult.imagesGenerated > 0 {
                 message += "\n• Generated: \(tollResult.imagesGenerated) toll summary images"
             }
             importMessage = message
-            showingImportAlert = true
-
-        case .failure(let error):
-            importAlertTitle = "Import Failed"
-            importMessage = error.localizedDescription
             showingImportAlert = true
         }
     }
@@ -421,8 +437,11 @@ struct ImportView: View {
 struct ExportView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
     @EnvironmentObject var expenseManager: ExpenseDataManager
-    @EnvironmentObject var preferences: AppPreferences
-    
+    @EnvironmentObject var preferencesManager: PreferencesManager
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+    @EnvironmentObject var importExportManager: ImportExportManager
+
     @State private var exportType: ExportType = .shifts
     @State private var selectedRange: DateRangeOption = .thisWeek // Default to "This Week" for exports
     @State private var fromDate = Calendar.current.date(byAdding: .weekOfYear, value: -1, to: Date()) ?? Date()
@@ -491,7 +510,7 @@ struct ExportView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Button(action: { showingFromDatePicker.toggle() }) {
-                                    Text(preferences.formatDate(fromDate))
+                                    Text(preferencesManager.formatDate(fromDate))
                                         .foregroundColor(.primary)
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 8)
@@ -513,7 +532,7 @@ struct ExportView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Button(action: { showingToDatePicker.toggle() }) {
-                                    Text(preferences.formatDate(toDate))
+                                    Text(preferencesManager.formatDate(toDate))
                                         .foregroundColor(.primary)
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 8)
@@ -530,7 +549,7 @@ struct ExportView: View {
                         }
                     } else {
                         // Show selected range info for non-custom options
-                        Text("Range: \(preferences.formatDate(fromDate)) - \(preferences.formatDate(toDate))")
+                        Text("Range: \(preferencesManager.formatDate(fromDate)) - \(preferencesManager.formatDate(toDate))")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .padding(.top, 4)
@@ -571,7 +590,7 @@ struct ExportView: View {
                     Text("• Simple format for analysis")
                 }
                 
-                Text("• Date range: \(preferences.formatDate(fromDate)) - \(preferences.formatDate(toDate))")
+                Text("• Date range: \(preferencesManager.formatDate(fromDate)) - \(preferencesManager.formatDate(toDate))")
                     .foregroundColor(.blue)
             }
             .font(.caption)
@@ -611,20 +630,21 @@ struct ExportView: View {
     }
     
     private func performExport() {
-        let exportURL: URL?
-        
-        switch exportType {
-        case .shifts:
-            exportURL = preferences.exportCSVWithRange(shifts: dataManager.shifts, selectedRange: selectedRange, fromDate: fromDate, toDate: toDate)
-        case .expenses:
-            exportURL = preferences.exportExpensesCSVWithRange(expenses: expenseManager.expenses, selectedRange: selectedRange, fromDate: fromDate, toDate: toDate)
-        }
-        
-        if let url = exportURL {
-            self.exportURL = url
+        do {
+            let exportURL: URL
+
+            switch exportType {
+            case .shifts:
+                exportURL = try importExportManager.exportCSVWithRange(shifts: dataManager.shifts, preferencesManager: preferencesManager, selectedRange: selectedRange, fromDate: fromDate, toDate: toDate)
+            case .expenses:
+                exportURL = try importExportManager.exportExpensesCSVWithRange(expenses: expenseManager.expenses, preferencesManager: preferencesManager, selectedRange: selectedRange, fromDate: fromDate, toDate: toDate)
+            }
+
+            self.exportURL = exportURL
             showingShareSheet = true
-        } else {
-            exportMessage = "Failed to create export file"
+        } catch {
+            debugMessage("Export failed: \(error)")
+            exportMessage = importExportManager.lastError?.localizedDescription ?? "Failed to create export file"
             showingExportAlert = true
         }
     }

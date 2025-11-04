@@ -10,8 +10,10 @@ import SwiftUI
 struct MainMenuView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
     @EnvironmentObject var expenseManager: ExpenseDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @Environment(\.presentationMode) var presentationMode
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
     
     @State private var showingPreferences = false
     @State private var showingIncrementalSync = false
@@ -29,6 +31,7 @@ struct MainMenuView: View {
                         Button("Done") {
                             presentationMode.wrappedValue.dismiss()
                         }
+                        .accessibilityIdentifier("main_menu_done_button")
                     }
                 }
         }
@@ -88,29 +91,29 @@ struct MainMenuView: View {
             PreferencesView()
                 .environmentObject(dataManager)
                 .environmentObject(expenseManager)
-                .environmentObject(preferences)
+                .environmentObject(preferencesManager)
         }
         .sheet(isPresented: $showingIncrementalSync) {
             IncrementalSyncView()
                 .environmentObject(dataManager)
                 .environmentObject(expenseManager)
-                .environmentObject(preferences)
+                .environmentObject(preferencesManager)
         }
         .sheet(isPresented: $showingImportExport) {
             ImportExportView()
                 .environmentObject(dataManager)
                 .environmentObject(expenseManager)
-                .environmentObject(preferences)
+                .environmentObject(preferencesManager)
         }
         .sheet(isPresented: $showingBackupRestore) {
             BackupRestoreView()
                 .environmentObject(dataManager)
                 .environmentObject(expenseManager)
-                .environmentObject(preferences)
+                .environmentObject(preferencesManager)
         }
         .sheet(isPresented: $showingAppInfo) {
             AppInfoView()
-                .environmentObject(preferences)
+                .environmentObject(preferencesManager)
         }
     }
 }

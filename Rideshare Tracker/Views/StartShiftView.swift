@@ -11,8 +11,10 @@ import PhotosUI
 @MainActor
 struct StartShiftView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
-    @EnvironmentObject var preferences: AppPreferences
+    @EnvironmentObject var preferencesManager: PreferencesManager
     @Environment(\.presentationMode) var presentationMode
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
     
     var onShiftStarted: ((Date) -> Void)? = nil
     
@@ -42,6 +44,10 @@ struct StartShiftView: View {
     @State private var showingImageViewer = false
     @State private var viewerImages: [UIImage] = []
     @State private var viewerStartIndex: Int = 0
+
+    // Metadata editing state (for unsaved photos)
+    // Store the full ImageAttachment objects to preserve UUIDs across viewer sessions
+    @State private var pendingAttachments: [ImageAttachment] = []
     
     enum FocusedField {
         case mileage, date, time
@@ -78,10 +84,18 @@ struct StartShiftView: View {
             showingPhotoLibraryPicker: $showingPhotoLibraryPicker,
             onImageSelected: { image in
                 photoImages.append(image)
+                // Create a corresponding ImageAttachment with default metadata
+                let attachment = ImageAttachment(
+                    filename: "pending_\(pendingAttachments.count + 1).jpg",
+                    type: .other,
+                    description: nil,
+                    dateAttached: Date()
+                )
+                pendingAttachments.append(attachment)
             }
         )
         .alert("Enter Date", isPresented: $showDateTextInput) {
-            TextField(preferences.formatDate(Date()), text: $dateText)
+            TextField(preferencesManager.formatDate(Date()), text: $dateText)
                 .keyboardType(.numbersAndPunctuation)
             Button("Set Date") {
                 setDateFromText()
@@ -90,10 +104,10 @@ struct StartShiftView: View {
                 dateText = ""
             }
         } message: {
-            Text("Format: \(preferences.formatDate(Date()))")
+            Text("Format: \(preferencesManager.formatDate(Date()))")
         }
         .alert("Enter Time", isPresented: $showTimeTextInput) {
-            TextField(preferences.formatTime(Date()), text: $timeText)
+            TextField(preferencesManager.formatTime(Date()), text: $timeText)
                 .keyboardType(.numbersAndPunctuation)
             Button("Set Time") {
                 setTimeFromText()
@@ -102,7 +116,7 @@ struct StartShiftView: View {
                 timeText = ""
             }
         } message: {
-            Text("Format: \(preferences.formatTime(Date()))")
+            Text("Format: \(preferencesManager.formatTime(Date()))")
         }
         .alert("Enter Tank Level", isPresented: $showTankTextInput) {
             TextField("0 to 8", text: $tankText)
@@ -129,7 +143,7 @@ struct StartShiftView: View {
                         Text("Date")
                             .foregroundColor(.primary)
                         Spacer()
-                        Text(preferences.formatDate(startDate))
+                        Text(preferencesManager.formatDate(startDate))
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -150,7 +164,7 @@ struct StartShiftView: View {
                             .labelsHidden()
 
                         KeyboardInputUtility.keyboardInputButton(
-                            currentValue: preferences.formatDate(startDate),
+                            currentValue: preferencesManager.formatDate(startDate),
                             showingAlert: $showDateTextInput,
                             inputText: $dateText,
                             accessibilityId: "start_date_text_input_button",
@@ -167,7 +181,7 @@ struct StartShiftView: View {
                         Text("Time")
                             .foregroundColor(.primary)
                         Spacer()
-                        Text(preferences.formatTime(startDate))
+                        Text(preferencesManager.formatTime(startDate))
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -188,7 +202,7 @@ struct StartShiftView: View {
                             .labelsHidden()
 
                         KeyboardInputUtility.keyboardInputButton(
-                            currentValue: preferences.formatTime(startDate),
+                            currentValue: preferencesManager.formatTime(startDate),
                             showingAlert: $showTimeTextInput,
                             inputText: $timeText,
                             accessibilityId: "start_time_text_input_button",
@@ -260,7 +274,15 @@ struct StartShiftView: View {
             ImageViewerView(
                 images: $viewerImages,
                 startingIndex: viewerStartIndex,
-                isPresented: $showingImageViewer
+                isPresented: $showingImageViewer,
+                attachments: pendingAttachments,
+                isEditMode: true,  // Enable metadata editing in StartShiftView
+                onSaveAttachment: { index, editedAttachment in
+                    // Update the persisted attachment (preserves UUID across viewer sessions)
+                    if index < pendingAttachments.count {
+                        pendingAttachments[index] = editedAttachment
+                    }
+                }
             )
         }
     }
@@ -277,15 +299,22 @@ struct StartShiftView: View {
             standardMileageRate: preferences.standardMileageRate
         )
 
-        // Save photos and create attachments
+        // Save photos and create attachments with user-edited metadata
         for (index, image) in photoImages.enumerated() {
+            guard index < pendingAttachments.count else { continue }
+
             do {
+                let pendingAttachment = pendingAttachments[index]
+
+                // Save image to disk with metadata from pendingAttachment
                 let attachment = try ImageManager.shared.saveImage(
                     image,
                     for: shift.id,
                     parentType: .shift,
-                    type: .screenshot // Default to screenshot for now - could add type selection later
+                    type: pendingAttachment.type,
+                    description: pendingAttachment.description
                 )
+
                 shift.imageAttachments.append(attachment)
             } catch {
                 print("Failed to save shift photo \(index): \(error)")
@@ -342,7 +371,7 @@ struct StartShiftView: View {
                 dateText = "" // Clear the text field
             }
         } else {
-            print("⚠️ [StartShiftView] Failed to parse date: '\(dateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferences.formatDate(Date()))')")
+            print("⚠️ [StartShiftView] Failed to parse date: '\(dateText)' - expected format '\(preferences.dateFormat)' (example: '\(preferencesManager.formatDate(Date()))')")
         }
     }
 
@@ -370,7 +399,7 @@ struct StartShiftView: View {
                 timeText = "" // Clear the text field
             }
         } else {
-            print("⚠️ [StartShiftView] Failed to parse time: '\(timeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferences.formatTime(Date()))')")
+            print("⚠️ [StartShiftView] Failed to parse time: '\(timeText)' - expected format '\(preferences.timeFormat)' (example: '\(preferencesManager.formatTime(Date()))')")
         }
     }
 
