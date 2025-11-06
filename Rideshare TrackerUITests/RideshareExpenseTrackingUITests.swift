@@ -1203,7 +1203,7 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
             let descriptionField = app.textFields["description_text_field"]
             XCTAssertTrue(descriptionField.exists, "Description field should exist")
             let descriptionValue = descriptionField.value as? String ?? ""
-            XCTAssertEqual(descriptionValue, expectedDescription, "Description should be '\(expectedDescription)', but is '\(descriptionValue)'")
+            XCTAssertEqual(descriptionValue, expectedDescription, "Description should be '\(expectedDescription ?? "nil")', but is '\(descriptionValue)'")
         }
 
         debugMessage("✅ Metadata verified successfully")

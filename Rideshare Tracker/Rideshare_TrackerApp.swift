@@ -60,7 +60,7 @@ struct RideshareTrackerApp: App {
                 } message: {
                     Text(testName)
                 }
-                .onChange(of: showTestNameAlert) { newValue in
+                .onChange(of: showTestNameAlert) { oldValue, newValue in
                     if newValue {
                         // Play a distinct alert sound when test starts
                         // Sound ID 1054 = Alarm (loud, urgent sound to alert when test begins)

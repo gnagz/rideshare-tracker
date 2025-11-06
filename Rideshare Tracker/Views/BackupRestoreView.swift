@@ -187,25 +187,45 @@ struct RestoreView: View {
     @State private var restoreAlertTitle = ""
     @State private var showingConfirmation = false
     @State private var pendingBackupData: BackupData?
+    @State private var selectedRestoreAction: RestoreAction = .merge
     
     var body: some View {
         VStack(spacing: 20) {
-            
+
             VStack(spacing: 16) {
                 Image(systemName: "externaldrive.badge.plus.fill")
                     .font(.system(size: 60))
                     .foregroundColor(.orange)
-                
+
                 Text("Restore from Backup")
                     .font(.title2)
                     .fontWeight(.semibold)
-                
-                Text("Restore your data from a JSON backup file. This will replace all current data.")
+
+                Text("Restore your data from a JSON backup file with flexible duplicate handling.")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
-                
+
+                // Restore Action Picker
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Restore Method")
+                        .font(.headline)
+
+                    Picker("Restore Method", selection: $selectedRestoreAction) {
+                        ForEach(RestoreAction.allCases, id: \.self) { action in
+                            Text(action.rawValue).tag(action)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text(selectedRestoreAction.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal)
+
                 Button("Select Backup File") {
                     showingFilePicker = true
                 }
@@ -215,22 +235,24 @@ struct RestoreView: View {
             
             Spacer()
             
-            // Warning Section
+            // Info Section
             VStack(alignment: .leading, spacing: 12) {
-                Label("Important", systemImage: "exclamationmark.triangle.fill")
+                Label("Restore Options", systemImage: "info.circle.fill")
                     .font(.headline)
-                    .foregroundColor(.orange)
-                
+                    .foregroundColor(.blue)
+
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("• This will replace ALL existing data")
-                    Text("• Current shifts and expenses will be lost")
-                    Text("• User preferences will be updated")
-                    Text("• This action cannot be undone")
-                    
-                    Text("Consider creating a backup of current data before restoring.")
-                        .fontWeight(.semibold)
-                        .foregroundColor(.orange)
-                        .padding(.top, 4)
+                    Text("• Clear & Restore: Delete all current data")
+                    Text("• Restore Missing: Add only new records")
+                    Text("• Merge & Restore: Update existing + add new")
+                    Text("• Preferences are always restored")
+
+                    if selectedRestoreAction == .replaceAll {
+                        Text("⚠️ Consider creating a backup first when using Clear & Restore.")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                            .padding(.top, 4)
+                    }
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -241,7 +263,7 @@ struct RestoreView: View {
             .cornerRadius(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.orange, lineWidth: 1)
+                    .stroke(selectedRestoreAction == .replaceAll ? Color.orange : Color.blue, lineWidth: 1)
             )
             .padding(.horizontal)
             .padding(.bottom, 20)
@@ -262,12 +284,13 @@ struct RestoreView: View {
             Button("Cancel", role: .cancel) {
                 pendingBackupData = nil
             }
-            Button("Replace All Data", role: .destructive) {
+            Button(selectedRestoreAction.rawValue, role: selectedRestoreAction == .replaceAll ? .destructive : .none) {
                 performRestore()
             }
         } message: {
             if let backup = pendingBackupData {
-                Text("This will replace all current data with:\n\n\(backup.shifts.count) shifts\n\(backup.expenses?.count ?? 0) expenses\n\nThis cannot be undone.")
+                let actionDesc = selectedRestoreAction.description
+                Text("\(actionDesc)\n\nBackup contains:\n• \(backup.shifts.count) shifts\n• \(backup.expenses?.count ?? 0) expenses\n\nPreferences will be restored.")
             }
         }
     }
@@ -296,30 +319,47 @@ struct RestoreView: View {
     
     private func performRestore() {
         guard let backupData = pendingBackupData else { return }
-        
-        // Clear existing data
-        shiftManager.shifts.removeAll()
-        expenseManager.expenses.removeAll()
-        
-        // Restore shifts
-        for shift in backupData.shifts {
-            shiftManager.addShift(shift)
+
+        // Use BackupRestoreManager for all restore logic
+        let result = backupRestoreManager.restoreFromBackup(
+            backupData: backupData,
+            shiftManager: shiftManager,
+            expenseManager: expenseManager,
+            preferencesManager: preferencesManager,
+            action: selectedRestoreAction
+        )
+
+        // Build detailed result message
+        var message = "Restore completed using '\(selectedRestoreAction.rawValue)':\n\n"
+
+        message += "Shifts:\n"
+        if result.shiftsAdded > 0 {
+            message += "  • Added: \(result.shiftsAdded)\n"
         }
-        
-        // Restore expenses
-        if let expenses = backupData.expenses {
-            for expense in expenses {
-                expenseManager.addExpense(expense)
-            }
+        if result.shiftsUpdated > 0 {
+            message += "  • Updated: \(result.shiftsUpdated)\n"
         }
-        
-        // Restore preferences
-        backupRestoreManager.restoreFromBackup(backupData: backupData, shiftManager: shiftManager, expenseManager: expenseManager, preferencesManager: preferencesManager)
-        
+        if result.shiftsSkipped > 0 {
+            message += "  • Skipped: \(result.shiftsSkipped)\n"
+        }
+
+        message += "\nExpenses:\n"
+        if result.expensesAdded > 0 {
+            message += "  • Added: \(result.expensesAdded)\n"
+        }
+        if result.expensesUpdated > 0 {
+            message += "  • Updated: \(result.expensesUpdated)\n"
+        }
+        if result.expensesSkipped > 0 {
+            message += "  • Skipped: \(result.expensesSkipped)\n"
+        }
+
+        message += "\nPreferences have been restored."
+
         restoreAlertTitle = "Restore Successful"
-        restoreMessage = "Successfully restored:\n\n\(backupData.shifts.count) shifts\n\(backupData.expenses?.count ?? 0) expenses\n\nPreferences have been updated."
+        restoreMessage = message
         showingRestoreAlert = true
-        
+
         pendingBackupData = nil
     }
 }

@@ -243,6 +243,7 @@ struct MetadataSection: View {
                                 Image(systemName: "lock.fill")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
+                                    .accessibilityIdentifier("type_lock_icon")
                             }
                         }
                         Spacer()

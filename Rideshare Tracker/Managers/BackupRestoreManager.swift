@@ -34,6 +34,38 @@ enum BackupRestoreError: LocalizedError {
     }
 }
 
+// MARK: - Restore Action Types
+
+enum RestoreAction: String, CaseIterable {
+    case replaceAll = "replaceAll"
+    case skipDuplicates = "skipDuplicates"
+    case merge = "merge"
+}
+
+extension RestoreAction {
+    var description: String {
+        switch self {
+        case .replaceAll:
+            return "Clear & Restore"
+        case .skipDuplicates:
+            return "Restore Missing"
+        case .merge:
+            return "Merge & Restore"
+        }
+    }
+}
+
+// MARK: - Restore Result
+
+struct RestoreResult {
+    var shiftsAdded: Int = 0
+    var shiftsUpdated: Int = 0
+    var shiftsSkipped: Int = 0
+    var expensesAdded: Int = 0
+    var expensesUpdated: Int = 0
+    var expensesSkipped: Int = 0
+}
+
 // MARK: - Backup/Restore Manager
 
 @MainActor
@@ -46,27 +78,83 @@ class BackupRestoreManager: ObservableObject {
 
     // MARK: - Restore from Backup (Full Orchestration)
 
-    func restoreFromBackup(backupData: BackupData, shiftManager: ShiftDataManager, expenseManager: ExpenseDataManager, preferencesManager: PreferencesManager) {
-        // Clear existing data
-        shiftManager.shifts.removeAll()
-        expenseManager.expenses.removeAll()
+    func restoreFromBackup(backupData: BackupData, shiftManager: ShiftDataManager, expenseManager: ExpenseDataManager, preferencesManager: PreferencesManager, action: RestoreAction) -> RestoreResult {
+        var result = RestoreResult()
 
-        // Restore shifts
-        for shift in backupData.shifts {
-            shiftManager.addShift(shift)
-        }
+        switch action {
+        case .replaceAll:
+            // Clear existing data
+            shiftManager.shifts.removeAll()
+            expenseManager.expenses.removeAll()
 
-        // Restore expenses
-        if let expenses = backupData.expenses {
-            for expense in expenses {
-                expenseManager.addExpense(expense)
+            // Restore shifts
+            for shift in backupData.shifts {
+                shiftManager.addShift(shift)
+                result.shiftsAdded += 1
+            }
+
+            // Restore expenses
+            if let expenses = backupData.expenses {
+                for expense in expenses {
+                    expenseManager.addExpense(expense)
+                    result.expensesAdded += 1
+                }
+            }
+
+        case .skipDuplicates:
+            // Restore shifts, skipping duplicates
+            for shift in backupData.shifts {
+                if shiftManager.shifts.contains(where: { $0.id == shift.id }) {
+                    result.shiftsSkipped += 1
+                } else {
+                    shiftManager.addShift(shift)
+                    result.shiftsAdded += 1
+                }
+            }
+
+            // Restore expenses, skipping duplicates
+            if let expenses = backupData.expenses {
+                for expense in expenses {
+                    if expenseManager.expenses.contains(where: { $0.id == expense.id }) {
+                        result.expensesSkipped += 1
+                    } else {
+                        expenseManager.addExpense(expense)
+                        result.expensesAdded += 1
+                    }
+                }
+            }
+
+        case .merge:
+            // Restore shifts, updating existing
+            for shift in backupData.shifts {
+                if shiftManager.shifts.contains(where: { $0.id == shift.id }) {
+                    shiftManager.updateShift(shift)
+                    result.shiftsUpdated += 1
+                } else {
+                    shiftManager.addShift(shift)
+                    result.shiftsAdded += 1
+                }
+            }
+
+            // Restore expenses, updating existing
+            if let expenses = backupData.expenses {
+                for expense in expenses {
+                    if expenseManager.expenses.contains(where: { $0.id == expense.id }) {
+                        expenseManager.updateExpense(expense)
+                        result.expensesUpdated += 1
+                    } else {
+                        expenseManager.addExpense(expense)
+                        result.expensesAdded += 1
+                    }
+                }
             }
         }
 
-        // Restore preferences
+        // Restore preferences (always)
         preferencesManager.restorePreferences(backupData.preferences)
 
-        debugMessage("Full restore completed: \(backupData.shifts.count) shifts, \(backupData.expenses?.count ?? 0) expenses")
+        debugMessage("Restore completed: action=\(action), shifts added=\(result.shiftsAdded), updated=\(result.shiftsUpdated), skipped=\(result.shiftsSkipped), expenses added=\(result.expensesAdded), updated=\(result.expensesUpdated), skipped=\(result.expensesSkipped)")
+        return result
     }
 
     // MARK: - Create Backup (JSON)
