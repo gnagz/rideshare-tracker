@@ -247,7 +247,15 @@ class ImportExportManager: ObservableObject {
                 let oldTollImages = dataManager.shifts[shiftIndex].imageAttachments.filter { $0.type == .importedToll }
                 if !oldTollImages.isEmpty {
                     let shiftDate = dataManager.shifts[shiftIndex].startDate
+                    let shiftID = dataManager.shifts[shiftIndex].id
                     debugMessage("Removing \(oldTollImages.count) old toll summary image(s) from shift starting \(shiftDate) before adding new one")
+
+                    // Delete physical image files from disk
+                    for oldImage in oldTollImages {
+                        ImageManager.shared.deleteImage(oldImage, for: shiftID, parentType: .shift)
+                    }
+
+                    // Remove from attachments array
                     dataManager.shifts[shiftIndex].imageAttachments.removeAll { $0.type == .importedToll }
                 }
 

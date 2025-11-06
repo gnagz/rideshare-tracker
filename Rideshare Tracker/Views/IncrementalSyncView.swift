@@ -57,6 +57,312 @@ struct IncrementalSyncView: View {
     }
     
     var body: some View {
+        IncrementalSyncContentView()
+    }
+    
+    /*private func formatLastSyncDate() -> String {
+        guard let lastSync = preferences.lastIncrementalSyncDate else {
+            return "Never"
+        }
+        
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: lastSync, relativeTo: Date())
+    }
+    
+    private func performInitialSync() {
+        Task {
+            do {
+                // Migrate existing data to add sync metadata
+                await MainActor.run {
+                    migrateExistingDataToSyncFormat()
+                }
+                
+                // Perform real iCloud sync
+                try await cloudSyncManager.performInitialSync(
+                    shifts: dataManager.shifts,
+                    expenses: expenseManager.expenses
+                )
+                
+                // Enable sync and mark as completed on main thread
+                await MainActor.run {
+                    var updatedPrefs = preferencesManager.preferences
+                    updatedPrefs.incrementalSyncEnabled = true
+                    updatedPrefs.lastIncrementalSyncDate = Date()
+                    preferencesManager.preferences = updatedPrefs
+                    preferencesManager.savePreferences()
+                    
+                    // Clean up any local soft-deleted records after successful sync
+                    dataManager.cleanupDeletedShifts()
+                    expenseManager.cleanupDeletedExpenses()
+                    
+                    syncAlertMessage = "Initial sync completed successfully!\n\n\(dataManager.activeShifts.count) shifts and \(expenseManager.activeExpenses.count) expenses are now synchronized to iCloud."
+                    showingSyncAlert = true
+                }
+                
+            } catch {
+                await MainActor.run {
+                    syncAlertMessage = "Initial sync failed: \(error.localizedDescription)"
+                    showingSyncAlert = true
+                }
+            }
+        }
+    }
+    
+    private func performManualSync() {
+        Task {
+            do {
+                // Perform real incremental sync
+                let syncResult = try await cloudSyncManager.performIncrementalSync(
+                    shifts: dataManager.shifts,
+                    expenses: expenseManager.expenses,
+                    lastSyncDate: preferences.lastIncrementalSyncDate
+                )
+                
+                // Update local data with merged results
+                await MainActor.run {
+                    dataManager.shifts = syncResult.mergedShifts
+                    dataManager.saveShifts()
+                    
+                    expenseManager.expenses = syncResult.mergedExpenses
+                    expenseManager.saveExpenses()
+                    
+                    // Clean up any local soft-deleted records after successful sync
+                    dataManager.cleanupDeletedShifts()
+                    expenseManager.cleanupDeletedExpenses()
+                    
+                    preferencesManager.preferences.lastIncrementalSyncDate = Date()
+                    preferencesManager.savePreferences()
+                    
+                    syncAlertMessage = "Sync completed successfully!\n\nSynchronized \(syncResult.mergedShifts.count) shifts and \(syncResult.mergedExpenses.count) expenses."
+                    showingSyncAlert = true
+                }
+                
+            } catch {
+                await MainActor.run {
+                    syncAlertMessage = "Sync failed: \(error.localizedDescription)"
+                    showingSyncAlert = true
+                }
+            }
+        }
+    }
+    
+    private func performCloudCleanup() {
+        isPerformingCleanup = true
+        Task {
+            do {
+                try await cloudSyncManager.permanentlyDeleteFromCloud()
+                
+                await MainActor.run {
+                    isPerformingCleanup = false
+                    syncAlertMessage = "Cloud cleanup completed successfully!\n\nDeleted records have been permanently removed from iCloud storage."
+                    showingSyncAlert = true
+                }
+                
+            } catch {
+                await MainActor.run {
+                    isPerformingCleanup = false
+                    syncAlertMessage = "Cloud cleanup failed: \(error.localizedDescription)"
+                    showingSyncAlert = true
+                }
+            }
+        }
+    }
+    
+    private func migrateExistingDataToSyncFormat() {
+        let deviceID = UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+        
+        // Migrate all existing shifts
+        for i in 0..<dataManager.shifts.count {
+            var shift = dataManager.shifts[i]
+            
+            // Check if this looks like an existing record (deviceID is default or empty)
+            if shift.deviceID.isEmpty || shift.deviceID == "unknown" {
+                // Use shift start date as created date for existing shifts
+                shift.createdDate = shift.startDate
+                shift.modifiedDate = shift.endDate ?? shift.startDate
+                shift.deviceID = deviceID
+                shift.isDeleted = false // Ensure not marked as deleted
+                
+                dataManager.shifts[i] = shift
+            }
+        }
+        
+        // Migrate all existing expenses
+        for i in 0..<expenseManager.expenses.count {
+            var expense = expenseManager.expenses[i]
+            
+            // Check if this looks like an existing record (deviceID is default or empty)
+            if expense.deviceID.isEmpty || expense.deviceID == "unknown" {
+                // Use expense date as created date for existing expenses
+                expense.createdDate = expense.date
+                expense.modifiedDate = expense.date
+                expense.deviceID = deviceID
+                expense.isDeleted = false // Ensure not marked as deleted
+                
+                expenseManager.expenses[i] = expense
+            }
+        }
+        
+        // Save the migrated data
+        dataManager.saveShifts()
+        expenseManager.saveExpenses()
+    }*/
+}
+
+struct BenefitCard: View {
+    let icon: String
+    let title: String
+    let description: String
+    let color: Color
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            Image(systemName: icon)
+                .font(.title)
+                .foregroundColor(color)
+                .frame(width: 40, height: 40)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Text(description)
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            
+            Spacer()
+        }
+        .padding()
+        .background(Color(.systemGroupedBackground))
+        .cornerRadius(12)
+    }
+}
+
+struct HowItWorksStep: View {
+    let number: Int
+    let title: String
+    let description: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            Text("\(number)")
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Color.blue))
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Text(description)
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            
+            Spacer()
+        }
+    }
+}
+
+struct InitialSyncProgressView: View {
+    @Binding var isVisible: Bool
+    let totalShifts: Int
+    let totalExpenses: Int
+    
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 20) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                
+                VStack(spacing: 8) {
+                    Text("Performing Initial Sync")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    Text("Uploading \(totalShifts) shifts and \(totalExpenses) expenses to iCloud...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("This may take a moment")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(24)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(.systemBackground))
+                    .shadow(radius: 10)
+            )
+            .padding(.horizontal, 40)
+        }
+    }
+}
+
+struct IncrementalSyncContentView: View {
+    @EnvironmentObject var preferencesManager: PreferencesManager
+    @EnvironmentObject var dataManager: ShiftDataManager
+    @EnvironmentObject var expenseManager: ExpenseDataManager
+    @Environment(\.presentationMode) var presentationMode
+
+    private var preferences: AppPreferences { preferencesManager.preferences }
+
+    private var syncEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { preferences.incrementalSyncEnabled },
+            set: { newValue in
+                if newValue && preferences.lastIncrementalSyncDate == nil {
+                    // First time enabling - show initial sync confirmation
+                    showingInitialSyncConfirmation = true
+                } else {
+                    // Already synced before or disabling
+                    preferencesManager.preferences.incrementalSyncEnabled = newValue
+                    preferencesManager.savePreferences()
+                }
+            }
+        )
+    }
+
+    @StateObject private var cloudSyncManager = CloudSyncManager.shared
+    @StateObject private var syncLifecycleManager = SyncLifecycleManager.shared
+    @State private var showingSyncAlert = false
+    @State private var syncAlertMessage = ""
+    @State private var showingInitialSyncConfirmation = false
+    @State private var showingCleanupConfirmation = false
+    @State private var isPerformingCleanup = false
+    
+    enum SyncFrequency: String, CaseIterable {
+        case immediate = "Immediate"
+        case hourly = "Hourly"
+        case daily = "Daily"
+        
+        var description: String {
+            switch self {
+            case .immediate:
+                return "Sync every time you close the app (recommended)"
+            case .hourly:
+                return "Sync once per hour when you close the app"
+            case .daily:
+                return "Sync once per day when you close the app"
+            }
+        }
+    }
+    
+    var body: some View {
         EmptyView()
         /*NavigationView {
             ScrollView {
@@ -441,8 +747,10 @@ struct IncrementalSyncView: View {
                 
                 // Enable sync and mark as completed on main thread
                 await MainActor.run {
-                    preferencesManager.preferences.incrementalSyncEnabled = true
-                    preferencesManager.preferences.lastIncrementalSyncDate = Date()
+                    var updatedPrefs = preferencesManager.preferences
+                    updatedPrefs.incrementalSyncEnabled = true
+                    updatedPrefs.lastIncrementalSyncDate = Date()
+                    preferencesManager.preferences = updatedPrefs
                     preferencesManager.savePreferences()
                     
                     // Clean up any local soft-deleted records after successful sync
@@ -562,107 +870,3 @@ struct IncrementalSyncView: View {
         expenseManager.saveExpenses()
     }*/
 }
-
-struct BenefitCard: View {
-    let icon: String
-    let title: String
-    let description: String
-    let color: Color
-    
-    var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            Image(systemName: icon)
-                .font(.title)
-                .foregroundColor(color)
-                .frame(width: 40, height: 40)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Text(description)
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            
-            Spacer()
-        }
-        .padding()
-        .background(Color(.systemGroupedBackground))
-        .cornerRadius(12)
-    }
-}
-
-struct HowItWorksStep: View {
-    let number: Int
-    let title: String
-    let description: String
-    
-    var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            Text("\(number)")
-                .font(.headline)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(Color.blue))
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Text(description)
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            
-            Spacer()
-        }
-    }
-}
-
-struct InitialSyncProgressView: View {
-    @Binding var isVisible: Bool
-    let totalShifts: Int
-    let totalExpenses: Int
-    
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.3)
-                .ignoresSafeArea()
-            
-            VStack(spacing: 20) {
-                ProgressView()
-                    .scaleEffect(1.5)
-                    .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                
-                VStack(spacing: 8) {
-                    Text("Performing Initial Sync")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                    
-                    Text("Uploading \(totalShifts) shifts and \(totalExpenses) expenses to iCloud...")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                    
-                    Text("This may take a moment")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .padding(24)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemBackground))
-                    .shadow(radius: 10)
-            )
-            .padding(.horizontal, 40)
-        }
-    }
-}
-

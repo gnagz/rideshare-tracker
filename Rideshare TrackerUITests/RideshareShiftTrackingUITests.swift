@@ -1906,7 +1906,7 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
 
                     // Try searching again after navigation
                     let cellsAfterNav = app.cells.allElementsBoundByIndex
-                    for (index, cell) in cellsAfterNav.enumerated() {
+                    for cell in cellsAfterNav {
                         let cellLabel = cell.label
                         let cellValue = cell.value as? String ?? ""
                         let cellIdentifier = cell.identifier

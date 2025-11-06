@@ -569,73 +569,62 @@ final class TollImportTests: RideshareTrackerTestBase {
 //        try? FileManager.default.removeItem(at: testURL)
 //    }
 
-//    func testImportTollsTwiceRemovesDuplicates() async throws {
-//        // Given: Create a shift and import tolls once
-//        let shiftStart = createTestDate(year: 2025, month: 9, day: 16, hour: 9, minute: 0)
-//        var testShift = createBasicTestShift(startDate: shiftStart)
-//        testShift.endDate = shiftStart.addingTimeInterval(8 * 3600)
-//        testShift.endMileage = testShift.startMileage + 150.0
-//
-//        let manager = await MainActor.run {
-//            let mgr = ShiftDataManager(forEnvironment: true)
-//            mgr.shifts.removeAll()
-//            mgr.addShift(testShift)
-//            return mgr
-//        }
-//
-//        let csvContent = """
-//        Transaction Entry Date,Location,Plate,Transaction Amount
-//        "09/16/2025 10:30:00","183S - Thompson Lane Mainline NB","TX - MKG0738",1.30
-//        "09/16/2025 12:45:00","Mopac Express - Cesar Chavez SB","TX - MKG0738",0.75
-//        """
-//
-//        let tempDir = FileManager.default.temporaryDirectory
-//        let testURL = tempDir.appendingPathComponent("test_toll_duplicates.csv")
-//        try csvContent.write(to: testURL, atomically: true, encoding: .utf8)
-//
-//        // When: Import tolls FIRST time
-//        let firstImportResult = await MainActor.run {
-//            return ImportExportManager.shared.importTolls(from: testURL, dataManager: manager)
-//        }
-//
-//        guard case .success(let firstResult) = firstImportResult else {
-//            XCTFail("First import should succeed")
-//            return
-//        }
-//
-//        guard let shiftAfterFirstImport = firstResult.updatedShifts.first else {
-//            XCTFail("Should have updated shift after first import")
-//            return
-//        }
-//
-//        let tollImagesAfterFirst = shiftAfterFirstImport.imageAttachments.filter { $0.type == .importedToll }
-//        XCTAssertEqual(tollImagesAfterFirst.count, 1, "Should have 1 toll image after first import")
-//
-//        // When: Import tolls SECOND time (same date range, should replace old toll image)
-//        let secondImportResult = await MainActor.run {
-//            return ImportExportManager.shared.importTolls(from: testURL, dataManager: manager)
-//        }
-//
-//        // Then: Verify only ONE toll summary image exists (old removed, new added)
-//        switch secondImportResult {
-//        case .success(let secondResult):
-//            guard let shiftAfterSecondImport = secondResult.updatedShifts.first else {
-//                XCTFail("Should have updated shift after second import")
-//                return
-//            }
-//
-//            let tollImagesAfterSecond = shiftAfterSecondImport.imageAttachments.filter { $0.type == .importedToll }
-//            XCTAssertEqual(tollImagesAfterSecond.count, 1, "Should still have only 1 toll image after second import (duplicates removed)")
-//
-//            debugMessage("After first import: \(tollImagesAfterFirst.count) images, After second import: \(tollImagesAfterSecond.count) images")
-//
-//        case .failure(let error):
-//            XCTFail("Second toll import should succeed but failed with: \(error.localizedDescription)")
-//        }
-//
-//        // Cleanup
-//        try? FileManager.default.removeItem(at: testURL)
-//    }
+    func testImportTollsTwiceRemovesDuplicates() async throws {
+        // Given: Create a shift and import tolls once
+        let shiftStart = createTestDate(year: 2025, month: 9, day: 16, hour: 9, minute: 0)
+        var testShift = createBasicTestShift(startDate: shiftStart)
+        testShift.endDate = shiftStart.addingTimeInterval(8 * 3600)
+        testShift.endMileage = testShift.startMileage + 150.0
+
+        let manager = await MainActor.run {
+            let mgr = ShiftDataManager(forEnvironment: true)
+            mgr.shifts.removeAll()
+            mgr.addShift(testShift)
+            return mgr
+        }
+
+        let csvContent = """
+        Transaction Entry Date,Location,Plate,Transaction Amount
+        "09/16/2025 10:30:00","183S - Thompson Lane Mainline NB","TX - MKG0738",1.30
+        "09/16/2025 12:45:00","Mopac Express - Cesar Chavez SB","TX - MKG0738",0.75
+        """
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let testURL = tempDir.appendingPathComponent("test_toll_duplicates.csv")
+        try csvContent.write(to: testURL, atomically: true, encoding: .utf8)
+
+        // When: Import tolls FIRST time
+        let firstResult = try await MainActor.run {
+            return try ImportExportManager.shared.importTolls(from: testURL, dataManager: manager)
+        }
+
+        guard let shiftAfterFirstImport = firstResult.updatedShifts.first else {
+            XCTFail("Should have updated shift after first import")
+            return
+        }
+
+        let tollImagesAfterFirst = shiftAfterFirstImport.imageAttachments.filter { $0.type == .importedToll }
+        XCTAssertEqual(tollImagesAfterFirst.count, 1, "Should have 1 toll image after first import")
+
+        // When: Import tolls SECOND time (same date range, should replace old toll image)
+        let secondResult = try await MainActor.run {
+            return try ImportExportManager.shared.importTolls(from: testURL, dataManager: manager)
+        }
+
+        // Then: Verify only ONE toll summary image exists (old removed, new added)
+        guard let shiftAfterSecondImport = secondResult.updatedShifts.first else {
+            XCTFail("Should have updated shift after second import")
+            return
+        }
+
+        let tollImagesAfterSecond = shiftAfterSecondImport.imageAttachments.filter { $0.type == .importedToll }
+        XCTAssertEqual(tollImagesAfterSecond.count, 1, "Should still have only 1 toll image after second import (duplicates removed)")
+
+        debugMessage("After first import: \(tollImagesAfterFirst.count) images, After second import: \(tollImagesAfterSecond.count) images")
+
+        // Cleanup
+        try? FileManager.default.removeItem(at: testURL)
+    }
 
     func testImportedTollTypeHasSystemGeneratedFlag() {
         // Given: The .importedToll type
@@ -785,5 +774,202 @@ final class TollImportTests: RideshareTrackerTestBase {
 
         // Cleanup
         UserDefaults.standard.removeObject(forKey: "didMigrateTollImages_v1")
+    }
+
+    // MARK: - Diagnostic Test for Multiple Shifts with Tolls
+
+    func testTollImportMatchesAllShiftsInDateRange() async throws {
+        // Given: Multiple shifts across 3 months (Aug 1 - Nov 5) with varying patterns
+        // This simulates the user's real scenario: 119 toll transactions should match more than 3 shifts
+        // CRITICAL: Shifts already have EXISTING toll amounts that should be REPLACED
+
+        let manager = await MainActor.run {
+            let mgr = ShiftDataManager(forEnvironment: true)
+            mgr.shifts.removeAll()
+            return mgr
+        }
+
+        // Create 15 shifts across the date range with different patterns
+        var testShifts: [RideshareShift] = []
+
+        // August shifts (5 shifts) - all have existing toll amounts
+        for day in [1, 5, 10, 15, 20] {
+            let shiftStart = createTestDate(year: 2025, month: 8, day: day, hour: 9, minute: 0)
+            var shift = createBasicTestShift(startDate: shiftStart)
+            shift.endDate = shiftStart.addingTimeInterval(8 * 3600) // 8 hour shift
+            shift.endMileage = shift.startMileage + 150.0
+            shift.tolls = 5.00 // EXISTING toll amount (will be replaced)
+            testShifts.append(shift)
+        }
+
+        // September shifts (5 shifts) - all have existing toll amounts
+        for day in [2, 8, 14, 21, 28] {
+            let shiftStart = createTestDate(year: 2025, month: 9, day: day, hour: 10, minute: 0)
+            var shift = createBasicTestShift(startDate: shiftStart)
+            shift.endDate = shiftStart.addingTimeInterval(7 * 3600) // 7 hour shift
+            shift.endMileage = shift.startMileage + 120.0
+            shift.tolls = 5.00 // EXISTING toll amount (will be replaced)
+            testShifts.append(shift)
+        }
+
+        // October shifts (5 shifts) - all have existing toll amounts
+        for day in [5, 12, 18, 23, 30] {
+            let shiftStart = createTestDate(year: 2025, month: 10, day: day, hour: 11, minute: 0)
+            var shift = createBasicTestShift(startDate: shiftStart)
+            shift.endDate = shiftStart.addingTimeInterval(6 * 3600) // 6 hour shift
+            shift.endMileage = shift.startMileage + 100.0
+            shift.tolls = 5.00 // EXISTING toll amount (will be replaced)
+            testShifts.append(shift)
+        }
+
+        // Add all shifts to manager
+        await MainActor.run {
+            for shift in testShifts {
+                manager.addShift(shift)
+            }
+        }
+
+        // Create CSV with toll transactions spread across all shifts
+        // CRITICAL: Set amounts so that they SUM TO $5.00 (matching existing shift.tolls)
+        // This tests if shifts are counted as "updated" when amounts don't actually change
+        var csvLines = ["Transaction Entry Date,Location,Plate,Transaction Amount"]
+
+        for (index, shift) in testShifts.enumerated() {
+            // Add exactly 2 transactions per shift that sum to $5.00 (matching existing toll amount)
+            // Transaction 1: $3.00
+            let tollTime1 = shift.startDate.addingTimeInterval(1800) // 30 min into shift
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "MM/dd/yyyy HH:mm:ss"
+            let dateString1 = dateFormatter.string(from: tollTime1)
+            let location1 = "Test Toll Location \(index)-0"
+            let plate = "TX - TEST\(index)"
+            csvLines.append("\"\(dateString1)\",\"\(location1)\",\"\(plate)\",3.00")
+
+            // Transaction 2: $2.00 (total = $5.00, matching existing)
+            let tollTime2 = shift.startDate.addingTimeInterval(3600) // 1 hour into shift
+            let dateString2 = dateFormatter.string(from: tollTime2)
+            let location2 = "Test Toll Location \(index)-1"
+            csvLines.append("\"\(dateString2)\",\"\(location2)\",\"\(plate)\",2.00")
+        }
+
+        let csvContent = csvLines.joined(separator: "\n")
+        let tempDir = FileManager.default.temporaryDirectory
+        let testURL = tempDir.appendingPathComponent("test_multiple_shifts_diagnostic.csv")
+        try csvContent.write(to: testURL, atomically: true, encoding: .utf8)
+
+        debugMessage("Created test CSV with \(csvLines.count - 1) toll transactions across \(testShifts.count) shifts")
+
+        // When: Import the tolls
+        let importResult = try await MainActor.run {
+            return try ImportExportManager.shared.importTolls(from: testURL, dataManager: manager)
+        }
+
+        // Then: Verify that ALL shifts with tolls were updated (should be all 15 shifts)
+        debugMessage("Import result: \(importResult.transactions.count) transactions processed, \(importResult.updatedShifts.count) shifts updated, \(importResult.imagesGenerated) images generated")
+
+        XCTAssertEqual(importResult.transactions.count, csvLines.count - 1, "Should import all toll transactions from CSV")
+        XCTAssertEqual(importResult.updatedShifts.count, testShifts.count, "Should update ALL shifts that have matching toll transactions")
+        XCTAssertEqual(importResult.imagesGenerated, testShifts.count, "Should generate one toll summary image per updated shift")
+
+        // Verify each shift has tolls set and toll image attached
+        let shifts = await MainActor.run { manager.shifts }
+        for shift in shifts {
+            XCTAssertNotNil(shift.tolls, "Each shift should have tolls set after import")
+            XCTAssertGreaterThan(shift.tolls ?? 0, 0, "Each shift should have non-zero toll amount")
+
+            let tollImages = shift.imageAttachments.filter { $0.type == .importedToll }
+            XCTAssertEqual(tollImages.count, 1, "Each shift should have exactly one toll summary image")
+        }
+
+        // Cleanup
+        try? FileManager.default.removeItem(at: testURL)
+    }
+
+    // MARK: - Real Data Diagnostic Test
+
+    func testTollImportWithRealUserData() async throws {
+        // This test uses REAL user backup and toll history files to diagnose the issue
+        // User reports: 119 toll transactions processed, only 3 shifts updated (expected 10+)
+
+        // Paths to real data files
+        let backupPath = "/Users/gnagz/Library/Mobile Documents/com~apple~CloudDocs/Uber/RideshareTracker_Backup_2025-10-02_07-50-59.json"
+        let tollHistoryPath = "/Users/gnagz/Library/Mobile Documents/com~apple~CloudDocs/Uber/Toll Transaction History_01AUG25-05NOV25.csv"
+
+        // Skip test if files don't exist (prevents test failure in CI)
+        guard FileManager.default.fileExists(atPath: backupPath),
+              FileManager.default.fileExists(atPath: tollHistoryPath) else {
+            print("⚠️ Skipping testTollImportWithRealUserData - data files not found")
+            print("   Backup: \(backupPath)")
+            print("   Toll CSV: \(tollHistoryPath)")
+            return
+        }
+
+        let manager = await MainActor.run {
+            let mgr = ShiftDataManager(forEnvironment: true)
+            mgr.shifts.removeAll()
+            return mgr
+        }
+
+        // Load backup file to restore real shifts
+        let backupURL = URL(fileURLWithPath: backupPath)
+        let backupData = try await MainActor.run {
+            let jsonData = try Data(contentsOf: backupURL)
+            let decoder = JSONDecoder()
+            // Backup uses TimeInterval (seconds since January 1, 2001 - Apple's reference date)
+            decoder.dateDecodingStrategy = .custom { decoder in
+                let container = try decoder.singleValueContainer()
+                let timeInterval = try container.decode(TimeInterval.self)
+                return Date(timeIntervalSinceReferenceDate: timeInterval)
+            }
+            return try decoder.decode(BackupData.self, from: jsonData)
+        }
+
+        // Restore shifts from backup
+        await MainActor.run {
+            _ = BackupRestoreManager.shared.restoreFromBackup(
+                backupData: backupData,
+                shiftManager: manager,
+                expenseManager: ExpenseDataManager.shared,
+                preferencesManager: PreferencesManager.shared,
+                action: .replaceAll
+            )
+        }
+
+        let shiftsBeforeImport = await MainActor.run { manager.shifts.count }
+        let shiftsWithTollsBefore = await MainActor.run {
+            manager.shifts.filter { $0.tolls != nil && $0.tolls! > 0 }.count
+        }
+
+        print("📊 Before toll import:")
+        print("   Total shifts: \(shiftsBeforeImport)")
+        print("   Shifts with tolls: \(shiftsWithTollsBefore)")
+
+        // Import real toll history
+        let tollHistoryURL = URL(fileURLWithPath: tollHistoryPath)
+        let importResult = try await MainActor.run {
+            return try ImportExportManager.shared.importTolls(from: tollHistoryURL, dataManager: manager)
+        }
+
+        let shiftsWithTollsAfter = await MainActor.run {
+            manager.shifts.filter { $0.tolls != nil && $0.tolls! > 0 }.count
+        }
+
+        print("📊 After toll import:")
+        print("   Transactions processed: \(importResult.transactions.count)")
+        print("   Shifts updated: \(importResult.updatedShifts.count)")
+        print("   Images generated: \(importResult.imagesGenerated)")
+        print("   Shifts with tolls after: \(shiftsWithTollsAfter)")
+
+        // List the shifts that were updated (with dates for verification)
+        print("\n✅ Updated shifts:")
+        for shift in importResult.updatedShifts {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .short
+            dateFormatter.timeStyle = .short
+            print("   • \(dateFormatter.string(from: shift.startDate)) - Tolls: $\(shift.tolls ?? 0)")
+        }
+
+        // This test is diagnostic only - we're investigating why so few shifts matched
+        // No assertions, just print output for analysis
     }
 }
