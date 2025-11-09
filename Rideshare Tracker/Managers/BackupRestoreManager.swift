@@ -37,20 +37,18 @@ enum BackupRestoreError: LocalizedError {
 // MARK: - Restore Action Types
 
 enum RestoreAction: String, CaseIterable {
-    case replaceAll = "replaceAll"
-    case skipDuplicates = "skipDuplicates"
-    case merge = "merge"
-}
+    case replaceAll = "Clear & Restore"
+    case skipDuplicates = "Restore Missing"
+    case merge = "Merge & Restore"
 
-extension RestoreAction {
     var description: String {
         switch self {
         case .replaceAll:
-            return "Clear & Restore"
+            return "Delete all current data, then restore from backup"
         case .skipDuplicates:
-            return "Restore Missing"
+            return "Add only records that don't exist in current data"
         case .merge:
-            return "Merge & Restore"
+            return "Update existing records and add new ones"
         }
     }
 }

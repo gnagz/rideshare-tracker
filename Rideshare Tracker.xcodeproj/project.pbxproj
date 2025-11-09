@@ -53,6 +53,8 @@
 		3544237C2EC06417005CDC52 /* UberShiftMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3544237A2EC06417005CDC52 /* UberShiftMatcher.swift */; };
 		354423822EC06745005CDC52 /* MissingShiftsCSVGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423812EC06745005CDC52 /* MissingShiftsCSVGenerator.swift */; };
 		354423832EC06745005CDC52 /* MissingShiftsCSVGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423812EC06745005CDC52 /* MissingShiftsCSVGenerator.swift */; };
+		354423AC2EC06BAC005CDC52 /* UberImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423AB2EC06BAC005CDC52 /* UberImportView.swift */; };
+		354423AD2EC06BAC005CDC52 /* UberImportResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423AA2EC06BAC005CDC52 /* UberImportResultView.swift */; };
 		355BB9052E62CB4C00028172 /* SyncLifecycleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 355BB9042E62CB4C00028172 /* SyncLifecycleManager.swift */; };
 		355BB9082E62CB7400028172 /* IncrementalSyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 355BB9072E62CB7400028172 /* IncrementalSyncView.swift */; };
 		357F178E2E8A1CC800262CFA /* TollTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357F178D2E8A1CC800262CFA /* TollTransaction.swift */; };
@@ -162,6 +164,8 @@
 		354423752EC05C89005CDC52 /* UberSummaryImageGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberSummaryImageGenerator.swift; sourceTree = "<group>"; };
 		3544237A2EC06417005CDC52 /* UberShiftMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberShiftMatcher.swift; sourceTree = "<group>"; };
 		354423812EC06745005CDC52 /* MissingShiftsCSVGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissingShiftsCSVGenerator.swift; sourceTree = "<group>"; };
+		354423AA2EC06BAC005CDC52 /* UberImportResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberImportResultView.swift; sourceTree = "<group>"; };
+		354423AB2EC06BAC005CDC52 /* UberImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberImportView.swift; sourceTree = "<group>"; };
 		355BB9042E62CB4C00028172 /* SyncLifecycleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncLifecycleManager.swift; sourceTree = "<group>"; };
 		355BB9072E62CB7400028172 /* IncrementalSyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncrementalSyncView.swift; sourceTree = "<group>"; };
 		357F17772E857B3800262CFA /* Debug Text & Visual Pauses.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Debug Text & Visual Pauses.xctestplan"; sourceTree = "<group>"; };
@@ -324,6 +328,8 @@
 		3531FC592E498777000F2CD7 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				354423AA2EC06BAC005CDC52 /* UberImportResultView.swift */,
+				354423AB2EC06BAC005CDC52 /* UberImportView.swift */,
 				35A841852E711EF30050192C /* ImageViewerView.swift */,
 				352828072E6E8194000A426E /* CalculatorPopupView.swift */,
 				355BB9072E62CB7400028172 /* IncrementalSyncView.swift */,
@@ -579,6 +585,8 @@
 				3597BA712E5D4BE6003DA956 /* BackupRestoreView.swift in Sources */,
 				3597BA722E5D4BE6003DA956 /* ImportExportView.swift in Sources */,
 				3531FC5D2E498840000F2CD7 /* AppPreferences.swift in Sources */,
+				354423AC2EC06BAC005CDC52 /* UberImportView.swift in Sources */,
+				354423AD2EC06BAC005CDC52 /* UberImportResultView.swift in Sources */,
 				354423742EC05AEB005CDC52 /* UberPDFParser.swift in Sources */,
 				352AA3F42EA3FB320022763D /* ErrorHandlingUtilities.swift in Sources */,
 				3597BA6A2E5A2E9F003DA956 /* ExpenseDataManager.swift in Sources */,
