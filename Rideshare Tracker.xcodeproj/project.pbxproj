@@ -40,6 +40,7 @@
 		3538E63C2E9021D600D18302 /* DebugUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3538E6372E9021CC00D18302 /* DebugUtilities.swift */; };
 		3538E6472E9067EC00D18302 /* ImageViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841852E711EF30050192C /* ImageViewerView.swift */; };
 		3538E64D2E918D9D00D18302 /* KeyboardInputUtility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3538E64C2E918D9D00D18302 /* KeyboardInputUtility.swift */; };
+		354423692EC00CDE005CDC52 /* LICENSE in CopyFiles */ = {isa = PBXBuildFile; fileRef = 354423682EC00CD9005CDC52 /* LICENSE */; };
 		355BB9052E62CB4C00028172 /* SyncLifecycleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 355BB9042E62CB4C00028172 /* SyncLifecycleManager.swift */; };
 		355BB9082E62CB7400028172 /* IncrementalSyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 355BB9072E62CB7400028172 /* IncrementalSyncView.swift */; };
 		357F178E2E8A1CC800262CFA /* TollTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357F178D2E8A1CC800262CFA /* TollTransaction.swift */; };
@@ -72,6 +73,8 @@
 		35A841842E711EE60050192C /* ImageAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841832E711EE60050192C /* ImageAttachment.swift */; };
 		35A841862E711EF30050192C /* ImageViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841852E711EF30050192C /* ImageViewerView.swift */; };
 		35A841882E711EFF0050192C /* ImageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841872E711EFF0050192C /* ImageManager.swift */; };
+		35E48DE42EBD20930069D57C /* FileManager+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35E48DE32EBD20930069D57C /* FileManager+Extensions.swift */; };
+		35E48DEC2EBD440B0069D57C /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 35E48DEB2EBD440B0069D57C /* ZIPFoundation */; };
 		35F153AA2E66A6EA00927F88 /* CloudSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F153A92E66A6EA00927F88 /* CloudSyncManager.swift */; };
 		35F840692E56D56B00AA3EBD /* Media.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 35F840682E56D56B00AA3EBD /* Media.xcassets */; };
 /* End PBXBuildFile section */
@@ -93,6 +96,19 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		354423672EC00C63005CDC52 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				354423692EC00CDE005CDC52 /* LICENSE in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		352826D22E6B943A000A426E /* UI_AUTOMATED_TESTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = UI_AUTOMATED_TESTING.md; sourceTree = "<group>"; };
 		352826FF2E6D40A5000A426E /* CalculatorEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorEngine.swift; sourceTree = "<group>"; };
@@ -103,7 +119,6 @@
 		352AA3F52EA42A690022763D /* ImportExportManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportExportManager.swift; sourceTree = "<group>"; };
 		352AA3F82EA42CBC0022763D /* BackupRestoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupRestoreManager.swift; sourceTree = "<group>"; };
 		352AA3FD2EA48A360022763D /* PreferencesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesManager.swift; sourceTree = "<group>"; };
-		352AA4112EABD9960022763D /* preferences-textfields.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "preferences-textfields.txt"; sourceTree = "<group>"; };
 		352AA4132EAEDC700022763D /* TankLevelUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TankLevelUtilities.swift; sourceTree = "<group>"; };
 		3531FC242E497ECC000F2CD7 /* Rideshare Tracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Rideshare Tracker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3531FC312E497ECD000F2CD7 /* Rideshare TrackerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Rideshare TrackerTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -128,6 +143,7 @@
 		3538E6382E9021CC00D18302 /* ImageViewingUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViewingUtilities.swift; sourceTree = "<group>"; };
 		3538E64C2E918D9D00D18302 /* KeyboardInputUtility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardInputUtility.swift; sourceTree = "<group>"; };
 		35424BD22E77F190000E739E /* Testing.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Testing.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/Testing.framework; sourceTree = DEVELOPER_DIR; };
+		354423682EC00CD9005CDC52 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		355BB9042E62CB4C00028172 /* SyncLifecycleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncLifecycleManager.swift; sourceTree = "<group>"; };
 		355BB9072E62CB7400028172 /* IncrementalSyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncrementalSyncView.swift; sourceTree = "<group>"; };
 		357F17772E857B3800262CFA /* Debug Text & Visual Pauses.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Debug Text & Visual Pauses.xctestplan"; sourceTree = "<group>"; };
@@ -151,6 +167,7 @@
 		35A841832E711EE60050192C /* ImageAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageAttachment.swift; sourceTree = "<group>"; };
 		35A841852E711EF30050192C /* ImageViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViewerView.swift; sourceTree = "<group>"; };
 		35A841872E711EFF0050192C /* ImageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageManager.swift; sourceTree = "<group>"; };
+		35E48DE32EBD20930069D57C /* FileManager+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileManager+Extensions.swift"; sourceTree = "<group>"; };
 		35F153A92E66A6EA00927F88 /* CloudSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncManager.swift; sourceTree = "<group>"; };
 		35F840682E56D56B00AA3EBD /* Media.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Media.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -173,6 +190,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				35E48DEC2EBD440B0069D57C /* ZIPFoundation in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -196,7 +214,7 @@
 		3531FC1B2E497ECC000F2CD7 = {
 			isa = PBXGroup;
 			children = (
-				352AA4112EABD9960022763D /* preferences-textfields.txt */,
+				354423682EC00CD9005CDC52 /* LICENSE */,
 				357F17772E857B3800262CFA /* Debug Text & Visual Pauses.xctestplan */,
 				353424982E52935300B86346 /* CLAUDE.md */,
 				353424992E52935300B86346 /* README.md */,
@@ -251,6 +269,7 @@
 		3531FC572E498762000F2CD7 /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
+				35E48DE32EBD20930069D57C /* FileManager+Extensions.swift */,
 				357F17952E8A258B00262CFA /* DocumentFile.swift */,
 				357F17962E8A258B00262CFA /* TollSummaryImageGenerator.swift */,
 				3528271B2E6E1AA5000A426E /* CurrencyTextField.swift */,
@@ -343,6 +362,7 @@
 				3534250A2E5673EA00B86346 /* Increment Build Number */,
 				3531FC212E497ECC000F2CD7 /* Frameworks */,
 				3531FC222E497ECC000F2CD7 /* Resources */,
+				354423672EC00C63005CDC52 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -350,6 +370,7 @@
 			);
 			name = "Rideshare Tracker";
 			packageProductDependencies = (
+				35E48DEB2EBD440B0069D57C /* ZIPFoundation */,
 			);
 			productName = "Rideshare Tracker";
 			productReference = 3531FC242E497ECC000F2CD7 /* Rideshare Tracker.app */;
@@ -433,6 +454,9 @@
 			);
 			mainGroup = 3531FC1B2E497ECC000F2CD7;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				35E48DEA2EBD440B0069D57C /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3531FC252E497ECC000F2CD7 /* Products */;
 			projectDirPath = "";
@@ -539,6 +563,7 @@
 				35A841842E711EE60050192C /* ImageAttachment.swift in Sources */,
 				3531FC612E49887F000F2CD7 /* ShiftRowView.swift in Sources */,
 				3531FC632E498890000F2CD7 /* StartShiftView.swift in Sources */,
+				35E48DE42EBD20930069D57C /* FileManager+Extensions.swift in Sources */,
 				3538E63A2E9021CC00D18302 /* DebugUtilities.swift in Sources */,
 				3538E63B2E9021CC00D18302 /* ImageViewingUtilities.swift in Sources */,
 				352AA3F62EA42A690022763D /* ImportExportManager.swift in Sources */,
@@ -908,6 +933,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		35E48DEA2EBD440B0069D57C /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/weichsel/ZIPFoundation.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.20;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		35E48DEB2EBD440B0069D57C /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 35E48DEA2EBD440B0069D57C /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ZIPFoundation;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 3531FC1C2E497ECC000F2CD7 /* Project object */;
 }

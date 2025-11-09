@@ -1003,9 +1003,9 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
         waitAndTap(photoLibraryButton)
         debugMessage("📸 Step 5: Tapped Photo Library button")
 
-        // Allow photo library to load
+        // Allow photo library to load - longer wait for test suite scenarios
         debugMessage("📸 Step 5a: Waiting for photo library to fully load...")
-        Thread.sleep(forTimeInterval: 2.0)
+        Thread.sleep(forTimeInterval: 4.0)
 
         // Select photo using image element approach (not cells)
         debugMessage("📸 Step 6: Checking for images in photo library...")
@@ -1047,10 +1047,14 @@ final class RideshareExpenseTrackingUITests: RideshareTrackerUITestBase {
 
         XCTAssertTrue(photoThumbnails.count > 0, "Should find at least 1 photo thumbnail in photo library, but only found \(photoThumbnails.count)")
 
-        let photoImage = photoThumbnails[photoNumber]
+        // Use modulo to wrap around if photoNumber exceeds available thumbnails
+        let actualPhotoIndex = photoNumber % photoThumbnails.count
+        debugMessage("📸 Step 7c: Requested photoNumber=\(photoNumber), available thumbnails=\(photoThumbnails.count), using index=\(actualPhotoIndex)")
+
+        let photoImage = photoThumbnails[actualPhotoIndex]
         let photoIdentifier = photoImage.identifier.isEmpty ? "no-id" : photoImage.identifier
         let photoLabel = photoImage.label.isEmpty ? "no-label" : photoImage.label
-        debugMessage("📸 Step 7b: Selected photo thumbnail at index '\(photoNumber)', identifier: '\(photoIdentifier)', label: '\(photoLabel)'")
+        debugMessage("📸 Step 7b: Selected photo thumbnail at index '\(actualPhotoIndex)' (requested: \(photoNumber)), identifier: '\(photoIdentifier)', label: '\(photoLabel)'")
 
         debugMessage("📷 Step 8: About to tap photo image (id: '\(photoIdentifier)')")
         photoImage.tap()

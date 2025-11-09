@@ -54,16 +54,16 @@ class ImageManager: ObservableObject {
     }
     
     // MARK: - Directory Management
-    
+
     private var documentsDirectory: URL {
         fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
     }
-    
-    private var imagesDirectory: URL {
+
+    var imagesDirectory: URL {
         documentsDirectory.appendingPathComponent("Images")
     }
-    
-    private var thumbnailsDirectory: URL {
+
+    var thumbnailsDirectory: URL {
         documentsDirectory.appendingPathComponent("Thumbnails")
     }
     
