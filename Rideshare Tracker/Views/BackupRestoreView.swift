@@ -62,9 +62,15 @@ struct BackupView: View {
     @State private var backupURL: URL?
     @State private var showingBackupAlert = false
     @State private var backupMessage = ""
-    
+    @State private var includeImages = true
+
     var totalShifts: Int { shiftManager.activeShifts.count }
     var totalExpenses: Int { expenseManager.activeExpenses.count }
+    var totalImages: Int {
+        let shiftImages = shiftManager.shifts.reduce(0) { $0 + $1.imageAttachments.count }
+        let expenseImages = expenseManager.expenses.reduce(0) { $0 + $1.imageAttachments.count }
+        return shiftImages + expenseImages
+    }
     
     var body: some View {
         VStack(spacing: 20) {
@@ -78,32 +84,51 @@ struct BackupView: View {
                     .font(.title2)
                     .fontWeight(.semibold)
                 
-                Text("Create a complete backup of all your data including shifts, expenses, and preferences in JSON format.")
+                Text("Create a complete backup of all your data including shifts, expenses, and preferences.")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
-            
+
             // Data Summary
             VStack(spacing: 12) {
                 Text("Data to Backup")
                     .font(.headline)
-                
-                HStack(spacing: 20) {
+
+                HStack(spacing: 12) {
                     DataSummaryCard(
                         icon: "car.fill",
                         title: "Shifts",
                         count: totalShifts,
                         color: .blue
                     )
-                    
+
                     DataSummaryCard(
                         icon: "receipt.fill",
                         title: "Expenses",
                         count: totalExpenses,
                         color: .green
                     )
+
+                    DataSummaryCard(
+                        icon: "photo.fill",
+                        title: "Images",
+                        count: totalImages,
+                        color: .purple
+                    )
+                }
+
+                // Include Images Toggle
+                Toggle("Include Image Attachments", isOn: $includeImages)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                if !includeImages {
+                    Text("⚠️ Image attachments will not be included in the backup")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .padding(.horizontal)
                 }
             }
             .padding()
@@ -122,11 +147,16 @@ struct BackupView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Label("Backup Details", systemImage: "info.circle")
                     .font(.headline)
-                
+
                 Text("• All shift data with complete history")
                 Text("• All business expense records")
                 Text("• User preferences and settings")
-                Text("• JSON format for data integrity")
+                if includeImages {
+                    Text("• Image attachments (full-size + thumbnails)")
+                    Text("• ZIP archive format with organized structure")
+                } else {
+                    Text("• JSON format (legacy, no images)")
+                }
                 Text("• Compatible with future app versions")
             }
             .font(.caption)
@@ -141,8 +171,8 @@ struct BackupView: View {
         .fileExporter(
             isPresented: $showingShareSheet,
             document: backupURL.map { DocumentFile(url: $0) },
-            contentType: .json,
-            defaultFilename: backupURL?.lastPathComponent ?? "backup.json"
+            contentType: includeImages ? .zip : .json,
+            defaultFilename: backupURL?.lastPathComponent ?? (includeImages ? "backup.zip" : "backup.json")
         ) { result in
             switch result {
             case .success(let url):
@@ -161,9 +191,13 @@ struct BackupView: View {
     }
     
     private func createBackup() {
-        // Always include all data for full backup
         do {
-            let url = try backupRestoreManager.createFullBackup(shifts: shiftManager.shifts, expenses: expenseManager.expenses, preferences: preferences)
+            let url = try backupRestoreManager.createFullBackup(
+                shifts: shiftManager.shifts,
+                expenses: expenseManager.expenses,
+                preferences: preferences,
+                includeImages: includeImages
+            )
             self.backupURL = url
             showingShareSheet = true
         } catch {
@@ -188,6 +222,7 @@ struct RestoreView: View {
     @State private var showingConfirmation = false
     @State private var pendingBackupData: BackupData?
     @State private var selectedRestoreAction: RestoreAction = .merge
+    @State private var backupContainsImages = false
     
     var body: some View {
         VStack(spacing: 20) {
@@ -201,7 +236,7 @@ struct RestoreView: View {
                     .font(.title2)
                     .fontWeight(.semibold)
 
-                Text("Restore your data from a JSON backup file with flexible duplicate handling.")
+                Text("Restore your data from a backup file (ZIP or legacy JSON) with flexible duplicate handling.")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -270,7 +305,7 @@ struct RestoreView: View {
         }
         .fileImporter(
             isPresented: $showingFilePicker,
-            allowedContentTypes: [UTType.json],
+            allowedContentTypes: [UTType.json, UTType.zip],
             allowsMultipleSelection: false
         ) { result in
             handleRestore(result)
@@ -290,7 +325,16 @@ struct RestoreView: View {
         } message: {
             if let backup = pendingBackupData {
                 let actionDesc = selectedRestoreAction.description
-                Text("\(actionDesc)\n\nBackup contains:\n• \(backup.shifts.count) shifts\n• \(backup.expenses?.count ?? 0) expenses\n\nPreferences will be restored.")
+                var message = "\(actionDesc)\n\nBackup contains:\n• \(backup.shifts.count) shifts\n• \(backup.expenses?.count ?? 0) expenses"
+                if backupContainsImages {
+                    message += "\n• Image attachments"
+                } else {
+                    message += "\n\n⚠️ No images (legacy backup)"
+                }
+                message += "\n\nPreferences will be restored."
+                return Text(message)
+            } else {
+                return Text("No backup data available")
             }
         }
     }
@@ -301,6 +345,9 @@ struct RestoreView: View {
             guard let url = urls.first else { return }
 
             do {
+                // Detect if backup contains images (ZIP format)
+                backupContainsImages = url.pathExtension.lowercased() == "zip"
+
                 let backupData = try backupRestoreManager.loadBackup(from: url)
                 pendingBackupData = backupData
                 showingConfirmation = true
