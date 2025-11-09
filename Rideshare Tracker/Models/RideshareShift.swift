@@ -53,6 +53,12 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     // Photo attachments (Phase 2)
     var imageAttachments: [ImageAttachment] = []
 
+    // Uber statement import metadata (Phase 3C)
+    var uberTipTransactions: [UberTipTransaction] = []
+    var uberTollTransactions: [UberTollReimbursementTransaction] = []
+    var uberImportDate: Date?  // Last import timestamp
+    var uberStatementPeriod: String?  // "Oct 13, 2025 - Oct 20, 2025"
+
     // Gas price management
 
     mutating func updateGasPrice() {
@@ -315,6 +321,12 @@ extension RideshareShift {
 
         // Decode image attachments with backward compatibility
         imageAttachments = try container.decodeIfPresent([ImageAttachment].self, forKey: .imageAttachments) ?? []
+
+        // Decode Uber import metadata with backward compatibility (Phase 3C)
+        uberTipTransactions = try container.decodeIfPresent([UberTipTransaction].self, forKey: .uberTipTransactions) ?? []
+        uberTollTransactions = try container.decodeIfPresent([UberTollReimbursementTransaction].self, forKey: .uberTollTransactions) ?? []
+        uberImportDate = try container.decodeIfPresent(Date.self, forKey: .uberImportDate)
+        uberStatementPeriod = try container.decodeIfPresent(String.self, forKey: .uberStatementPeriod)
     }
     
     private enum CodingKeys: String, CodingKey {
@@ -323,5 +335,6 @@ extension RideshareShift {
         case endDate, endMileage, endTankReading, didRefuelAtEnd, refuelGallons, refuelCost
         case trips, netFare, tips, promotions, tolls, tollsReimbursed, parkingFees, miscFees
         case gasPrice, standardMileageRate, imageAttachments
+        case uberTipTransactions, uberTollTransactions, uberImportDate, uberStatementPeriod
     }
 }

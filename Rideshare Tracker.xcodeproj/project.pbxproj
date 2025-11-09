@@ -41,6 +41,14 @@
 		3538E6472E9067EC00D18302 /* ImageViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841852E711EF30050192C /* ImageViewerView.swift */; };
 		3538E64D2E918D9D00D18302 /* KeyboardInputUtility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3538E64C2E918D9D00D18302 /* KeyboardInputUtility.swift */; };
 		354423692EC00CDE005CDC52 /* LICENSE in CopyFiles */ = {isa = PBXBuildFile; fileRef = 354423682EC00CD9005CDC52 /* LICENSE */; };
+		3544236C2EC05927005CDC52 /* UberTipTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3544236A2EC05927005CDC52 /* UberTipTransaction.swift */; };
+		3544236D2EC05927005CDC52 /* UberTollReimbursementTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3544236B2EC05927005CDC52 /* UberTollReimbursementTransaction.swift */; };
+		3544236E2EC05927005CDC52 /* UberTipTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3544236A2EC05927005CDC52 /* UberTipTransaction.swift */; };
+		3544236F2EC05927005CDC52 /* UberTollReimbursementTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3544236B2EC05927005CDC52 /* UberTollReimbursementTransaction.swift */; };
+		354423732EC05AEB005CDC52 /* UberPDFParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423722EC05AEB005CDC52 /* UberPDFParser.swift */; };
+		354423742EC05AEB005CDC52 /* UberPDFParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423722EC05AEB005CDC52 /* UberPDFParser.swift */; };
+		354423762EC05C89005CDC52 /* UberSummaryImageGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423752EC05C89005CDC52 /* UberSummaryImageGenerator.swift */; };
+		354423772EC05C89005CDC52 /* UberSummaryImageGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423752EC05C89005CDC52 /* UberSummaryImageGenerator.swift */; };
 		355BB9052E62CB4C00028172 /* SyncLifecycleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 355BB9042E62CB4C00028172 /* SyncLifecycleManager.swift */; };
 		355BB9082E62CB7400028172 /* IncrementalSyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 355BB9072E62CB7400028172 /* IncrementalSyncView.swift */; };
 		357F178E2E8A1CC800262CFA /* TollTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357F178D2E8A1CC800262CFA /* TollTransaction.swift */; };
@@ -144,6 +152,10 @@
 		3538E64C2E918D9D00D18302 /* KeyboardInputUtility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardInputUtility.swift; sourceTree = "<group>"; };
 		35424BD22E77F190000E739E /* Testing.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Testing.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/Testing.framework; sourceTree = DEVELOPER_DIR; };
 		354423682EC00CD9005CDC52 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		3544236A2EC05927005CDC52 /* UberTipTransaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberTipTransaction.swift; sourceTree = "<group>"; };
+		3544236B2EC05927005CDC52 /* UberTollReimbursementTransaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberTollReimbursementTransaction.swift; sourceTree = "<group>"; };
+		354423722EC05AEB005CDC52 /* UberPDFParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberPDFParser.swift; sourceTree = "<group>"; };
+		354423752EC05C89005CDC52 /* UberSummaryImageGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberSummaryImageGenerator.swift; sourceTree = "<group>"; };
 		355BB9042E62CB4C00028172 /* SyncLifecycleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncLifecycleManager.swift; sourceTree = "<group>"; };
 		355BB9072E62CB7400028172 /* IncrementalSyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncrementalSyncView.swift; sourceTree = "<group>"; };
 		357F17772E857B3800262CFA /* Debug Text & Visual Pauses.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Debug Text & Visual Pauses.xctestplan"; sourceTree = "<group>"; };
@@ -257,6 +269,8 @@
 		3531FC562E49872D000F2CD7 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				3544236A2EC05927005CDC52 /* UberTipTransaction.swift */,
+				3544236B2EC05927005CDC52 /* UberTollReimbursementTransaction.swift */,
 				357F178D2E8A1CC800262CFA /* TollTransaction.swift */,
 				35A841832E711EE60050192C /* ImageAttachment.swift */,
 				3597BA5F2E5A2E8B003DA956 /* ExpenseItem.swift */,
@@ -269,6 +283,7 @@
 		3531FC572E498762000F2CD7 /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
+				354423752EC05C89005CDC52 /* UberSummaryImageGenerator.swift */,
 				35E48DE32EBD20930069D57C /* FileManager+Extensions.swift */,
 				357F17952E8A258B00262CFA /* DocumentFile.swift */,
 				357F17962E8A258B00262CFA /* TollSummaryImageGenerator.swift */,
@@ -284,6 +299,7 @@
 		3531FC582E498770000F2CD7 /* Managers */ = {
 			isa = PBXGroup;
 			children = (
+				354423722EC05AEB005CDC52 /* UberPDFParser.swift */,
 				352AA3FD2EA48A360022763D /* PreferencesManager.swift */,
 				352AA3F82EA42CBC0022763D /* BackupRestoreManager.swift */,
 				352AA3F52EA42A690022763D /* ImportExportManager.swift */,
@@ -526,6 +542,7 @@
 				35A841882E711EFF0050192C /* ImageManager.swift in Sources */,
 				3597BA662E5A2E95003DA956 /* AddExpenseView.swift in Sources */,
 				3597BA672E5A2E95003DA956 /* EditExpenseView.swift in Sources */,
+				354423772EC05C89005CDC52 /* UberSummaryImageGenerator.swift in Sources */,
 				3597BA682E5A2E95003DA956 /* MainTabView.swift in Sources */,
 				355BB9082E62CB7400028172 /* IncrementalSyncView.swift in Sources */,
 				352827002E6D40A5000A426E /* CalculatorEngine.swift in Sources */,
@@ -547,10 +564,13 @@
 				35F153AA2E66A6EA00927F88 /* CloudSyncManager.swift in Sources */,
 				352827022E6D4170000A426E /* CalculatorTextField.swift in Sources */,
 				3528271C2E6E1AA5000A426E /* CurrencyTextField.swift in Sources */,
+				3544236C2EC05927005CDC52 /* UberTipTransaction.swift in Sources */,
+				3544236D2EC05927005CDC52 /* UberTollReimbursementTransaction.swift in Sources */,
 				352AA4142EAEDC700022763D /* TankLevelUtilities.swift in Sources */,
 				3597BA712E5D4BE6003DA956 /* BackupRestoreView.swift in Sources */,
 				3597BA722E5D4BE6003DA956 /* ImportExportView.swift in Sources */,
 				3531FC5D2E498840000F2CD7 /* AppPreferences.swift in Sources */,
+				354423742EC05AEB005CDC52 /* UberPDFParser.swift in Sources */,
 				352AA3F42EA3FB320022763D /* ErrorHandlingUtilities.swift in Sources */,
 				3597BA6A2E5A2E9F003DA956 /* ExpenseDataManager.swift in Sources */,
 				3597BA602E5A2E8B003DA956 /* ExpenseItem.swift in Sources */,
@@ -576,7 +596,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				357F17992E8A258B00262CFA /* TollSummaryImageGenerator.swift in Sources */,
+				354423732EC05AEB005CDC52 /* UberPDFParser.swift in Sources */,
 				357F179A2E8A258B00262CFA /* DocumentFile.swift in Sources */,
+				3544236E2EC05927005CDC52 /* UberTipTransaction.swift in Sources */,
+				354423762EC05C89005CDC52 /* UberSummaryImageGenerator.swift in Sources */,
+				3544236F2EC05927005CDC52 /* UberTollReimbursementTransaction.swift in Sources */,
 				357F179E2E8A269900262CFA /* CloudSyncManager.swift in Sources */,
 				3538E63C2E9021D600D18302 /* DebugUtilities.swift in Sources */,
 				357F179D2E8A269300262CFA /* ImageManager.swift in Sources */,

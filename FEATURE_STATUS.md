@@ -1,8 +1,8 @@
 # Rideshare Tracker - Comprehensive Feature Status
 
 **Document Purpose**: Definitive reference for current system capabilities and implementation status.
-**Last Updated**: November 2, 2025
-**Context**: Phase 3 photo metadata implementation COMPLETE - all shift and expense views fully implemented with tests passing.
+**Last Updated**: November 8, 2025
+**Context**: Phase 3D image backup/restore COMPLETE - ZIP archives with selective image restoration fully implemented and tested.
 
 ## System Overview
 
@@ -55,6 +55,14 @@ Rideshare Tracker is a SwiftUI iOS Universal application (iPhone, iPad, Mac) wit
   - ✅ ExpenseListView: Read-only metadata display from expense list (tests passing)
   - ✅ **All Tests Passing**: Both shift and expense photo metadata workflows fully tested and verified
 
+**💾 Backup/Restore System** (`BackupRestoreView.swift`, `BackupRestoreManager.swift`)
+- ZIP archive backups with complete data and image support
+- Selective image inclusion (choose to include/exclude images from backup)
+- Three restore strategies: Replace All, Restore Missing, Merge & Restore
+- Selective image restoration based on restore action chosen
+- Backward compatible with legacy JSON backups
+- Comprehensive unit tests (14 tests covering all scenarios)
+
 **📤 Import/Export System** (`ImportExportView.swift`)
 - Comprehensive CSV import/export for shifts, expenses, and tolls
 - 32-column CSV format with calculated fields and tax-ready data
@@ -79,25 +87,27 @@ Rideshare Tracker is a SwiftUI iOS Universal application (iPhone, iPad, Mac) wit
 
 ### ✅ TESTING INFRASTRUCTURE
 
-#### **Unit Tests**: 95 tests across 7 organized files
+#### **Unit Tests**: 100 tests across 8 organized files
 - **ExpenseManagementTests**: 20 tests (image management, CSV export, data operations)
 - **CloudSyncTests**: 19 tests (iCloud sync, conflict resolution, metadata)
 - **RideshareShiftModelTests**: 15 tests (business logic, profit calculations)
 - **TollImportTests**: 14 tests (CSV parsing, Excel formulas, shift matching)
+- **BackupRestoreTests**: 9 tests (restore actions, duplicate handling, preferences)
+- **BackupRestoreImageTests**: 5 tests (ZIP creation, image restoration, legacy support)
 - **MathCalculatorTests**: 8 tests (expression evaluation, rideshare scenarios)
 - **DateRangeCalculationTests**: 15 tests (week/month filtering, boundaries)
 - **CSVImportExportTests**: 4 tests (CSV import/export, tank conversions)
 
-**Execution Time**: ~28 seconds total
+**Execution Time**: ~30 seconds total
 
-#### **UI Tests**: 32 tests across 6 files
+#### **UI Tests**: 35 tests across 6 files
 - **RideshareShiftTrackingUITests**: Complete shift workflows with photo attachments
 - **RideshareExpenseTrackingUITests**: Expense management with photo workflows
 - **RideshareTrackerToolsUITests**: Settings, sync, backup/restore, utility features
 - **RideshareTrackerUILaunchTests**: App launch and initialization
 
-**Execution Time**: ~5 minutes parallel, ~10+ minutes serial
-**Status**: All tests passing, including previously problematic photo picker tests
+**Execution Time**: ~37 minutes serial (iPhone 14 Pro iOS 18.6 baseline)
+**Status**: All tests passing on iPhone 14 Pro iOS 18.6 (established stable baseline)
 
 ### 🔧 MINOR OPTIMIZATION OPPORTUNITIES
 
@@ -110,25 +120,27 @@ Rideshare Tracker is a SwiftUI iOS Universal application (iPhone, iPad, Mac) wit
 ## Technical Architecture
 
 ### **Data Layer**
-- **Models**: RideshareShift, ExpenseItem with sync metadata
-- **Managers**: ShiftDataManager, ExpenseDataManager, CloudSyncManager (singletons)
+- **Models**: RideshareShift, ExpenseItem, ImageAttachment, TollTransaction, AppPreferences with sync metadata
+- **Managers**: ShiftDataManager, ExpenseDataManager, BackupRestoreManager, ImportExportManager, ImageManager, CloudSyncManager (all singletons)
 - **Persistence**: Dual-layer (UserDefaults + iCloud Documents)
+- **Backup/Restore**: ZIP archives with ZIPFoundation, selective image copying
 - **Image Management**: ImageManager singleton with compression and lifecycle management
 
 ### **Advanced Integrations**
 - **Calculator Engine**: `CalculatorEngine.swift` with math expression evaluation
 - **Toll Processing**: Excel formula parsing, time window matching, image generation
+- **ZIP Operations**: `FileManager+Extensions.swift` with ZIPFoundation for backup/restore
 - **Photo Workflows**: Complete integration from capture to storage to viewing
 - **Sync Infrastructure**: Production-grade iCloud integration with conflict resolution
 
 ### **File Structure Overview**
 ```
 Rideshare Tracker/
-├── Models/ (4 files: core data models with sync metadata)
+├── Models/ (5 files: core data models with sync metadata)
 ├── Views/ (18 files: comprehensive UI including advanced features)
-├── Managers/ (5 files: data persistence and cloud sync)
-├── Extensions/ (6 files: utilities, formatters, calculator engine)
-├── Tests/ (13 files: 95 unit tests + 32 UI tests)
+├── Managers/ (7 files: data persistence, cloud sync, backup/restore)
+├── Extensions/ (8 files: utilities, formatters, calculator, ZIP operations)
+├── Tests/ (15 files: 100 unit tests + 35 UI tests)
 ```
 
 ## Key Advanced Features Discovery
@@ -187,10 +199,11 @@ All documentation has been updated to reflect actual system capabilities rather 
 ## For Next Development Session
 
 ### **Quick Reference**
-- **95 unit tests + 32 UI tests**: All passing with optimized execution
-- **Advanced features**: Toll import, calculator, photo attachments all fully implemented
-- **Test infrastructure**: Parallel execution optimized, photo picker issues resolved
-- **Documentation**: Comprehensive and current as of September 2025
+- **100 unit tests + 35 UI tests**: All passing on iPhone 14 Pro iOS 18.6
+- **Phase 3D Complete**: ZIP backup/restore with images fully implemented
+- **Advanced features**: Toll import, calculator, photo attachments, backup/restore all fully implemented
+- **Test infrastructure**: Stable baseline on iPhone 14 Pro iOS 18.6
+- **Documentation**: Comprehensive and current as of November 8, 2025
 
 ### **System Ready For**
 - Feature enhancements based on user feedback
