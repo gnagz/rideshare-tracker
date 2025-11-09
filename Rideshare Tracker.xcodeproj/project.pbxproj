@@ -49,6 +49,10 @@
 		354423742EC05AEB005CDC52 /* UberPDFParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423722EC05AEB005CDC52 /* UberPDFParser.swift */; };
 		354423762EC05C89005CDC52 /* UberSummaryImageGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423752EC05C89005CDC52 /* UberSummaryImageGenerator.swift */; };
 		354423772EC05C89005CDC52 /* UberSummaryImageGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423752EC05C89005CDC52 /* UberSummaryImageGenerator.swift */; };
+		3544237B2EC06417005CDC52 /* UberShiftMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3544237A2EC06417005CDC52 /* UberShiftMatcher.swift */; };
+		3544237C2EC06417005CDC52 /* UberShiftMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3544237A2EC06417005CDC52 /* UberShiftMatcher.swift */; };
+		354423822EC06745005CDC52 /* MissingShiftsCSVGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423812EC06745005CDC52 /* MissingShiftsCSVGenerator.swift */; };
+		354423832EC06745005CDC52 /* MissingShiftsCSVGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354423812EC06745005CDC52 /* MissingShiftsCSVGenerator.swift */; };
 		355BB9052E62CB4C00028172 /* SyncLifecycleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 355BB9042E62CB4C00028172 /* SyncLifecycleManager.swift */; };
 		355BB9082E62CB7400028172 /* IncrementalSyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 355BB9072E62CB7400028172 /* IncrementalSyncView.swift */; };
 		357F178E2E8A1CC800262CFA /* TollTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357F178D2E8A1CC800262CFA /* TollTransaction.swift */; };
@@ -156,6 +160,8 @@
 		3544236B2EC05927005CDC52 /* UberTollReimbursementTransaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberTollReimbursementTransaction.swift; sourceTree = "<group>"; };
 		354423722EC05AEB005CDC52 /* UberPDFParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberPDFParser.swift; sourceTree = "<group>"; };
 		354423752EC05C89005CDC52 /* UberSummaryImageGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberSummaryImageGenerator.swift; sourceTree = "<group>"; };
+		3544237A2EC06417005CDC52 /* UberShiftMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberShiftMatcher.swift; sourceTree = "<group>"; };
+		354423812EC06745005CDC52 /* MissingShiftsCSVGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissingShiftsCSVGenerator.swift; sourceTree = "<group>"; };
 		355BB9042E62CB4C00028172 /* SyncLifecycleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncLifecycleManager.swift; sourceTree = "<group>"; };
 		355BB9072E62CB7400028172 /* IncrementalSyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncrementalSyncView.swift; sourceTree = "<group>"; };
 		357F17772E857B3800262CFA /* Debug Text & Visual Pauses.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Debug Text & Visual Pauses.xctestplan"; sourceTree = "<group>"; };
@@ -299,6 +305,8 @@
 		3531FC582E498770000F2CD7 /* Managers */ = {
 			isa = PBXGroup;
 			children = (
+				354423812EC06745005CDC52 /* MissingShiftsCSVGenerator.swift */,
+				3544237A2EC06417005CDC52 /* UberShiftMatcher.swift */,
 				354423722EC05AEB005CDC52 /* UberPDFParser.swift */,
 				352AA3FD2EA48A360022763D /* PreferencesManager.swift */,
 				352AA3F82EA42CBC0022763D /* BackupRestoreManager.swift */,
@@ -558,6 +566,7 @@
 				3531FC532E498727000F2CD7 /* ContentView.swift in Sources */,
 				355BB9052E62CB4C00028172 /* SyncLifecycleManager.swift in Sources */,
 				3531FC542E498727000F2CD7 /* Rideshare_TrackerApp.swift in Sources */,
+				354423832EC06745005CDC52 /* MissingShiftsCSVGenerator.swift in Sources */,
 				3531FC5F2E498854000F2CD7 /* ShiftDataManager.swift in Sources */,
 				3597BA6F2E5D4BE6003DA956 /* MainMenuView.swift in Sources */,
 				3597BA702E5D4BE6003DA956 /* AppInfoView.swift in Sources */,
@@ -582,6 +591,7 @@
 				352AA3FE2EA48A360022763D /* PreferencesManager.swift in Sources */,
 				35A841842E711EE60050192C /* ImageAttachment.swift in Sources */,
 				3531FC612E49887F000F2CD7 /* ShiftRowView.swift in Sources */,
+				3544237C2EC06417005CDC52 /* UberShiftMatcher.swift in Sources */,
 				3531FC632E498890000F2CD7 /* StartShiftView.swift in Sources */,
 				35E48DE42EBD20930069D57C /* FileManager+Extensions.swift in Sources */,
 				3538E63A2E9021CC00D18302 /* DebugUtilities.swift in Sources */,
@@ -607,12 +617,14 @@
 				352AA4152EAEDDE50022763D /* TankLevelUtilities.swift in Sources */,
 				3538E6472E9067EC00D18302 /* ImageViewerView.swift in Sources */,
 				357F179C2E8A268200262CFA /* AppPreferences.swift in Sources */,
+				3544237B2EC06417005CDC52 /* UberShiftMatcher.swift in Sources */,
 				357F179F2E8A26A100262CFA /* SyncLifecycleManager.swift in Sources */,
 				357F178F2E8A1CC800262CFA /* TollTransaction.swift in Sources */,
 				352AA3F92EA42CBC0022763D /* BackupRestoreManager.swift in Sources */,
 				352AA3F72EA42A690022763D /* ImportExportManager.swift in Sources */,
 				357F17A12E8A26AC00262CFA /* ShiftDataManager.swift in Sources */,
 				357F17912E8A1FEF00262CFA /* ExpenseItem.swift in Sources */,
+				354423822EC06745005CDC52 /* MissingShiftsCSVGenerator.swift in Sources */,
 				357F17942E8A257F00262CFA /* CalculatorStateManager.swift in Sources */,
 				352AA3FF2EA48A360022763D /* PreferencesManager.swift in Sources */,
 				357F179B2E8A267500262CFA /* ImageAttachment.swift in Sources */,
