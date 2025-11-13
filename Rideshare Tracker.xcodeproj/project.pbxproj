@@ -183,6 +183,9 @@
 		3597BA6C2E5D4BE6003DA956 /* BackupRestoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupRestoreView.swift; sourceTree = "<group>"; };
 		3597BA6D2E5D4BE6003DA956 /* ImportExportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportExportView.swift; sourceTree = "<group>"; };
 		3597BA6E2E5D4BE6003DA956 /* MainMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuView.swift; sourceTree = "<group>"; };
+		3598F5A52EC5DF23000B983F /* parse_uber_statements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = parse_uber_statements.swift; sourceTree = "<group>"; };
+		3598F5A62EC5DF23000B983F /* PARSE_UBER_STATEMENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PARSE_UBER_STATEMENTS.md; sourceTree = "<group>"; };
+		3598F5A72EC5E20F000B983F /* extract_transaction_coordinates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = extract_transaction_coordinates.swift; sourceTree = "<group>"; };
 		35A25DC02EA0DDE80036A2F0 /* xcodetest.command */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = xcodetest.command; sourceTree = "<group>"; };
 		35A25DC12EA0DDFE0036A2F0 /* XCODETEST.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = XCODETEST.md; sourceTree = "<group>"; };
 		35A841832E711EE60050192C /* ImageAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageAttachment.swift; sourceTree = "<group>"; };
@@ -422,6 +425,9 @@
 		35A25DBF2EA0DCB30036A2F0 /* scripts */ = {
 			isa = PBXGroup;
 			children = (
+				3598F5A72EC5E20F000B983F /* extract_transaction_coordinates.swift */,
+				3598F5A52EC5DF23000B983F /* parse_uber_statements.swift */,
+				3598F5A62EC5DF23000B983F /* PARSE_UBER_STATEMENTS.md */,
 				35A25DC12EA0DDFE0036A2F0 /* XCODETEST.md */,
 				35A25DC02EA0DDE80036A2F0 /* xcodetest.command */,
 			);

@@ -919,6 +919,14 @@ final class UberStatementManager {
     ///   - elements: Array of (text, x, y) tuples representing PDF elements
     ///   - layout: Column layout (5 or 6 column)
     /// - Returns: Parsed transaction or nil
+    // MARK: ⚠️ SYNC POINT START ⚠️
+    // This method contains core parsing logic that is DUPLICATED in test_all_uber_statements.swift
+    // If you modify the parsing logic below, you MUST update the standalone script as well!
+    // See: test_all_uber_statements.swift -> parseTransaction() method
+    // Critical sections:
+    //   - Line detection logic (firstLine, secondLine tracking)
+    //   - Standalone amount pattern: ^([-+]?\$\d+\.\d+\s*)+$
+    //   - Line-based amount handling (different rules for line 1, 2, 3+)
     internal func parseTransactionFromElements(_ elements: [(text: String, x: CGFloat, y: CGFloat)], layout: ColumnLayout) -> UberTransaction? {
         guard !elements.isEmpty else { return nil }
 
@@ -1074,6 +1082,7 @@ final class UberStatementManager {
             tollReimbursement: tollReimbursement
         )
     }
+    // MARK: ⚠️ SYNC POINT END ⚠️
 
     /// Parse event date/time from combined string (e.g., "Aug 24 4:45 PM")
     /// - Parameters:

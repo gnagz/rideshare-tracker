@@ -96,7 +96,6 @@ fastlane/test_output
 # Debug and temporary files
 test_output.log
 debug_*.swift
-extract_transaction_coordinates.swift
 
 # Code Injection (if using injection tools)
 iOSInjectionProject/
