@@ -143,7 +143,7 @@ struct UberImportView: View {
                 let pdfText = extractText(from: pdfDocument)
 
                 // Parse statement period
-                let parser = UberPDFParser()
+                let parser = UberStatementManager.shared
                 guard let statementInfo = try parser.parseStatementPeriod(from: pdfText) else {
                     throw UberImportError.statementPeriodNotFound
                 }
@@ -221,7 +221,7 @@ struct UberImportView: View {
         // Group matches by shift
         var shiftUpdates: [UUID: (shift: RideshareShift, tips: [UberTipTransaction], tolls: [UberTollReimbursementTransaction])] = [:]
 
-        let parser = UberPDFParser()
+        let parser = UberStatementManager.shared
 
         for match in matches {
             let category = parser.categorize(transaction: match.transaction)

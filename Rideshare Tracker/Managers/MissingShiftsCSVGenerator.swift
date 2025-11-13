@@ -12,7 +12,7 @@ import Foundation
 class MissingShiftsCSVGenerator {
 
     private let calendar = Calendar.current
-    private let parser = UberPDFParser()
+    private let parser = UberStatementManager.shared
 
     // MARK: - Public Methods
 
