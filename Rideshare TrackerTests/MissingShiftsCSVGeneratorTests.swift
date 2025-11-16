@@ -30,10 +30,10 @@ final class MissingShiftsCSVGeneratorTests: RideshareTrackerTestBase {
     func testGroupTransactionsByShiftDate() throws {
         // Given: Transactions spanning multiple 4 AM windows
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventType: "UberX", amount: 20.0, tollReimbursement: nil),  // Oct 19 8 PM
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 2)!, eventType: "UberX", amount: 15.0, tollReimbursement: nil),   // Oct 20 2 AM (still Oct 19's window)
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 18)!, eventType: "UberX", amount: 25.0, tollReimbursement: nil),  // Oct 20 6 PM
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 21, hour: 1)!, eventType: "UberX", amount: 18.0, tollReimbursement: nil)    // Oct 21 1 AM (still Oct 20's window)
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),  // Oct 19 8 PM
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 2)!, eventDate: nil, eventType: "UberX", amount: 15.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),   // Oct 20 2 AM (still Oct 19's window)
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 18)!, eventDate: nil, eventType: "UberX", amount: 25.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),  // Oct 20 6 PM
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 21, hour: 1)!, eventDate: nil, eventType: "UberX", amount: 18.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())    // Oct 21 1 AM (still Oct 20's window)
         ]
 
         // When: Group by shift date
@@ -58,8 +58,8 @@ final class MissingShiftsCSVGeneratorTests: RideshareTrackerTestBase {
     func testGroupTransactionsBoundaryAt4AM() throws {
         // Given: Transactions around 4 AM boundary
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 3, minute: 59)!, eventType: "UberX", amount: 20.0, tollReimbursement: nil),  // 3:59 AM (Oct 19's window)
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 4, minute: 0)!, eventType: "UberX", amount: 15.0, tollReimbursement: nil)    // 4:00 AM (Oct 20's window)
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 3, minute: 59)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),  // 3:59 AM (Oct 19's window)
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 4, minute: 0)!, eventDate: nil, eventType: "UberX", amount: 15.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())    // 4:00 AM (Oct 20's window)
         ]
 
         // When: Group by shift date
@@ -74,9 +74,9 @@ final class MissingShiftsCSVGeneratorTests: RideshareTrackerTestBase {
     func testUseEarliestTransactionAsStartTime() throws {
         // Given: Transactions between 6 PM and 2 AM
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventType: "UberX", amount: 20.0, tollReimbursement: nil),   // 8 PM
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 18)!, eventType: "UberX", amount: 15.0, tollReimbursement: nil),   // 6 PM (earliest)
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 2)!, eventType: "UberX", amount: 25.0, tollReimbursement: nil)     // 2 AM
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),   // 8 PM
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 18)!, eventDate: nil, eventType: "UberX", amount: 15.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),   // 6 PM (earliest)
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 2)!, eventDate: nil, eventType: "UberX", amount: 25.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())     // 2 AM
         ]
 
         // When: Calculate shift start/end times
@@ -92,9 +92,9 @@ final class MissingShiftsCSVGeneratorTests: RideshareTrackerTestBase {
     func testUseLatestTransactionAsEndTime() throws {
         // Given: Transactions between 6 PM and 2 AM
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventType: "UberX", amount: 20.0, tollReimbursement: nil),   // 8 PM
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 18)!, eventType: "UberX", amount: 15.0, tollReimbursement: nil),   // 6 PM
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 2)!, eventType: "UberX", amount: 25.0, tollReimbursement: nil)     // 2 AM (latest)
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),   // 8 PM
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 18)!, eventDate: nil, eventType: "UberX", amount: 15.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),   // 6 PM
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 2)!, eventDate: nil, eventType: "UberX", amount: 25.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())     // 2 AM (latest)
         ]
 
         // When: Calculate shift start/end times
@@ -110,7 +110,7 @@ final class MissingShiftsCSVGeneratorTests: RideshareTrackerTestBase {
     func testShiftTimesWithSingleTransaction() throws {
         // Given: Single transaction
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventType: "UberX", amount: 20.0, tollReimbursement: nil)
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())
         ]
 
         // When: Calculate shift times
@@ -125,8 +125,8 @@ final class MissingShiftsCSVGeneratorTests: RideshareTrackerTestBase {
     func testGenerateCSVWithPrefilledUberData() throws {
         // Given: Unmatched transactions
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventType: "UberX", amount: 20.0, tollReimbursement: 2.50),
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 21)!, eventType: "Tip", amount: 5.0, tollReimbursement: nil)
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: 2.50, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 21)!, eventDate: nil, eventType: "Tip", amount: 5.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())
         ]
 
         // When: Generate CSV
@@ -148,7 +148,7 @@ final class MissingShiftsCSVGeneratorTests: RideshareTrackerTestBase {
     func testGenerateCSVWithBlankVehicleFields() throws {
         // Given: Unmatched transactions
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventType: "UberX", amount: 20.0, tollReimbursement: nil)
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())
         ]
 
         // When: Generate CSV
@@ -169,8 +169,8 @@ final class MissingShiftsCSVGeneratorTests: RideshareTrackerTestBase {
     func testGenerateCSVGroupsMultipleDays() throws {
         // Given: Transactions spanning 2 shift dates
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventType: "UberX", amount: 20.0, tollReimbursement: nil),  // Oct 19
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 18)!, eventType: "UberX", amount: 25.0, tollReimbursement: nil)   // Oct 20
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),  // Oct 19
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 18)!, eventDate: nil, eventType: "UberX", amount: 25.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())   // Oct 20
         ]
 
         // When: Generate CSV
@@ -196,10 +196,10 @@ final class MissingShiftsCSVGeneratorTests: RideshareTrackerTestBase {
     func testGenerateCSVAggregatesTransactionsByDay() throws {
         // Given: Multiple transactions in same 4 AM window
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventType: "UberX", amount: 20.0, tollReimbursement: 2.50),
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 21)!, eventType: "Tip", amount: 5.0, tollReimbursement: nil),
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 22)!, eventType: "UberX", amount: 15.0, tollReimbursement: 1.75),
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 1)!, eventType: "Quest", amount: 10.0, tollReimbursement: nil)   // Still Oct 19's window
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: 2.50, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 21)!, eventDate: nil, eventType: "Tip", amount: 5.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 22)!, eventDate: nil, eventType: "UberX", amount: 15.0, tollsReimbursed: 1.75, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 1)!, eventDate: nil, eventType: "Quest", amount: 10.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())   // Still Oct 19's window
         ]
 
         // When: Generate CSV
@@ -220,7 +220,7 @@ final class MissingShiftsCSVGeneratorTests: RideshareTrackerTestBase {
     func testCSVFormatMatchesImportStructure() throws {
         // Given: Sample transaction
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventType: "UberX", amount: 20.0, tollReimbursement: nil)
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())
         ]
 
         // When: Generate CSV

@@ -22,6 +22,12 @@ struct UberImportView: View {
     @State private var errorMessage: String?
     @State private var showingError = false
 
+    // State for re-import confirmation dialog
+    @State private var showingReplaceConfirmation = false
+    @State private var pendingStatementPeriod: String = ""
+    @State private var pendingTransactions: [UberTransaction] = []
+    @State private var existingTransactionCount: Int = 0
+
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
@@ -108,6 +114,18 @@ struct UberImportView: View {
             } message: {
                 Text(errorMessage ?? "An unknown error occurred")
             }
+            .alert("Statement Period Already Imported", isPresented: $showingReplaceConfirmation) {
+                Button("Replace", role: .destructive) {
+                    performStatementPeriodReplacement()
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingTransactions = []
+                    pendingStatementPeriod = ""
+                    existingTransactionCount = 0
+                }
+            } message: {
+                Text("This statement period (\(pendingStatementPeriod)) has already been imported with \(existingTransactionCount) transactions.\n\nReplacing will remove all existing transactions for this period and import the new ones.")
+            }
         }
     }
 
@@ -151,47 +169,39 @@ struct UberImportView: View {
                 // Detect column layout
                 let layout = parser.detectColumnLayout(from: pdfText)
 
-                // Parse transactions
-                let transactions = try parser.parseTransactions(
+                // Parse transactions (now returns unified UberTransaction model)
+                var transactions = try parser.parseTransactions(
                     from: pdfText,
                     layout: layout,
                     statementEndDate: statementInfo.endDate
                 )
 
-                // Match transactions to shifts
-                let matcher = UberShiftMatcher()
-                let (matched, unmatched) = matcher.matchTransactionsToShifts(
-                    transactions: transactions,
-                    existingShifts: dataManager.shifts
-                )
-
-                // Process matched transactions
-                let processedShifts = try await processMatchedTransactions(matched, statementPeriod: statementInfo.period)
-
-                // Generate missing shifts CSV
-                let csvGenerator = MissingShiftsCSVGenerator()
-                let missingShiftsCSV = try csvGenerator.generateMissingShiftsCSV(
-                    unmatchedTransactions: unmatched,
-                    statementPeriod: statementInfo.period
-                )
-
-                // Create result
-                let result = UberImportResult(
-                    statementPeriod: statementInfo.period,
-                    totalTransactions: transactions.count,
-                    matchedCount: matched.count,
-                    unmatchedCount: unmatched.count,
-                    updatedShifts: processedShifts,
-                    tipSummaryImage: nil,  // Will be generated
-                    tollSummaryImage: nil, // Will be generated
-                    missingShiftsCSV: missingShiftsCSV.isEmpty ? nil : missingShiftsCSV
-                )
-
-                await MainActor.run {
-                    importResult = result
-                    isProcessing = false
-                    showingResults = true
+                // Add metadata to all transactions
+                let importDate = Date()
+                for i in 0..<transactions.count {
+                    transactions[i].statementPeriod = statementInfo.period
+                    transactions[i].importDate = importDate
+                    transactions[i].shiftID = nil  // Start as orphaned
                 }
+
+                // Check if statement period already exists
+                let transactionManager = UberTransactionManager.shared
+                if transactionManager.hasStatementPeriod(statementInfo.period) {
+                    // Statement period exists - ask user for confirmation
+                    let existingCount = transactionManager.getTransactions(forStatementPeriod: statementInfo.period).count
+
+                    await MainActor.run {
+                        pendingStatementPeriod = statementInfo.period
+                        pendingTransactions = transactions
+                        existingTransactionCount = existingCount
+                        isProcessing = false
+                        showingReplaceConfirmation = true
+                    }
+                    return
+                }
+
+                // New statement period - proceed with import
+                await performImport(transactions: transactions, statementPeriod: statementInfo.period)
 
             } catch {
                 await MainActor.run {
@@ -214,69 +224,153 @@ struct UberImportView: View {
         return text
     }
 
-    private func processMatchedTransactions(
-        _ matches: [ShiftMatch],
-        statementPeriod: String
-    ) async throws -> [RideshareShift] {
-        // Group matches by shift
-        var shiftUpdates: [UUID: (shift: RideshareShift, tips: [UberTipTransaction], tolls: [UberTollReimbursementTransaction])] = [:]
-
-        let parser = UberStatementManager.shared
-
-        for match in matches {
-            let category = parser.categorize(transaction: match.transaction)
-
-            var entry = shiftUpdates[match.shift.id] ?? (match.shift, [], [])
-
-            switch category {
-            case .tip:
-                let tipTransaction = UberTipTransaction(
-                    transactionDate: match.transaction.transactionDate,
-                    amount: match.transaction.amount,
-                    eventType: match.transaction.eventType,
-                    isDelayedTip: false  // TODO: Implement delayed tip detection
-                )
-                entry.tips.append(tipTransaction)
-
-            case .netFare, .promotion:
-                // Handle toll reimbursements embedded in rides
-                if let tollAmount = match.transaction.tollReimbursement, tollAmount > 0 {
-                    let tollTransaction = UberTollReimbursementTransaction(
-                        transactionDate: match.transaction.transactionDate,
-                        amount: tollAmount,
-                        eventType: match.transaction.eventType
-                    )
-                    entry.tolls.append(tollTransaction)
-                }
-
-            case .ignore:
-                continue
-            }
-
-            shiftUpdates[match.shift.id] = entry
-        }
-
-        // Update shifts
+    private func updateAffectedShifts(_ shiftIDs: Set<UUID>) async throws -> [RideshareShift] {
         var updatedShifts: [RideshareShift] = []
 
-        for (shiftId, (shift, tips, tolls)) in shiftUpdates {
-            var updatedShift = shift
-            updatedShift.uberTipTransactions = tips
-            updatedShift.uberTollTransactions = tolls
-            updatedShift.uberImportDate = Date()
-            updatedShift.uberStatementPeriod = statementPeriod
-
-            // Update in data manager
+        for shiftID in shiftIDs {
             await MainActor.run {
-                if let index = dataManager.shifts.firstIndex(where: { $0.id == shiftId }) {
-                    dataManager.shifts[index] = updatedShift
-                }
-            }
+                guard let index = dataManager.shifts.firstIndex(where: { $0.id == shiftID }) else { return }
+                var shift = dataManager.shifts[index]
 
-            updatedShifts.append(updatedShift)
+                // Get all transactions for this shift
+                let transactions = UberTransactionManager.shared.getTransactions(forShift: shiftID)
+
+                // Remove existing Uber transaction images before adding new one
+                let existingUberAttachments = shift.imageAttachments.filter { $0.type == .importedUberTxns }
+                for attachment in existingUberAttachments {
+                    ImageManager.shared.deleteImage(attachment, for: shift.id, parentType: .shift)
+                }
+                shift.imageAttachments.removeAll { $0.type == .importedUberTxns }
+
+                if transactions.isEmpty {
+                    // Shift lost all transactions - clear Uber data
+                    shift.tips = nil
+                    shift.tollsReimbursed = nil
+                    shift.uberImportDate = nil
+                } else {
+                    let totals = transactions.totals()
+
+                    // Update shift with aggregated data
+                    shift.tips = totals.tips
+                    shift.tollsReimbursed = totals.tollsReimbursed
+                    shift.uberImportDate = Date()
+
+                    // Generate and attach transaction detail image
+                    if let image = UberTransactionImageGenerator.generate(
+                        transactions: transactions,
+                        shift: shift
+                    ) {
+                        if let attachment = try? ImageManager.shared.saveImage(
+                            image,
+                            for: shift.id,
+                            parentType: .shift,
+                            type: .importedUberTxns,
+                            description: "Uber Import - \(transactions.count) transactions"
+                        ) {
+                            shift.imageAttachments.append(attachment)
+                        }
+                    }
+                }
+
+                // Save updated shift
+                dataManager.shifts[index] = shift
+                updatedShifts.append(shift)
+            }
         }
 
         return updatedShifts
+    }
+
+    /// Performs the actual import of transactions (used for both new imports and replacements)
+    private func performImport(transactions: [UberTransaction], statementPeriod: String) async {
+        do {
+            // Match transactions to shifts
+            let matcher = UberShiftMatcher()
+            let (matched, unmatched) = matcher.matchTransactionsToShifts(
+                transactions: transactions,
+                existingShifts: dataManager.shifts
+            )
+
+            // Process matched - assign shiftID and save to manager
+            var affectedShiftIDs: Set<UUID> = []
+            for match in matched {
+                var transaction = match.transaction
+                transaction.shiftID = match.shift.id
+                UberTransactionManager.shared.saveTransaction(transaction)
+                affectedShiftIDs.insert(match.shift.id)
+            }
+
+            // Save unmatched transactions as orphans (shiftID = nil)
+            for transaction in unmatched {
+                UberTransactionManager.shared.saveTransaction(transaction)
+            }
+
+            // Recalculate all affected shifts
+            let updatedShifts = try await updateAffectedShifts(affectedShiftIDs)
+
+            // Generate missing shifts CSV
+            let csvGenerator = MissingShiftsCSVGenerator()
+            let missingShiftsCSV = try csvGenerator.generateMissingShiftsCSV(
+                unmatchedTransactions: unmatched,
+                statementPeriod: statementPeriod
+            )
+
+            // Create result
+            let result = UberImportResult(
+                statementPeriod: statementPeriod,
+                totalTransactions: transactions.count,
+                matchedCount: matched.count,
+                unmatchedCount: unmatched.count,
+                updatedShifts: updatedShifts,
+                missingShiftsCSV: missingShiftsCSV.isEmpty ? nil : missingShiftsCSV
+            )
+
+            await MainActor.run {
+                importResult = result
+                isProcessing = false
+                showingResults = true
+            }
+
+        } catch {
+            await MainActor.run {
+                isProcessing = false
+                errorMessage = error.localizedDescription
+                showingError = true
+            }
+        }
+    }
+
+    /// Performs statement period replacement when user confirms
+    private func performStatementPeriodReplacement() {
+        isProcessing = true
+
+        Task {
+            // Get affected shifts BEFORE replacement (shifts that have transactions from this period)
+            let transactionManager = UberTransactionManager.shared
+            let affectedShiftIDsBefore = transactionManager.getAffectedShiftIDs(forStatementPeriod: pendingStatementPeriod)
+
+            // Perform atomic replacement
+            transactionManager.replaceStatementPeriod(pendingStatementPeriod, with: pendingTransactions)
+
+            // Now perform the import to match and update
+            await performImport(transactions: pendingTransactions, statementPeriod: pendingStatementPeriod)
+
+            // Also update shifts that lost ALL their transactions from this period
+            // (they may not be in the new matched set but need their data cleared)
+            let newAffectedShiftIDs = transactionManager.getAffectedShiftIDs(forStatementPeriod: pendingStatementPeriod)
+            let shiftsToCleanup = affectedShiftIDsBefore.subtracting(newAffectedShiftIDs)
+
+            if !shiftsToCleanup.isEmpty {
+                _ = try? await updateAffectedShifts(shiftsToCleanup)
+            }
+
+            // Clear pending state
+            await MainActor.run {
+                pendingTransactions = []
+                pendingStatementPeriod = ""
+                existingTransactionCount = 0
+            }
+        }
     }
 }
 
@@ -308,8 +402,6 @@ struct UberImportResult {
     let matchedCount: Int
     let unmatchedCount: Int
     let updatedShifts: [RideshareShift]
-    let tipSummaryImage: UIImage?
-    let tollSummaryImage: UIImage?
     let missingShiftsCSV: String?
 }
 

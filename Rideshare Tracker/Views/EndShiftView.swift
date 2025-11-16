@@ -26,6 +26,7 @@ struct EndShiftView: View {
     @State private var totalTrips = ""
     @State private var netFare: Double? = nil
     @State private var tips: Double? = nil
+    @State private var cashTips: Double? = nil
     @State private var promotions: Double? = nil
     @State private var totalTolls: Double? = nil
     @State private var tollsReimbursed: Double? = nil
@@ -61,7 +62,7 @@ struct EndShiftView: View {
     @State private var pendingAttachments: [ImageAttachment] = []
 
     enum FocusedField {
-        case endMileage, refuelGallons, refuelCost, trips, netFare, tips, promotions, totalTolls, tollsReimbursed, parkingFees, miscFees
+        case endMileage, refuelGallons, refuelCost, trips, netFare, tips, cashTips, promotions, totalTolls, tollsReimbursed, parkingFees, miscFees
     }
     
     init(shift: Binding<RideshareShift>) {
@@ -335,8 +336,21 @@ struct EndShiftView: View {
                             )
                             .accessibilityIdentifier("tips_input")
                     }
+                    HStack {
+                        Text("Cash Tips")
+                        Spacer()
+                        CurrencyTextField(placeholder: "$0.00", value: $cashTips)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 120)
+                            .focused($focusedField, equals: .cashTips)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(focusedField == .cashTips ? Color.accentColor : Color.clear, lineWidth: 2)
+                            )
+                            .accessibilityIdentifier("cash_tips_input")
+                    }
                 }
-                
+
                 Section("Additional Expenses") {
                     HStack {
                         Text("Tolls")
@@ -495,6 +509,7 @@ struct EndShiftView: View {
         shift.trips = Int(totalTrips)
         shift.netFare = netFare
         shift.tips = tips
+        shift.cashTips = cashTips
         shift.promotions = promotions
         shift.tolls = totalTolls
         shift.tollsReimbursed = tollsReimbursed

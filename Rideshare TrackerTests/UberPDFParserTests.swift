@@ -117,8 +117,8 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         XCTAssertNotNil(transaction)
         XCTAssertEqual(transaction!.eventType, "UberX")
         XCTAssertEqual(transaction!.amount, 21.55, accuracy: 0.01)
-        XCTAssertNotNil(transaction!.tollReimbursement)
-        XCTAssertEqual(transaction!.tollReimbursement!, 2.71, accuracy: 0.01)
+        XCTAssertNotNil(transaction!.tollsReimbursed)
+        XCTAssertEqual(transaction!.tollsReimbursed!, 2.71, accuracy: 0.01)
 
         let calendar = Calendar.current
         let components = calendar.dateComponents([.month, .day, .hour, .minute], from: transaction!.transactionDate)
@@ -144,7 +144,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         XCTAssertNotNil(transaction)
         XCTAssertEqual(transaction!.eventType, "Delivery")
         XCTAssertEqual(transaction!.amount, 12.25, accuracy: 0.01)
-        XCTAssertNil(transaction!.tollReimbursement)
+        XCTAssertNil(transaction!.tollsReimbursed)
     }
 
     func testParseTipTransaction() throws {
@@ -227,48 +227,60 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         // Given: Tip event
         let transaction = UberTransaction(
             transactionDate: Date(),
+            eventDate: nil,
             eventType: "Tip",
             amount: 5.00,
-            tollReimbursement: nil
+            tollsReimbursed: nil,
+            statementPeriod: "Oct 13 - Oct 20, 2025",
+            shiftID: nil,
+            importDate: Date()
         )
 
         // When: Categorize
-        let category = parser.categorize(transaction: transaction)
+        let category = categorize(transaction)
 
         // Then: Should be categorized as tip
-        XCTAssertEqual(category, .tip)
+        XCTAssertEqual(category, TransactionCategory.tip)
     }
 
     func testCategorizeQuestTransaction() {
         // Given: Quest event
         let transaction = UberTransaction(
             transactionDate: Date(),
+            eventDate: nil,
             eventType: "Quest",
             amount: 20.00,
-            tollReimbursement: nil
+            tollsReimbursed: nil,
+            statementPeriod: "Oct 13 - Oct 20, 2025",
+            shiftID: nil,
+            importDate: Date()
         )
 
         // When: Categorize
-        let category = parser.categorize(transaction: transaction)
+        let category = categorize(transaction)
 
         // Then: Should be categorized as promotion
-        XCTAssertEqual(category, .promotion)
+        XCTAssertEqual(category, TransactionCategory.promotion)
     }
 
     func testCategorizeIncentiveTransaction() {
         // Given: Incentive event
         let transaction = UberTransaction(
             transactionDate: Date(),
+            eventDate: nil,
             eventType: "Incentive",
             amount: 9.00,
-            tollReimbursement: nil
+            tollsReimbursed: nil,
+            statementPeriod: "Oct 13 - Oct 20, 2025",
+            shiftID: nil,
+            importDate: Date()
         )
 
         // When: Categorize
-        let category = parser.categorize(transaction: transaction)
+        let category = categorize(transaction)
 
         // Then: Should be categorized as promotion
-        XCTAssertEqual(category, .promotion)
+        XCTAssertEqual(category, TransactionCategory.promotion)
     }
 
     func testCategorizeRideTransaction() {
@@ -278,16 +290,20 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         for rideType in rideTypes {
             let transaction = UberTransaction(
                 transactionDate: Date(),
+                eventDate: nil,
                 eventType: rideType,
                 amount: 25.00,
-                tollReimbursement: nil
+                tollsReimbursed: nil,
+                statementPeriod: "Oct 13 - Oct 20, 2025",
+                shiftID: nil,
+                importDate: Date()
             )
 
             // When: Categorize
-            let category = parser.categorize(transaction: transaction)
+            let category = categorize(transaction)
 
             // Then: Should be categorized as net fare
-            XCTAssertEqual(category, .netFare, "Ride type '\(rideType)' should be net fare")
+            XCTAssertEqual(category, TransactionCategory.netFare, "Ride type '\(rideType)' should be net fare")
         }
     }
 
@@ -295,16 +311,20 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         // Given: Bank transfer event
         let transaction = UberTransaction(
             transactionDate: Date(),
+            eventDate: nil,
             eventType: "Transferred to Bank Account ending in 1234",
             amount: 450.00,
-            tollReimbursement: nil
+            tollsReimbursed: nil,
+            statementPeriod: "Oct 13 - Oct 20, 2025",
+            shiftID: nil,
+            importDate: Date()
         )
 
         // When: Categorize
-        let category = parser.categorize(transaction: transaction)
+        let category = categorize(transaction)
 
         // Then: Should be ignored
-        XCTAssertEqual(category, .ignore)
+        XCTAssertEqual(category, TransactionCategory.ignore)
     }
 
     // MARK: - Coordinate-Based Parsing Tests
@@ -327,7 +347,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         if let transaction = transaction {
             XCTAssertEqual(transaction.eventType, "Transferred To Bank")
             XCTAssertEqual(transaction.amount, -473.61, accuracy: 0.01, "Should extract first negative amount")
-            XCTAssertNil(transaction.tollReimbursement, "Bank transfers don't have tolls")
+            XCTAssertNil(transaction.tollsReimbursed, "Bank transfers don't have tolls")
         }
     }
 
@@ -352,7 +372,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         if let transaction = transaction {
             XCTAssertEqual(transaction.eventType, "Quest Completed 10 trips")
             XCTAssertEqual(transaction.amount, 20.00, accuracy: 0.01, "Should use first line amount")
-            XCTAssertNil(transaction.tollReimbursement, "Quest should not have toll (balance was on line 2)")
+            XCTAssertNil(transaction.tollsReimbursed, "Quest should not have toll (balance was on line 2)")
         }
     }
 
@@ -378,7 +398,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         if let transaction = transaction {
             XCTAssertEqual(transaction.eventType, "UberX Priority")
             XCTAssertEqual(transaction.amount, 21.55, accuracy: 0.01)
-            XCTAssertEqual(transaction.tollReimbursement ?? 0, 2.71, accuracy: 0.01, "Should extract toll from line 1")
+            XCTAssertEqual(transaction.tollsReimbursed ?? 0, 2.71, accuracy: 0.01, "Should extract toll from line 1")
         }
     }
 
@@ -410,7 +430,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
             XCTAssertEqual(transaction.amount, 15.00, accuracy: 0.01, "Should use standalone amount from line 1")
 
             // No toll reimbursement
-            XCTAssertNil(transaction.tollReimbursement, "Promotions don't have tolls")
+            XCTAssertNil(transaction.tollsReimbursed, "Promotions don't have tolls")
         }
     }
 
@@ -446,7 +466,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
             XCTAssertEqual(transaction.amount, 2.00, accuracy: 0.01, "Should use standalone amount from line 1")
 
             // Balance on line 2 should NOT be treated as toll
-            XCTAssertNil(transaction.tollReimbursement, "Incentives don't have tolls")
+            XCTAssertNil(transaction.tollsReimbursed, "Incentives don't have tolls")
         }
     }
 
@@ -483,7 +503,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
             XCTAssertEqual(transaction.amount, 20.00, accuracy: 0.01, "Should use standalone amount from line 1")
 
             // Balance on line 2 should NOT be treated as toll
-            XCTAssertNil(transaction.tollReimbursement, "Balance on line 2 should not be treated as toll")
+            XCTAssertNil(transaction.tollsReimbursed, "Balance on line 2 should not be treated as toll")
         }
     }
 

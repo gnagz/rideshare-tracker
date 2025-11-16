@@ -370,6 +370,78 @@ final class RideshareShiftModelTests: RideshareTrackerTestBase {
         assertCurrency(taxableIncome, equals: 180.0) // netFare only
         assertCurrency(mileageDeduction, equals: 100.5) // 150 miles * 0.67 rate = 100.5
 
-        debugPrint("Taxable income: \(taxableIncome), Mileage deduction: \(mileageDeduction)")
+        debugMessage("Taxable income: \(taxableIncome), Mileage deduction: \(mileageDeduction)")
+    }
+
+    // MARK: - Cash Tips Tests
+
+    func testCashTipsDefaultsToNil() {
+        // Given: A new shift
+        let shift = createBasicTestShift()
+
+        // Then: Cash tips should default to nil
+        XCTAssertNil(shift.cashTips, "Cash tips should default to nil")
+        debugMessage("Cash tips defaults to: \(shift.cashTips?.description ?? "nil")")
+    }
+
+    func testTotalTipsCalculation() {
+        // Given: A shift with Uber app tips and cash tips
+        var shift = createBasicTestShift()
+        shift.tips = 25.0  // Uber app tips
+        shift.cashTips = 15.0  // Cash tips
+
+        // When: Getting total tips
+        let totalTips = shift.totalTips
+
+        // Then: Should sum both types of tips
+        assertCurrency(totalTips, equals: 40.0)
+        debugMessage("Total tips (Uber: $25 + Cash: $15) = \(totalTips)")
+    }
+
+    func testTotalTipsWithOnlyUberTips() {
+        // Given: A shift with only Uber app tips (cashTips = nil)
+        var shift = createBasicTestShift()
+        shift.tips = 30.0
+        // cashTips remains nil
+
+        // When: Getting total tips
+        let totalTips = shift.totalTips
+
+        // Then: Should equal Uber tips
+        assertCurrency(totalTips, equals: 30.0)
+        debugMessage("Total tips (Uber only: $30) = \(totalTips)")
+    }
+
+    func testTotalTipsWithOnlyCashTips() {
+        // Given: A shift with only cash tips (tips = nil)
+        var shift = createBasicTestShift()
+        // tips remains nil
+        shift.cashTips = 20.0
+
+        // When: Getting total tips
+        let totalTips = shift.totalTips
+
+        // Then: Should equal cash tips
+        assertCurrency(totalTips, equals: 20.0)
+        debugMessage("Total tips (Cash only: $20) = \(totalTips)")
+    }
+
+    func testGrossProfitUsesTotalTips() {
+        // Given: A complete shift with both tip types
+        var shift = createBasicTestShift()
+        shift.startMileage = 1000
+        shift.endMileage = 1150
+        shift.netFare = 100.0
+        shift.tips = 20.0  // Uber tips
+        shift.cashTips = 10.0  // Cash tips
+        shift.promotions = 15.0
+
+        // When: Calculating gross profit
+        let grossProfit = shift.grossProfit()
+
+        // Then: Should include total tips (20 + 10 = 30)
+        // grossProfit = netFare + tips + cashTips + promotions = 100 + 20 + 10 + 15 = 145
+        assertCurrency(grossProfit, equals: 145.0)
+        debugMessage("Gross profit with total tips: \(grossProfit)")
     }
 }

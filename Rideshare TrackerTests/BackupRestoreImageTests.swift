@@ -262,6 +262,7 @@ final class BackupRestoreImageTests: RideshareTrackerTestBase {
         let legacyBackup = BackupData(
             shifts: [],
             expenses: [],
+            uberTransactions: nil,
             preferences: BackupPreferences(
                 tankCapacity: 15.0,
                 gasPrice: 2.50,

@@ -42,6 +42,7 @@ enum AttachmentType: String, Codable, CaseIterable {
     case cleaning = "Cleaning Required"
     case maintenance = "Maintenance"
     case importedToll = "Imported Toll Summary"
+    case importedUberTxns = "Imported Uber Transactions"
     case other = "Other"
 
     var displayName: String {
@@ -58,13 +59,14 @@ enum AttachmentType: String, Codable, CaseIterable {
         case .cleaning: return "drop"
         case .maintenance: return "wrench"
         case .importedToll: return "dollarsign.circle"
+        case .importedUberTxns: return "car.fill"
         case .other: return "camera"
         }
     }
 
     /// Identifies system-generated attachment types that should not be manually edited
     var isSystemGenerated: Bool {
-        return self == .importedToll
+        return self == .importedToll || self == .importedUberTxns
     }
 
     /// Custom decoder with fallback for forward compatibility

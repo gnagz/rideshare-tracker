@@ -31,7 +31,7 @@ class UberShiftMatcher {
 
         for transaction in transactions {
             // Skip ignored transactions (bank transfers)
-            if parser.categorize(transaction: transaction) == .ignore {
+            if categorize(transaction) == .ignore {
                 continue
             }
 

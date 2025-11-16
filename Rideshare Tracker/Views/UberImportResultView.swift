@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Displays results of Uber PDF import with summary images and missing shifts CSV export
 struct UberImportResultView: View {
@@ -14,8 +15,12 @@ struct UberImportResultView: View {
 
     let result: UberImportResult
 
-    @State private var showingShareSheet = false
-    @State private var shareItem: ShareItem?
+    // File exporter state
+    @State private var showingCSVExporter = false
+    @State private var csvDocument: CSVDocument?
+    @State private var csvFilename = "missing_shifts.csv"
+    @State private var showingExportAlert = false
+    @State private var exportMessage = ""
 
     var body: some View {
         NavigationView {
@@ -72,48 +77,23 @@ struct UberImportResultView: View {
                     }
                     .padding(.horizontal)
 
-                    // Tip Summary Image
-                    if let tipImage = generateTipSummaryImage() {
+                    // Transaction Summary Image (combines tips, tolls, and all transactions)
+                    if let summaryImage = generateTransactionSummaryImage() {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Tip Summary")
+                            Text("Transaction Summary")
                                 .font(.headline)
                                 .padding(.horizontal)
 
-                            Image(uiImage: tipImage)
+                            Image(uiImage: summaryImage)
                                 .resizable()
                                 .scaledToFit()
                                 .cornerRadius(8)
                                 .padding(.horizontal)
 
                             Button {
-                                shareItem = .image(tipImage, "Uber Tips Summary")
-                                showingShareSheet = true
+                                presentShareSheet(for: summaryImage)
                             } label: {
-                                Label("Share Tip Summary", systemImage: "square.and.arrow.up")
-                            }
-                            .buttonStyle(.bordered)
-                            .padding(.horizontal)
-                        }
-                    }
-
-                    // Toll Summary Image
-                    if let tollImage = generateTollSummaryImage() {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Toll Reimbursement Summary")
-                                .font(.headline)
-                                .padding(.horizontal)
-
-                            Image(uiImage: tollImage)
-                                .resizable()
-                                .scaledToFit()
-                                .cornerRadius(8)
-                                .padding(.horizontal)
-
-                            Button {
-                                shareItem = .image(tollImage, "Uber Toll Reimbursements")
-                                showingShareSheet = true
-                            } label: {
-                                Label("Share Toll Summary", systemImage: "square.and.arrow.up")
+                                Label("Share Transaction Summary", systemImage: "square.and.arrow.up")
                             }
                             .buttonStyle(.bordered)
                             .padding(.horizontal)
@@ -137,8 +117,7 @@ struct UberImportResultView: View {
                                 .padding(.horizontal)
 
                             Button {
-                                shareItem = .csv(csv, "Missing Shifts - \(result.statementPeriod).csv")
-                                showingShareSheet = true
+                                prepareCSVExport(csv: csv, filename: "Missing Shifts - \(result.statementPeriod).csv")
                             } label: {
                                 Label("Export Missing Shifts CSV", systemImage: "arrow.down.doc.fill")
                                     .frame(maxWidth: .infinity)
@@ -191,41 +170,77 @@ struct UberImportResultView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingShareSheet) {
-                if let item = shareItem {
-                    ShareSheet(item: item)
+            .fileExporter(
+                isPresented: $showingCSVExporter,
+                document: csvDocument,
+                contentType: .commaSeparatedText,
+                defaultFilename: csvFilename
+            ) { result in
+                switch result {
+                case .success(let url):
+                    exportMessage = "CSV saved to: \(url.lastPathComponent)"
+                    showingExportAlert = true
+                case .failure(let error):
+                    exportMessage = "Export failed: \(error.localizedDescription)"
+                    showingExportAlert = true
                 }
+            }
+            .alert("Export Result", isPresented: $showingExportAlert) {
+                Button("OK") { }
+            } message: {
+                Text(exportMessage)
             }
         }
     }
 
     // MARK: - Helper Methods
 
-    private func generateTipSummaryImage() -> UIImage? {
-        let allTips = result.updatedShifts.flatMap { $0.uberTipTransactions }
-        guard !allTips.isEmpty else { return nil }
-
-        let totalTips = allTips.reduce(0.0) { $0 + $1.amount }
-
-        return UberSummaryImageGenerator.generateTipSummaryImage(
-            statementPeriod: result.statementPeriod,
-            tipTransactions: allTips,
-            matchedShifts: result.updatedShifts,
-            totalAmount: totalTips
-        )
+    private func prepareCSVExport(csv: String, filename: String) {
+        csvDocument = CSVDocument(content: csv)
+        csvFilename = filename
+        showingCSVExporter = true
     }
 
-    private func generateTollSummaryImage() -> UIImage? {
-        let allTolls = result.updatedShifts.flatMap { $0.uberTollTransactions }
-        guard !allTolls.isEmpty else { return nil }
+    private func presentShareSheet(for image: UIImage) {
+        let controller = UIActivityViewController(
+            activityItems: [image],
+            applicationActivities: nil
+        )
 
-        let totalTolls = allTolls.reduce(0.0) { $0 + $1.amount }
+        // Present directly via UIKit - find the topmost presented view controller
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            // Find the topmost presented view controller
+            var topController = rootViewController
+            while let presented = topController.presentedViewController {
+                topController = presented
+            }
 
-        return UberSummaryImageGenerator.generateTollSummaryImage(
-            statementPeriod: result.statementPeriod,
-            tollTransactions: allTolls,
-            matchedShifts: result.updatedShifts,
-            totalAmount: totalTolls
+            // Handle iPad popover presentation
+            if let popover = controller.popoverPresentationController {
+                popover.sourceView = topController.view
+                popover.sourceRect = CGRect(x: topController.view.bounds.midX, y: topController.view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+
+            topController.present(controller, animated: true)
+        }
+    }
+
+    private func generateTransactionSummaryImage() -> UIImage? {
+        // Get all transactions for updated shifts
+        let allTransactions = result.updatedShifts.flatMap { shift in
+            UberTransactionManager.shared.getTransactions(forShift: shift.id)
+        }
+        guard !allTransactions.isEmpty else { return nil }
+
+        // Create a dummy shift for the summary (uses statement period dates)
+        // This is just for display purposes in the results view
+        guard let firstShift = result.updatedShifts.first else { return nil }
+
+        return UberTransactionImageGenerator.generate(
+            transactions: allTransactions,
+            shift: firstShift
         )
     }
 }
@@ -265,6 +280,18 @@ struct StatCard: View {
 struct ShiftUpdateCard: View {
     let shift: RideshareShift
 
+    private var shiftTransactions: [UberTransaction] {
+        UberTransactionManager.shared.getTransactions(forShift: shift.id)
+    }
+
+    private var tipCount: Int {
+        shiftTransactions.filter { categorize($0) == .tip }.count
+    }
+
+    private var tollCount: Int {
+        shiftTransactions.filter { $0.tollsReimbursed != nil && $0.tollsReimbursed! > 0 }.count
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -277,14 +304,14 @@ struct ShiftUpdateCard: View {
             }
 
             HStack(spacing: 16) {
-                if !shift.uberTipTransactions.isEmpty {
-                    Label("\(shift.uberTipTransactions.count) tips", systemImage: "dollarsign.circle.fill")
+                if tipCount > 0 {
+                    Label("\(tipCount) tips", systemImage: "dollarsign.circle.fill")
                         .font(.caption)
                         .foregroundColor(.green)
                 }
 
-                if !shift.uberTollTransactions.isEmpty {
-                    Label("\(shift.uberTollTransactions.count) tolls", systemImage: "road.lanes.curved.left")
+                if tollCount > 0 {
+                    Label("\(tollCount) tolls", systemImage: "road.lanes.curved.left")
                         .font(.caption)
                         .foregroundColor(.blue)
                 }
@@ -296,39 +323,29 @@ struct ShiftUpdateCard: View {
     }
 }
 
-// MARK: - Share Sheet
+// MARK: - CSV Document for File Export
 
-enum ShareItem {
-    case image(UIImage, String)
-    case csv(String, String)
-}
+struct CSVDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
 
-struct ShareSheet: UIViewControllerRepresentable {
-    let item: ShareItem
+    let content: String
 
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        let items: [Any]
-
-        switch item {
-        case .image(let image, _):
-            items = [image]
-        case .csv(let content, let filename):
-            // Create temporary file for CSV
-            let tempDir = FileManager.default.temporaryDirectory
-            let fileURL = tempDir.appendingPathComponent(filename)
-            try? content.write(to: fileURL, atomically: true, encoding: .utf8)
-            items = [fileURL]
-        }
-
-        let controller = UIActivityViewController(
-            activityItems: items,
-            applicationActivities: nil
-        )
-
-        return controller
+    init(content: String) {
+        self.content = content
     }
 
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents,
+              let string = String(data: data, encoding: .utf8) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        content = string
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        let data = content.data(using: .utf8) ?? Data()
+        return FileWrapper(regularFileWithContents: data)
+    }
 }
 
 // MARK: - Preview
@@ -340,8 +357,6 @@ struct ShareSheet: UIViewControllerRepresentable {
         matchedCount: 20,
         unmatchedCount: 5,
         updatedShifts: [],
-        tipSummaryImage: nil,
-        tollSummaryImage: nil,
         missingShiftsCSV: "Sample CSV content"
     )
 

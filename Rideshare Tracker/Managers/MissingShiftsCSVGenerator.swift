@@ -150,7 +150,7 @@ class MissingShiftsCSVGenerator {
         var uberTolls = 0.0
 
         for transaction in transactions {
-            let category = parser.categorize(transaction: transaction)
+            let category = categorize(transaction)
 
             switch category {
             case .netFare:
@@ -164,7 +164,7 @@ class MissingShiftsCSVGenerator {
             }
 
             // Add toll reimbursement if present
-            if let toll = transaction.tollReimbursement {
+            if let toll = transaction.tollsReimbursed {
                 uberTolls += toll
             }
         }

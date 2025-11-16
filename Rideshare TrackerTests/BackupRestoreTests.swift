@@ -63,11 +63,12 @@ final class BackupRestoreTests: RideshareTrackerTestBase {
     }
 
     /// Creates a BackupData object for testing
-    
-    private func createBackupData(shifts: [RideshareShift], expenses: [ExpenseItem]) -> BackupData {
+
+    private func createBackupData(shifts: [RideshareShift], expenses: [ExpenseItem], uberTransactions: [UberTransaction]? = nil) -> BackupData {
         return BackupData(
             shifts: shifts,
             expenses: expenses,
+            uberTransactions: uberTransactions,
             preferences: BackupPreferences(
                 tankCapacity: 15.0,
                 gasPrice: 2.50,
@@ -84,6 +85,21 @@ final class BackupRestoreTests: RideshareTrackerTestBase {
             ),
             exportDate: Date(),
             appVersion: "1.0"
+        )
+    }
+
+    /// Creates a test Uber transaction with a specific UUID
+    private func createTestTransaction(id: UUID, shiftID: UUID?, date: Date, amount: Double, type: String = "Tip") -> UberTransaction {
+        return UberTransaction(
+            id: id,
+            transactionDate: date,
+            eventDate: date,
+            eventType: type,
+            amount: amount,
+            tollsReimbursed: type == "UberX" ? 5.0 : nil,
+            statementPeriod: "Test Period",
+            shiftID: shiftID,
+            importDate: date
         )
     }
 
@@ -529,6 +545,7 @@ final class BackupRestoreTests: RideshareTrackerTestBase {
         backupData = BackupData(
             shifts: backupData.shifts,
             expenses: nil, // nil expenses
+            uberTransactions: nil,
             preferences: backupData.preferences,
             exportDate: backupData.exportDate,
             appVersion: backupData.appVersion
@@ -547,4 +564,477 @@ final class BackupRestoreTests: RideshareTrackerTestBase {
         XCTAssertEqual(result.expensesAdded, 0, "Should add 0 expenses")
         XCTAssertEqual(result.expensesUpdated, 0, "Should update 0 expenses")
     }
+
+    // MARK: - Uber Transaction Backup/Restore Tests
+
+    func testClearAndRestoreWithUberTransactions() async throws {
+        // Create clean manager instances for this test
+        let (shiftManager, expenseManager, preferencesManager, backupRestoreManager) = createCleanManagers()
+        let transactionManager = UberTransactionManager.shared
+        transactionManager.clearAllTransactions()
+
+        // Given: Current Uber transactions
+        let shiftID = UUID()
+        let currentTxnA = createTestTransaction(id: UUID(), shiftID: shiftID, date: Date(), amount: 10.0)
+        let currentTxnB = createTestTransaction(id: UUID(), shiftID: shiftID, date: Date(), amount: 15.0)
+        transactionManager.saveTransactions([currentTxnA, currentTxnB])
+
+        XCTAssertEqual(transactionManager.getAllTransactions().count, 2, "Should start with 2 transactions")
+
+        // When: Restore backup with different transactions using Clear & Restore
+        let backupShiftID = UUID()
+        let backupTxnC = createTestTransaction(id: UUID(), shiftID: backupShiftID, date: Date(), amount: 20.0)
+        let backupTxnD = createTestTransaction(id: UUID(), shiftID: backupShiftID, date: Date(), amount: 25.0)
+        let backupTxnE = createTestTransaction(id: UUID(), shiftID: nil, date: Date(), amount: 30.0) // Orphaned
+
+        let backupData = createBackupData(shifts: [], expenses: [], uberTransactions: [backupTxnC, backupTxnD, backupTxnE])
+
+        let result = backupRestoreManager.restoreFromBackup(
+            backupData: backupData,
+            shiftManager: shiftManager,
+            expenseManager: expenseManager,
+            preferencesManager: preferencesManager,
+            action: .replaceAll
+        )
+
+        // Then: All current transactions removed, only backup transactions present
+        let allTransactions = transactionManager.getAllTransactions()
+        XCTAssertEqual(allTransactions.count, 3, "Should have exactly 3 transactions from backup")
+
+        XCTAssertEqual(result.transactionsAdded, 3, "Should add 3 transactions")
+        XCTAssertEqual(result.transactionsUpdated, 0, "Should not update any transactions")
+        XCTAssertEqual(result.transactionsSkipped, 0, "Should not skip any transactions")
+
+        // Verify correct transactions are present
+        XCTAssertTrue(allTransactions.contains { $0.id == backupTxnC.id }, "Should contain backup transaction C")
+        XCTAssertTrue(allTransactions.contains { $0.id == backupTxnD.id }, "Should contain backup transaction D")
+        XCTAssertTrue(allTransactions.contains { $0.id == backupTxnE.id }, "Should contain backup transaction E")
+        XCTAssertFalse(allTransactions.contains { $0.id == currentTxnA.id }, "Should not contain current transaction A")
+        XCTAssertFalse(allTransactions.contains { $0.id == currentTxnB.id }, "Should not contain current transaction B")
+
+        // Cleanup
+        transactionManager.clearAllTransactions()
+    }
+
+    func testRestoreMissingSkipsDuplicateUberTransactions() async throws {
+        // Create clean manager instances for this test
+        let (shiftManager, expenseManager, preferencesManager, backupRestoreManager) = createCleanManagers()
+        let transactionManager = UberTransactionManager.shared
+        transactionManager.clearAllTransactions()
+
+        // Given: Current transactions A, B from "Test Period"
+        let txnIdA = UUID()
+        let txnIdB = UUID()
+        let shiftID = UUID()
+
+        let currentTxnA = createTestTransaction(id: txnIdA, shiftID: shiftID, date: Date(), amount: 10.0)
+        let currentTxnB = createTestTransaction(id: txnIdB, shiftID: shiftID, date: Date(), amount: 15.0)
+        transactionManager.saveTransactions([currentTxnA, currentTxnB])
+
+        XCTAssertEqual(transactionManager.getAllTransactions().count, 2, "Should start with 2 transactions")
+
+        // When: Restore backup with A (same period - skip), C (NEW period - add)
+        let txnIdC = UUID()
+        let backupTxnA = createTestTransaction(id: txnIdA, shiftID: shiftID, date: Date(), amount: 999.0) // Same period as local - will be skipped
+        let backupTxnC = createTransactionWithPeriod(id: txnIdC, shiftID: shiftID, date: Date(), amount: 20.0, type: "Tip", statementPeriod: "New Period") // NEW period - will be added
+
+        let backupData = createBackupData(shifts: [], expenses: [], uberTransactions: [backupTxnA, backupTxnC])
+
+        let result = backupRestoreManager.restoreFromBackup(
+            backupData: backupData,
+            shiftManager: shiftManager,
+            expenseManager: expenseManager,
+            preferencesManager: preferencesManager,
+            action: .skipDuplicates
+        )
+
+        // Then: Should have A, B (preserved from local "Test Period"), C (added from new period)
+        let allTransactions = transactionManager.getAllTransactions()
+        XCTAssertEqual(allTransactions.count, 3, "Should have 3 transactions total")
+
+        XCTAssertEqual(result.transactionsAdded, 1, "Should add 1 new transaction (C from new period)")
+        XCTAssertEqual(result.transactionsUpdated, 0, "Should not update any transactions")
+        XCTAssertEqual(result.transactionsSkipped, 1, "Should skip 1 transaction (A from existing period)")
+
+        // Verify original value preserved (statement period based)
+        let preservedTxnA = allTransactions.first { $0.id == txnIdA }
+        XCTAssertNotNil(preservedTxnA, "Transaction A should exist")
+        XCTAssertEqual(preservedTxnA?.amount ?? 0, 10.0, accuracy: 0.01, "Transaction A should keep original amount")
+
+        // Verify new transaction added (from new period)
+        XCTAssertTrue(allTransactions.contains { $0.id == txnIdC }, "Should contain transaction C")
+
+        // Cleanup
+        transactionManager.clearAllTransactions()
+    }
+
+    func testMergeAndRestoreUpdatesExistingUberTransactions() async throws {
+        // Create clean manager instances for this test
+        let (shiftManager, expenseManager, preferencesManager, backupRestoreManager) = createCleanManagers()
+        let transactionManager = UberTransactionManager.shared
+        transactionManager.clearAllTransactions()
+
+        // Given: Current transactions A, B from "Test Period"
+        let txnIdA = UUID()
+        let txnIdB = UUID()
+        let shiftID = UUID()
+
+        let currentTxnA = createTestTransaction(id: txnIdA, shiftID: shiftID, date: Date(), amount: 10.0)
+        let currentTxnB = createTestTransaction(id: txnIdB, shiftID: shiftID, date: Date(), amount: 15.0)
+        transactionManager.saveTransactions([currentTxnA, currentTxnB])
+
+        XCTAssertEqual(transactionManager.getAllTransactions().count, 2, "Should start with 2 transactions")
+
+        // When: Restore backup with A (same period - preserved), C (NEW period - added)
+        // NOTE: Merge for Uber transactions preserves local statement periods (same as skipDuplicates)
+        let txnIdC = UUID()
+        let backupTxnA = createTestTransaction(id: txnIdA, shiftID: shiftID, date: Date(), amount: 999.0) // Same period - will be skipped
+        let backupTxnC = createTransactionWithPeriod(id: txnIdC, shiftID: shiftID, date: Date(), amount: 20.0, type: "Tip", statementPeriod: "New Period") // NEW period - will be added
+
+        let backupData = createBackupData(shifts: [], expenses: [], uberTransactions: [backupTxnA, backupTxnC])
+
+        let result = backupRestoreManager.restoreFromBackup(
+            backupData: backupData,
+            shiftManager: shiftManager,
+            expenseManager: expenseManager,
+            preferencesManager: preferencesManager,
+            action: .merge
+        )
+
+        // Then: Should have A, B (preserved from local "Test Period"), C (added from new period)
+        // For Uber transactions, merge preserves existing statement periods (no update behavior)
+        let allTransactions = transactionManager.getAllTransactions()
+        XCTAssertEqual(allTransactions.count, 3, "Should have 3 transactions total")
+
+        XCTAssertEqual(result.transactionsAdded, 1, "Should add 1 new transaction (C from new period)")
+        XCTAssertEqual(result.transactionsUpdated, 0, "Should not update (Uber uses statement-period preservation)")
+        XCTAssertEqual(result.transactionsSkipped, 1, "Should skip 1 transaction (A from existing period)")
+
+        // Verify transaction A preserved (not updated)
+        let preservedTxnA = allTransactions.first { $0.id == txnIdA }
+        XCTAssertNotNil(preservedTxnA, "Transaction A should exist")
+        XCTAssertEqual(preservedTxnA?.amount ?? 0, 10.0, accuracy: 0.01, "Transaction A should keep original amount (period preserved)")
+
+        // Verify transaction B unchanged
+        let unchangedTxnB = allTransactions.first { $0.id == txnIdB }
+        XCTAssertNotNil(unchangedTxnB, "Transaction B should exist")
+        XCTAssertEqual(unchangedTxnB?.amount ?? 0, 15.0, accuracy: 0.01, "Transaction B should keep original amount")
+
+        // Verify transaction C added (from new period)
+        XCTAssertTrue(allTransactions.contains { $0.id == txnIdC }, "Should contain transaction C")
+
+        // Cleanup
+        transactionManager.clearAllTransactions()
+    }
+
+    func testRestoreWithNoUberTransactionsInBackup() async throws {
+        // Create clean manager instances for this test
+        let (shiftManager, expenseManager, preferencesManager, backupRestoreManager) = createCleanManagers()
+        let transactionManager = UberTransactionManager.shared
+        transactionManager.clearAllTransactions()
+
+        // Given: Current transactions
+        let txn = createTestTransaction(id: UUID(), shiftID: UUID(), date: Date(), amount: 10.0)
+        transactionManager.saveTransaction(txn)
+
+        XCTAssertEqual(transactionManager.getAllTransactions().count, 1, "Should start with 1 transaction")
+
+        // When: Restore backup with nil uberTransactions using Merge
+        let backupData = createBackupData(shifts: [], expenses: [], uberTransactions: nil)
+
+        let result = backupRestoreManager.restoreFromBackup(
+            backupData: backupData,
+            shiftManager: shiftManager,
+            expenseManager: expenseManager,
+            preferencesManager: preferencesManager,
+            action: .merge
+        )
+
+        // Then: Existing transaction should remain
+        XCTAssertEqual(transactionManager.getAllTransactions().count, 1, "Should still have 1 transaction")
+        XCTAssertEqual(result.transactionsAdded, 0, "Should add 0 transactions")
+        XCTAssertEqual(result.transactionsUpdated, 0, "Should update 0 transactions")
+
+        // Cleanup
+        transactionManager.clearAllTransactions()
+    }
+
+    func testBackwardCompatibilityWithoutUberTransactions() async throws {
+        // Create clean manager instances for this test
+        let (shiftManager, expenseManager, preferencesManager, backupRestoreManager) = createCleanManagers()
+
+        // Given: A backup without uberTransactions field (legacy backup)
+        let backupData = BackupData(
+            shifts: [],
+            expenses: [],
+            uberTransactions: nil, // Simulating old backup format
+            preferences: BackupPreferences(
+                tankCapacity: 15.0,
+                gasPrice: 2.50,
+                standardMileageRate: 0.70,
+                weekStartDay: 1,
+                dateFormat: "MM/dd/yyyy",
+                timeFormat: "h:mm a",
+                timeZoneIdentifier: "America/New_York",
+                tipDeductionEnabled: true,
+                effectivePersonalTaxRate: 0.22,
+                incrementalSyncEnabled: false,
+                syncFrequency: "daily",
+                lastIncrementalSyncDate: nil
+            ),
+            exportDate: Date(),
+            appVersion: "1.0"
+        )
+
+        // When: Restore using any action
+        let result = backupRestoreManager.restoreFromBackup(
+            backupData: backupData,
+            shiftManager: shiftManager,
+            expenseManager: expenseManager,
+            preferencesManager: preferencesManager,
+            action: .replaceAll
+        )
+
+        // Then: Should handle gracefully with no transaction operations
+        XCTAssertEqual(result.transactionsAdded, 0, "Should add 0 transactions")
+        XCTAssertEqual(result.transactionsUpdated, 0, "Should update 0 transactions")
+        XCTAssertEqual(result.transactionsSkipped, 0, "Should skip 0 transactions")
+    }
+
+    // MARK: - Statement Period Based Deduplication Tests
+
+    /// Helper to create a test transaction with specific statement period
+    private func createTransactionWithPeriod(
+        id: UUID = UUID(),
+        shiftID: UUID?,
+        date: Date,
+        amount: Double,
+        type: String = "Tip",
+        statementPeriod: String
+    ) -> UberTransaction {
+        return UberTransaction(
+            id: id,
+            transactionDate: date,
+            eventDate: date,
+            eventType: type,
+            amount: amount,
+            tollsReimbursed: type == "UberX" ? 5.0 : nil,
+            statementPeriod: statementPeriod,
+            shiftID: shiftID,
+            importDate: date
+        )
+    }
+
+    func testRestoreSkipDuplicates_PreservesLocalStatementPeriods() async throws {
+        // Create clean manager instances for this test
+        let (shiftManager, expenseManager, preferencesManager, backupRestoreManager) = createCleanManagers()
+        let transactionManager = UberTransactionManager.shared
+        transactionManager.clearAllTransactions()
+
+        // Given: Local transactions from "Oct 13 - Oct 20, 2025" period
+        let shiftID = UUID()
+        let localTxn1 = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 10.0, type: "Tip", statementPeriod: "Oct 13 - Oct 20, 2025")
+        let localTxn2 = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 25.0, type: "UberX", statementPeriod: "Oct 13 - Oct 20, 2025")
+
+        transactionManager.saveTransactions([localTxn1, localTxn2])
+
+        XCTAssertEqual(transactionManager.getAllTransactions().count, 2, "Should start with 2 local transactions")
+
+        // When: Restore backup with SAME statement period (different amounts - should be ignored)
+        let backupTxn1 = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 999.0, type: "Tip", statementPeriod: "Oct 13 - Oct 20, 2025")
+        let backupTxn2 = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 888.0, type: "UberX", statementPeriod: "Oct 13 - Oct 20, 2025")
+
+        let backupData = createBackupData(shifts: [], expenses: [], uberTransactions: [backupTxn1, backupTxn2])
+
+        _ = backupRestoreManager.restoreFromBackup(
+            backupData: backupData,
+            shiftManager: shiftManager,
+            expenseManager: expenseManager,
+            preferencesManager: preferencesManager,
+            action: .skipDuplicates
+        )
+
+        // Then: Local transactions should be preserved, backup ignored
+        let allTransactions = transactionManager.getAllTransactions()
+        XCTAssertEqual(allTransactions.count, 2, "Should still have 2 transactions (local preserved)")
+
+        // Verify local amounts preserved (not replaced by backup)
+        let tipTransaction = allTransactions.first { $0.eventType == "Tip" }
+        XCTAssertNotNil(tipTransaction, "Tip transaction should exist")
+        XCTAssertEqual(tipTransaction?.amount ?? 0, 10.0, accuracy: 0.01, "Local tip amount should be preserved")
+
+        let uberXTransaction = allTransactions.first { $0.eventType == "UberX" }
+        XCTAssertNotNil(uberXTransaction, "UberX transaction should exist")
+        XCTAssertEqual(uberXTransaction?.amount ?? 0, 25.0, accuracy: 0.01, "Local UberX amount should be preserved")
+
+        // Cleanup
+        transactionManager.clearAllTransactions()
+    }
+
+    func testRestoreSkipDuplicates_AddsNewStatementPeriodsOnly() async throws {
+        // Create clean manager instances for this test
+        let (shiftManager, expenseManager, preferencesManager, backupRestoreManager) = createCleanManagers()
+        let transactionManager = UberTransactionManager.shared
+        transactionManager.clearAllTransactions()
+
+        // Given: Local transactions from "Oct 13 - Oct 20, 2025" period
+        let shiftID = UUID()
+        let localTxn = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 10.0, type: "Tip", statementPeriod: "Oct 13 - Oct 20, 2025")
+
+        transactionManager.saveTransaction(localTxn)
+
+        XCTAssertEqual(transactionManager.getAllTransactions().count, 1, "Should start with 1 local transaction")
+
+        // When: Restore backup with NEW statement period "Oct 20 - Oct 27, 2025"
+        let backupTxn1 = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 15.0, type: "Tip", statementPeriod: "Oct 20 - Oct 27, 2025")
+        let backupTxn2 = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 30.0, type: "UberX", statementPeriod: "Oct 20 - Oct 27, 2025")
+
+        let backupData = createBackupData(shifts: [], expenses: [], uberTransactions: [backupTxn1, backupTxn2])
+
+        _ = backupRestoreManager.restoreFromBackup(
+            backupData: backupData,
+            shiftManager: shiftManager,
+            expenseManager: expenseManager,
+            preferencesManager: preferencesManager,
+            action: .skipDuplicates
+        )
+
+        // Then: Should have local + new transactions
+        let allTransactions = transactionManager.getAllTransactions()
+        XCTAssertEqual(allTransactions.count, 3, "Should have 3 transactions (1 local + 2 from new period)")
+
+        // Verify both periods exist
+        let oct13Transactions = allTransactions.filter { $0.statementPeriod == "Oct 13 - Oct 20, 2025" }
+        XCTAssertEqual(oct13Transactions.count, 1, "Should have 1 transaction from Oct 13 period")
+
+        let oct20Transactions = allTransactions.filter { $0.statementPeriod == "Oct 20 - Oct 27, 2025" }
+        XCTAssertEqual(oct20Transactions.count, 2, "Should have 2 transactions from Oct 20 period")
+
+        // Cleanup
+        transactionManager.clearAllTransactions()
+    }
+
+    func testRestoreMerge_PreservesLocalStatementPeriods() async throws {
+        // Create clean manager instances for this test
+        let (shiftManager, expenseManager, preferencesManager, backupRestoreManager) = createCleanManagers()
+        let transactionManager = UberTransactionManager.shared
+        transactionManager.clearAllTransactions()
+
+        // Given: Local transactions from specific period
+        let shiftID = UUID()
+        let localTxn = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 20.0, type: "Tip", statementPeriod: "Oct 13 - Oct 20, 2025")
+
+        transactionManager.saveTransaction(localTxn)
+
+        // When: Restore backup with SAME period (even merge should preserve local)
+        let backupTxn = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 999.0, type: "Tip", statementPeriod: "Oct 13 - Oct 20, 2025")
+
+        let backupData = createBackupData(shifts: [], expenses: [], uberTransactions: [backupTxn])
+
+        _ = backupRestoreManager.restoreFromBackup(
+            backupData: backupData,
+            shiftManager: shiftManager,
+            expenseManager: expenseManager,
+            preferencesManager: preferencesManager,
+            action: .merge
+        )
+
+        // Then: Local transaction amount should be preserved
+        let allTransactions = transactionManager.getAllTransactions()
+        XCTAssertEqual(allTransactions.count, 1, "Should have 1 transaction")
+        XCTAssertEqual(allTransactions.first?.amount ?? 0, 20.0, accuracy: 0.01, "Local amount should be preserved")
+
+        // Cleanup
+        transactionManager.clearAllTransactions()
+    }
+
+    func testRestoreWithMixedStatementPeriods() async throws {
+        // Create clean manager instances for this test
+        let (shiftManager, expenseManager, preferencesManager, backupRestoreManager) = createCleanManagers()
+        let transactionManager = UberTransactionManager.shared
+        transactionManager.clearAllTransactions()
+
+        // Given: Local transactions from two periods
+        let shiftID = UUID()
+        let localTxn1 = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 10.0, type: "Tip", statementPeriod: "Oct 13 - Oct 20, 2025")
+        let localTxn2 = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 15.0, type: "Tip", statementPeriod: "Oct 27 - Nov 3, 2025")
+
+        transactionManager.saveTransactions([localTxn1, localTxn2])
+
+        XCTAssertEqual(transactionManager.getAllTransactions().count, 2, "Should start with 2 transactions")
+
+        // When: Restore backup with:
+        // - Oct 13-20 (existing - should skip)
+        // - Oct 20-27 (new - should add)
+        // - Oct 27-Nov 3 (existing - should skip)
+        let backupTxn1 = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 999.0, type: "Tip", statementPeriod: "Oct 13 - Oct 20, 2025")
+        let backupTxn2 = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 20.0, type: "Tip", statementPeriod: "Oct 20 - Oct 27, 2025")
+        let backupTxn3 = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 888.0, type: "Tip", statementPeriod: "Oct 27 - Nov 3, 2025")
+
+        let backupData = createBackupData(shifts: [], expenses: [], uberTransactions: [backupTxn1, backupTxn2, backupTxn3])
+
+        _ = backupRestoreManager.restoreFromBackup(
+            backupData: backupData,
+            shiftManager: shiftManager,
+            expenseManager: expenseManager,
+            preferencesManager: preferencesManager,
+            action: .skipDuplicates
+        )
+
+        // Then: Should have 3 transactions (2 local preserved + 1 new period added)
+        let allTransactions = transactionManager.getAllTransactions()
+        XCTAssertEqual(allTransactions.count, 3, "Should have 3 transactions")
+
+        // Verify local amounts preserved
+        let oct13Txn = allTransactions.first { $0.statementPeriod == "Oct 13 - Oct 20, 2025" }
+        XCTAssertEqual(oct13Txn?.amount ?? 0, 10.0, accuracy: 0.01, "Oct 13 transaction should preserve local amount")
+
+        let oct27Txn = allTransactions.first { $0.statementPeriod == "Oct 27 - Nov 3, 2025" }
+        XCTAssertEqual(oct27Txn?.amount ?? 0, 15.0, accuracy: 0.01, "Oct 27 transaction should preserve local amount")
+
+        // Verify new period added
+        let oct20Txn = allTransactions.first { $0.statementPeriod == "Oct 20 - Oct 27, 2025" }
+        XCTAssertNotNil(oct20Txn, "Oct 20 transaction should be added")
+        XCTAssertEqual(oct20Txn?.amount ?? 0, 20.0, accuracy: 0.01, "Oct 20 transaction should have backup amount")
+
+        // Cleanup
+        transactionManager.clearAllTransactions()
+    }
+
+    func testClearAndRestore_ReplacesAllStatementPeriods() async throws {
+        // Create clean manager instances for this test
+        let (shiftManager, expenseManager, preferencesManager, backupRestoreManager) = createCleanManagers()
+        let transactionManager = UberTransactionManager.shared
+        transactionManager.clearAllTransactions()
+
+        // Given: Local transactions from a period
+        let shiftID = UUID()
+        let localTxn = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 10.0, type: "Tip", statementPeriod: "Oct 13 - Oct 20, 2025")
+
+        transactionManager.saveTransaction(localTxn)
+
+        // When: Clear & Restore with different period
+        let backupTxn = createTransactionWithPeriod(shiftID: shiftID, date: Date(), amount: 25.0, type: "Tip", statementPeriod: "Oct 20 - Oct 27, 2025")
+
+        let backupData = createBackupData(shifts: [], expenses: [], uberTransactions: [backupTxn])
+
+        _ = backupRestoreManager.restoreFromBackup(
+            backupData: backupData,
+            shiftManager: shiftManager,
+            expenseManager: expenseManager,
+            preferencesManager: preferencesManager,
+            action: .replaceAll
+        )
+
+        // Then: Only backup transactions should exist (local cleared)
+        let allTransactions = transactionManager.getAllTransactions()
+        XCTAssertEqual(allTransactions.count, 1, "Should have 1 transaction from backup")
+        XCTAssertEqual(allTransactions.first?.statementPeriod, "Oct 20 - Oct 27, 2025", "Should be from backup period")
+        XCTAssertEqual(allTransactions.first?.amount ?? 0, 25.0, accuracy: 0.01, "Should have backup amount")
+
+        // Cleanup
+        transactionManager.clearAllTransactions()
+    }
 }
+
+

@@ -1652,6 +1652,9 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
 
     @MainActor
     private func addTestPhoto(photoIndex: Int = 0, in app: XCUIApplication) throws {
+        // Scroll down to ensure Add Photos button is visible (may be off-screen after adding Cash Tips field)
+        app.swipeUp()
+
         // Find the "Add Photos" button (works for both Start/End/Edit Shift views)
         let addPhotoButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Add Photos'")).firstMatch
         XCTAssertTrue(addPhotoButton.exists, "Add Photos button should exist")

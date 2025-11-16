@@ -40,6 +40,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     var trips: Int?
     var netFare: Double?
     var tips: Double?
+    var cashTips: Double?  // Cash tips (manual entry)
     var promotions: Double?
     var tolls: Double?
     var tollsReimbursed: Double?
@@ -53,11 +54,40 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     // Photo attachments (Phase 2)
     var imageAttachments: [ImageAttachment] = []
 
-    // Uber statement import metadata (Phase 3C)
-    var uberTipTransactions: [UberTipTransaction] = []
-    var uberTollTransactions: [UberTollReimbursementTransaction] = []
+    // Uber statement import metadata
     var uberImportDate: Date?  // Last import timestamp
     var uberStatementPeriod: String?  // "Oct 13, 2025 - Oct 20, 2025"
+
+    // Uber data helper computed properties
+    var hasUberData: Bool {
+        return uberImportDate != nil
+    }
+
+    var uberTransactions: [UberTransaction] {
+        return UberTransactionManager.shared.getTransactions(forShift: id)
+    }
+
+    var totalUberTips: Double {
+        return uberTransactions.filter { categorize($0) == .tip }.reduce(0) { $0 + $1.amount }
+    }
+
+    var totalUberTollReimbursements: Double {
+        return uberTransactions.reduce(0) { $0 + ($1.tollsReimbursed ?? 0) }
+    }
+
+    var hasUberTipDiscrepancy: Bool {
+        guard hasUberData else { return false }
+        return abs((tips ?? 0) - totalUberTips) > 0.01
+    }
+
+    var hasUberTollDiscrepancy: Bool {
+        guard hasUberData else { return false }
+        return abs((tollsReimbursed ?? 0) - totalUberTollReimbursements) > 0.01
+    }
+
+    var hasAnyUberDiscrepancy: Bool {
+        return hasUberTipDiscrepancy || hasUberTollDiscrepancy
+    }
 
     // Gas price management
 
@@ -100,7 +130,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
 
     // Tax Summary Properties
     var totalTips: Double {
-        return tips ?? 0
+        return (tips ?? 0) + (cashTips ?? 0)
     }
     
     var taxableIncome: Double {
@@ -115,7 +145,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     var totalEarnings: Double {
         return revenue
     }
-    
+
     // Expenses
     
     func shiftGasUsage(tankCapacity: Double) -> Double {
@@ -187,6 +217,11 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
         return directCosts(tankCapacity: tankCapacity)
     }
        
+    // Gross income (all revenue sources including total tips)
+    func grossProfit() -> Double {
+        return (netFare ?? 0) + totalTips + (promotions ?? 0)
+    }
+
     func grossProfit(tankCapacity: Double) -> Double {
         return revenue - directCosts(tankCapacity: tankCapacity)
     }
@@ -322,19 +357,17 @@ extension RideshareShift {
         // Decode image attachments with backward compatibility
         imageAttachments = try container.decodeIfPresent([ImageAttachment].self, forKey: .imageAttachments) ?? []
 
-        // Decode Uber import metadata with backward compatibility (Phase 3C)
-        uberTipTransactions = try container.decodeIfPresent([UberTipTransaction].self, forKey: .uberTipTransactions) ?? []
-        uberTollTransactions = try container.decodeIfPresent([UberTollReimbursementTransaction].self, forKey: .uberTollTransactions) ?? []
+        // Decode Uber import metadata with backward compatibility
         uberImportDate = try container.decodeIfPresent(Date.self, forKey: .uberImportDate)
         uberStatementPeriod = try container.decodeIfPresent(String.self, forKey: .uberStatementPeriod)
     }
-    
+
     private enum CodingKeys: String, CodingKey {
         case id, createdDate, modifiedDate, deviceID, isDeleted
         case startDate, startMileage, startTankReading, hasFullTankAtStart
         case endDate, endMileage, endTankReading, didRefuelAtEnd, refuelGallons, refuelCost
         case trips, netFare, tips, promotions, tolls, tollsReimbursed, parkingFees, miscFees
         case gasPrice, standardMileageRate, imageAttachments
-        case uberTipTransactions, uberTollTransactions, uberImportDate, uberStatementPeriod
+        case uberImportDate, uberStatementPeriod
     }
 }

@@ -32,7 +32,7 @@ struct EditShiftView: View {
     @FocusState private var focusedField: FocusedField?
     
     enum FocusedField {
-        case startMileage, endMileage, refuelGallons, refuelCost, totalTrips, netFare, tips, promotions, totalTolls, tollsReimbursed, parkingFees, miscFees, gasPrice, standardMileageRate
+        case startMileage, endMileage, refuelGallons, refuelCost, totalTrips, netFare, tips, cashTips, promotions, totalTolls, tollsReimbursed, parkingFees, miscFees, gasPrice, standardMileageRate
     }
     
     // End shift data
@@ -45,6 +45,7 @@ struct EditShiftView: View {
     @State private var totalTrips: String
     @State private var netFare: Double?
     @State private var tips: Double?
+    @State private var cashTips: Double?
     @State private var promotions: Double?
     @State private var totalTolls: Double?
     @State private var tollsReimbursed: Double?
@@ -98,6 +99,7 @@ struct EditShiftView: View {
         self._totalTrips = State(initialValue: shift.wrappedValue.trips?.description ?? "")
         self._netFare = State(initialValue: shift.wrappedValue.netFare)
         self._tips = State(initialValue: shift.wrappedValue.tips)
+        self._cashTips = State(initialValue: shift.wrappedValue.cashTips)
         self._promotions = State(initialValue: shift.wrappedValue.promotions)
         self._totalTolls = State(initialValue: shift.wrappedValue.tolls)
         self._tollsReimbursed = State(initialValue: shift.wrappedValue.tollsReimbursed)
@@ -648,6 +650,18 @@ struct EditShiftView: View {
                             .stroke(focusedField == .tips ? Color.accentColor : Color.clear, lineWidth: 2)
                     )
             }
+            HStack {
+                Text("Cash Tips")
+                Spacer()
+                CurrencyTextField(placeholder: "$0.00", value: $cashTips)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 120)
+                    .focused($focusedField, equals: .cashTips)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(focusedField == .cashTips ? Color.accentColor : Color.clear, lineWidth: 2)
+                    )
+            }
         }
     }
     
@@ -787,6 +801,7 @@ struct EditShiftView: View {
             shift.trips = Int(totalTrips)
             shift.netFare = netFare
             shift.tips = tips
+            shift.cashTips = cashTips
             shift.promotions = promotions
             shift.tolls = totalTolls
             shift.tollsReimbursed = tollsReimbursed

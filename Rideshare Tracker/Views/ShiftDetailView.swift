@@ -173,11 +173,14 @@ struct ShiftDetailView: View {
                                 if shift.endDate != nil {
                                     tripDataSection
                                 }
+                                if shift.hasUberData {
+                                    UberDataSectionView(shift: shift)
+                                }
                                 if !shift.imageAttachments.isEmpty {
                                     photosSection
                                 }
                             }
-                            
+
                             // Right Column
                             VStack(spacing: 20) {
                                 if shift.endDate != nil {
@@ -194,6 +197,11 @@ struct ShiftDetailView: View {
                             shiftOverviewSection
                             if shift.endDate != nil {
                                 tripDataSection
+                            }
+                            if shift.hasUberData {
+                                UberDataSectionView(shift: shift)
+                            }
+                            if shift.endDate != nil {
                                 expensesSection
                                 cashFlowSummarySection
                                 taxSummarySection
@@ -292,6 +300,9 @@ struct ShiftDetailView: View {
                     DetailRow("Promotions", String(format: "$%.2f", promotions))
                 }
                 DetailRow("Tips", String(format: "$%.2f", shift.tips ?? 0))
+                if let cashTips = shift.cashTips, cashTips > 0 {
+                    DetailRow("Cash Tips", String(format: "$%.2f", cashTips))
+                }
                 DetailRow("Revenue", String(format: "$%.2f", shift.revenue), valueColor: .green)
             }
             .padding()

@@ -258,17 +258,21 @@ final class UberStatementManager {
         }
 
         // Parse toll reimbursement (if 6-column layout)
-        var tollReimbursement: Double? = nil
+        var tollsReimbursed: Double? = nil
         if layout == .sixColumn && components.count >= 6 {
             let tollStr = components[3].replacingOccurrences(of: "$", with: "").replacingOccurrences(of: ",", with: "")
-            tollReimbursement = Double(tollStr)
+            tollsReimbursed = Double(tollStr)
         }
 
         return UberTransaction(
             transactionDate: transactionDate,
+            eventDate: nil,
             eventType: eventType,
             amount: amount,
-            tollReimbursement: tollReimbursement
+            tollsReimbursed: tollsReimbursed,
+            statementPeriod: "",  // Will be filled in by caller
+            shiftID: nil,
+            importDate: Date()
         )
     }
 
@@ -370,7 +374,7 @@ final class UberStatementManager {
                 // Match the first orphaned transaction with this amount
                 var matchedTransaction = orphanedTransactions.removeFirst()
                 matchedTransaction.amount = transaction.amount
-                matchedTransaction.tollReimbursement = transaction.tollReimbursement
+                matchedTransaction.tollsReimbursed = transaction.tollsReimbursed
                 matchedTransaction.needsManualVerification = true
                 result.append(matchedTransaction)
             } else {
@@ -434,7 +438,7 @@ final class UberStatementManager {
         }
 
         // Parse amounts (if present)
-        let (amount, tollReimbursement) = if !amountLines.isEmpty {
+        let (amount, tollsReimbursed) = if !amountLines.isEmpty {
             parseAmounts(amountLines, layout: layout)
         } else {
             (0.0, nil)  // No amounts found - will be matched later with orphaned amounts
@@ -442,9 +446,13 @@ final class UberStatementManager {
 
         return UberTransaction(
             transactionDate: processedDate,
+            eventDate: nil,
             eventType: eventType.trimmingCharacters(in: .whitespaces),
             amount: amount,
-            tollReimbursement: tollReimbursement
+            tollsReimbursed: tollsReimbursed,
+            statementPeriod: "",  // Will be filled in by caller
+            shiftID: nil,
+            importDate: Date()
         )
     }
 
@@ -536,24 +544,6 @@ final class UberStatementManager {
         }
 
         return (yourEarnings, nil)
-    }
-
-    /// Categorize transaction by event type
-    /// - Parameter transaction: Transaction to categorize
-    /// - Returns: Transaction category
-    func categorize(transaction: UberTransaction) -> TransactionCategory {
-        let eventType = transaction.eventType
-
-        if eventType == "Tip" {
-            return .tip
-        } else if eventType == "Quest" || eventType == "Incentive" {
-            return .promotion
-        } else if eventType.lowercased().contains("transferred to bank") {
-            return .ignore
-        } else {
-            // All ride types: UberX, UberX Priority, Share, Delivery, etc.
-            return .netFare
-        }
     }
 
     // MARK: - Coordinate-Based Parsing Helpers
@@ -901,14 +891,17 @@ final class UberStatementManager {
         guard let processedDate = processedDate else { return nil }
 
         // Parse amounts based on event type and column layout
-        let (amount, tollReimbursement) = parseAmountsByEventType(amounts, eventType: eventType, layout: layout)
+        let (amount, tollsReimbursed) = parseAmountsByEventType(amounts, eventType: eventType, layout: layout)
 
         return UberTransaction(
             transactionDate: processedDate,
             eventDate: eventDate,
             eventType: eventType.trimmingCharacters(in: .whitespaces),
             amount: amount,
-            tollReimbursement: tollReimbursement
+            tollsReimbursed: tollsReimbursed,
+            statementPeriod: "",  // Will be filled in by caller
+            shiftID: nil,
+            importDate: Date()
         )
     }
 
@@ -1072,14 +1065,17 @@ final class UberStatementManager {
         guard let processedDate = processedDate else { return nil }
 
         // Parse amounts based on event type and column layout
-        let (amount, tollReimbursement) = parseAmountsByEventType(amounts, eventType: eventType, layout: layout)
+        let (amount, tollsReimbursed) = parseAmountsByEventType(amounts, eventType: eventType, layout: layout)
 
         return UberTransaction(
             transactionDate: processedDate,
             eventDate: eventDate,
             eventType: eventType.trimmingCharacters(in: .whitespaces),
             amount: amount,
-            tollReimbursement: tollReimbursement
+            tollsReimbursed: tollsReimbursed,
+            statementPeriod: "",  // Will be filled in by caller
+            shiftID: nil,
+            importDate: Date()
         )
     }
     // MARK: ⚠️ SYNC POINT END ⚠️
@@ -1330,25 +1326,4 @@ final class UberStatementManager {
 enum ColumnLayout {
     case fiveColumn  // Without "Refunds & Expenses" (no tolls)
     case sixColumn   // With "Refunds & Expenses" (has tolls)
-}
-
-/// Uber transaction from statement
-struct UberTransaction: Codable, Equatable {
-    var transactionDate: Date  // Processed date (when Uber processed the transaction)
-    var eventDate: Date?       // Event date (when the ride/trip actually occurred)
-    var eventType: String
-    var amount: Double
-    var tollReimbursement: Double?
-
-    /// Indicates if this transaction was reconstructed from orphaned amounts due to PDF extraction issues
-    /// When true, the transaction should be manually verified against the original PDF
-    var needsManualVerification: Bool = false
-}
-
-/// Transaction category based on event type
-enum TransactionCategory {
-    case tip
-    case promotion
-    case netFare
-    case ignore
 }

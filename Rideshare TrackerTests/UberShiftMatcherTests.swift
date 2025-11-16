@@ -36,9 +36,13 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
         // Transaction at 9 PM same day (within shift time)
         let transaction = UberTransaction(
             transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 21)!,  // 9 PM
+            eventDate: nil,
             eventType: "UberX",
             amount: 25.00,
-            tollReimbursement: nil
+            tollsReimbursed: nil,
+            statementPeriod: "Oct 13 - Oct 20, 2025",
+            shiftID: nil,
+            importDate: Date()
         )
 
         // When: Match transaction to shifts
@@ -59,9 +63,13 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
         // Transaction at 5 PM (before shift starts, outside 4 AM window)
         let transaction = UberTransaction(
             transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 17)!,  // 5 PM
+            eventDate: nil,
             eventType: "UberX",
             amount: 25.00,
-            tollReimbursement: nil
+            tollsReimbursed: nil,
+            statementPeriod: "Oct 13 - Oct 20, 2025",
+            shiftID: nil,
+            importDate: Date()
         )
 
         // When: Match transaction to shifts
@@ -81,9 +89,13 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
         // Transaction at 3:59 AM Oct 20 (belongs to Oct 19's 4 AM window)
         let transaction = UberTransaction(
             transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 3, minute: 59)!,
+            eventDate: nil,
             eventType: "Tip",
             amount: 5.00,
-            tollReimbursement: nil
+            tollsReimbursed: nil,
+            statementPeriod: "Oct 13 - Oct 20, 2025",
+            shiftID: nil,
+            importDate: Date()
         )
 
         // When: Match transaction to shifts
@@ -103,9 +115,13 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
         // Transaction at exactly 4:00 AM Oct 20 (starts Oct 20's window)
         let transaction = UberTransaction(
             transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 4, minute: 0)!,
+            eventDate: nil,
             eventType: "UberX",
             amount: 20.00,
-            tollReimbursement: nil
+            tollsReimbursed: nil,
+            statementPeriod: "Oct 13 - Oct 20, 2025",
+            shiftID: nil,
+            importDate: Date()
         )
 
         // When: Match transaction to shifts
@@ -124,9 +140,9 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
 
         // Multiple transactions
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 19)!, eventType: "UberX", amount: 20.0, tollReimbursement: nil),
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 21)!, eventType: "Tip", amount: 5.0, tollReimbursement: nil),
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 1)!, eventType: "UberX", amount: 15.0, tollReimbursement: 2.5)
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 19)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 21)!, eventDate: nil, eventType: "Tip", amount: 5.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 1)!, eventDate: nil, eventType: "UberX", amount: 15.0, tollsReimbursed: 2.5, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())
         ]
 
         // When: Match all transactions
@@ -147,9 +163,13 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
         // Transaction at 3 AM (after shift ended but before 4 AM boundary)
         let transaction = UberTransaction(
             transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 3)!,
+            eventDate: nil,
             eventType: "Tip",
             amount: 5.00,
-            tollReimbursement: nil
+            tollsReimbursed: nil,
+            statementPeriod: "Oct 13 - Oct 20, 2025",
+            shiftID: nil,
+            importDate: Date()
         )
 
         // When: Match transaction
@@ -174,9 +194,13 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
         // Transaction on Oct 20 at 8 PM (should match shift2)
         let transaction = UberTransaction(
             transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 20)!,
+            eventDate: nil,
             eventType: "UberX",
             amount: 25.00,
-            tollReimbursement: nil
+            tollsReimbursed: nil,
+            statementPeriod: "Oct 13 - Oct 20, 2025",
+            shiftID: nil,
+            importDate: Date()
         )
 
         // When: Match transaction
@@ -196,9 +220,9 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
 
         // Transactions: 2 match, 1 doesn't
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 19)!, eventType: "UberX", amount: 20.0, tollReimbursement: nil),  // Matches
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 21, hour: 10)!, eventType: "UberX", amount: 15.0, tollReimbursement: nil),  // No match
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 23)!, eventType: "Tip", amount: 5.0, tollReimbursement: nil)       // Matches
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 19)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),  // Matches
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 21, hour: 10)!, eventDate: nil, eventType: "UberX", amount: 15.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),  // No match
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 23)!, eventDate: nil, eventType: "Tip", amount: 5.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())       // Matches
         ]
 
         // When: Match transactions
@@ -214,7 +238,7 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
     func testHandleEmptyShiftList() throws {
         // Given: No shifts
         let transactions = [
-            UberTransaction(transactionDate: Date(), eventType: "UberX", amount: 20.0, tollReimbursement: nil)
+            UberTransaction(transactionDate: Date(), eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())
         ]
 
         // When: Match transactions
@@ -255,16 +279,24 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
         // Transactions at different times
         let morningTransaction = UberTransaction(
             transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 10)!,  // 10 AM
+            eventDate: nil,
             eventType: "UberX",
             amount: 20.00,
-            tollReimbursement: nil
+            tollsReimbursed: nil,
+            statementPeriod: "Oct 13 - Oct 20, 2025",
+            shiftID: nil,
+            importDate: Date()
         )
 
         let eveningTransaction = UberTransaction(
             transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 21)!,  // 9 PM
+            eventDate: nil,
             eventType: "UberX",
             amount: 25.00,
-            tollReimbursement: nil
+            tollsReimbursed: nil,
+            statementPeriod: "Oct 13 - Oct 20, 2025",
+            shiftID: nil,
+            importDate: Date()
         )
 
         // When: Match transactions
@@ -285,8 +317,8 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
 
         // Transactions including bank transfer
         let transactions = [
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 19)!, eventType: "UberX", amount: 20.0, tollReimbursement: nil),
-            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventType: "Transferred to Bank Account ending in 1234", amount: 450.0, tollReimbursement: nil)
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 19)!, eventDate: nil, eventType: "UberX", amount: 20.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date()),
+            UberTransaction(transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!, eventDate: nil, eventType: "Transferred to Bank Account ending in 1234", amount: 450.0, tollsReimbursed: nil, statementPeriod: "Oct 13 - Oct 20, 2025", shiftID: nil, importDate: Date())
         ]
 
         // When: Match transactions
