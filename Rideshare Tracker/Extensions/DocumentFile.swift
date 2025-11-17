@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 // Document wrapper for file export - creates new document from file contents
 // This shows "Save" instead of "Move" in the file exporter dialog
 struct DocumentFile: FileDocument {
-    static var readableContentTypes: [UTType] { [.commaSeparatedText, .json] }
+    static var readableContentTypes: [UTType] { [.commaSeparatedText, .json, .zip] }
 
     let data: Data
 

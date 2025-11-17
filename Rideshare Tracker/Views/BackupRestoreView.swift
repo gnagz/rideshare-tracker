@@ -62,7 +62,7 @@ struct BackupView: View {
     @State private var backupURL: URL?
     @State private var showingBackupAlert = false
     @State private var backupMessage = ""
-    @State private var includeImages = true
+    @State private var isCreatingBackup = false
 
     var totalShifts: Int { shiftManager.activeShifts.count }
     var totalExpenses: Int { expenseManager.activeExpenses.count }
@@ -73,13 +73,13 @@ struct BackupView: View {
     }
     
     var body: some View {
-        VStack(spacing: 20) {
-            
-            VStack(spacing: 16) {
+        VStack(spacing: 16) {
+
+            VStack(spacing: 12) {
                 Image(systemName: "externaldrive")
                     .font(.system(size: 60))
                     .foregroundColor(.orange)
-                
+
                 Text("Create Full Backup")
                     .font(.title2)
                     .fontWeight(.semibold)
@@ -93,7 +93,7 @@ struct BackupView: View {
             }
 
             // Data Summary
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 Text("Data to Backup")
                     .font(.headline)
 
@@ -119,33 +119,29 @@ struct BackupView: View {
                         color: .purple
                     )
                 }
-
-                // Include Images Toggle
-                Toggle("Include Image Attachments", isOn: $includeImages)
-                    .padding(.horizontal)
-                    .padding(.top, 4)
-
-                if !includeImages {
-                    Text("⚠️ Image attachments will not be included in the backup")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                        .padding(.horizontal)
-                }
             }
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
             .padding(.horizontal)
             .background(Color(.systemGroupedBackground))
             .cornerRadius(12)
             .padding(.horizontal)
-            
-            Button("Create Backup") {
+
+            Button {
                 createBackup()
+            } label: {
+                if isCreatingBackup {
+                    HStack {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        Text("Creating Backup...")
+                    }
+                } else {
+                    Text("Create Backup")
+                }
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(totalShifts == 0 && totalExpenses == 0)
-            
-            Spacer()
+            .disabled(totalShifts == 0 && totalExpenses == 0 || isCreatingBackup)
 
             // Backup Info
             VStack(alignment: .leading, spacing: 8) {
@@ -155,12 +151,8 @@ struct BackupView: View {
                 Text("• All shift data with complete history")
                 Text("• All business expense records")
                 Text("• User preferences and settings")
-                if includeImages {
-                    Text("• Image attachments (full-size + thumbnails)")
-                    Text("• ZIP archive format with organized structure")
-                } else {
-                    Text("• JSON format (legacy, no images)")
-                }
+                Text("• Image attachments (full-size + thumbnails)")
+                Text("• ZIP archive format with organized structure")
             }
             .font(.caption)
             .foregroundColor(.secondary)
@@ -169,12 +161,14 @@ struct BackupView: View {
             .background(Color(.systemGroupedBackground))
             .cornerRadius(8)
             .padding(.horizontal)
+
+            Spacer()
         }
         .fileExporter(
             isPresented: $showingShareSheet,
             document: backupURL.map { DocumentFile(url: $0) },
-            contentType: includeImages ? .zip : .json,
-            defaultFilename: backupURL?.lastPathComponent ?? (includeImages ? "backup.zip" : "backup.json")
+            contentType: .zip,
+            defaultFilename: backupURL?.lastPathComponent ?? "backup.zip"
         ) { result in
             switch result {
             case .success(let url):
@@ -193,18 +187,28 @@ struct BackupView: View {
     }
     
     private func createBackup() {
-        do {
-            let url = try backupRestoreManager.createFullBackup(
-                shifts: shiftManager.shifts,
-                expenses: expenseManager.expenses,
-                preferences: preferences,
-                includeImages: includeImages
-            )
-            self.backupURL = url
-            showingShareSheet = true
-        } catch {
-            backupMessage = backupRestoreManager.lastError?.localizedDescription ?? "Failed to create backup file"
-            showingBackupAlert = true
+        isCreatingBackup = true
+
+        // Use DispatchQueue to move backup work off main thread and allow UI to update
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let url = try backupRestoreManager.createFullBackup(
+                    shifts: shiftManager.shifts,
+                    expenses: expenseManager.expenses,
+                    preferences: preferences
+                )
+                DispatchQueue.main.async {
+                    self.backupURL = url
+                    isCreatingBackup = false
+                    showingShareSheet = true
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    backupMessage = backupRestoreManager.lastError?.localizedDescription ?? "Failed to create backup file"
+                    isCreatingBackup = false
+                    showingBackupAlert = true
+                }
+            }
         }
     }
 }
@@ -419,23 +423,24 @@ struct DataSummaryCard: View {
     let title: String
     let count: Int
     let color: Color
-    
+
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.title)
                 .foregroundColor(color)
-            
+
             Text("\(count)")
                 .font(.title2)
                 .fontWeight(.bold)
-            
+
             Text(title)
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding()
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
         .background(Color(.systemBackground))
         .cornerRadius(8)
     }

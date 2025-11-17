@@ -250,7 +250,7 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
     }
 
     /// Backup navigation and options test
-    /// Tests: Backup page navigation, data summary, include images toggle, UI changes, tab switching
+    /// Tests: Backup page navigation, data summary, tab switching
     @MainActor
     func testBackupNavigationAndOptions() throws {
         debugPrint("Testing backup navigation, options, and UI state changes")
@@ -312,29 +312,13 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
         XCTAssertTrue(app.staticTexts["Expenses"].exists, "Expenses card should exist")
         XCTAssertTrue(app.staticTexts["Images"].exists, "Images card should exist")
 
-        // Verify Include Images toggle exists and check initial state
-        let includeImagesToggle = app.switches.matching(NSPredicate(format: "label CONTAINS 'Include Image Attachments'")).firstMatch
-        XCTAssertTrue(includeImagesToggle.exists, "Include Images toggle should exist")
-
-        let initialToggleState = includeImagesToggle.value as? String
-        XCTAssertNotNil(initialToggleState, "Toggle state should be readable")
-        debugPrint("Include Images toggle initial state: \(initialToggleState ?? "unknown")")
-
-        // Verify Backup Details text matches the toggle state
-        // When toggle is ON (1), should show ZIP format text
-        // When toggle is OFF (0), should show JSON format text
-        if initialToggleState == "1" {
-            XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'ZIP archive' OR label CONTAINS 'Image attachments'")).count > 0,
-                         "When toggle is ON, should show ZIP archive or Image attachments text")
-            debugPrint("Verified ZIP archive text present when toggle ON")
-        } else {
-            XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'JSON format' OR label CONTAINS 'legacy'")).count > 0,
-                         "When toggle is OFF, should show JSON format text")
-            debugPrint("Verified JSON format text present when toggle OFF")
-        }
-
         // Verify Backup Details section exists
         XCTAssertTrue(app.staticTexts["Backup Details"].exists, "Backup Details section should exist")
+
+        // Verify ZIP archive format is always shown (images always included)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'ZIP archive' OR label CONTAINS 'Image attachments'")).count > 0,
+                     "Should show ZIP archive or Image attachments text")
+        debugPrint("Verified ZIP archive text present")
 
         // Verify Create Backup button exists
         let createBackupButton = app.buttons["Create Backup"]
