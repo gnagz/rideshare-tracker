@@ -21,6 +21,7 @@ struct UberTransaction: Codable, Equatable, Identifiable {
     var statementPeriod: String     // "Oct 13 - Oct 20, 2025"
     var shiftID: UUID?              // nil = orphaned, waiting for shift
     var importDate: Date
+    var sourceRow: Int = 0          // PDF row index for debugging
 
     init(
         id: UUID = UUID(),
@@ -32,7 +33,8 @@ struct UberTransaction: Codable, Equatable, Identifiable {
         needsManualVerification: Bool = false,
         statementPeriod: String,
         shiftID: UUID? = nil,
-        importDate: Date
+        importDate: Date,
+        sourceRow: Int = 0
     ) {
         self.id = id
         self.transactionDate = transactionDate
@@ -44,6 +46,7 @@ struct UberTransaction: Codable, Equatable, Identifiable {
         self.statementPeriod = statementPeriod
         self.shiftID = shiftID
         self.importDate = importDate
+        self.sourceRow = sourceRow
     }
 }
 

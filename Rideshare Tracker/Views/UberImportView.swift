@@ -166,15 +166,8 @@ struct UberImportView: View {
                     throw UberImportError.statementPeriodNotFound
                 }
 
-                // Detect column layout
-                let layout = parser.detectColumnLayout(from: pdfText)
-
-                // Parse transactions (now returns unified UberTransaction model)
-                var transactions = try parser.parseTransactions(
-                    from: pdfText,
-                    layout: layout,
-                    statementEndDate: statementInfo.endDate
-                )
+                // Parse transactions from PDF (using coordinate-based parsing)
+                var transactions = try await parser.parseStatement(from: url)
 
                 // Add metadata to all transactions
                 let importDate = Date()

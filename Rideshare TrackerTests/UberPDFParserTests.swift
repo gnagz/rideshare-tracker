@@ -80,10 +80,10 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         """
 
         // When: Detect column layout
-        let layout = parser.detectColumnLayout(from: tableHeader)
+        let layout: ColumnLayout = detectColumnLayout(from: tableHeader)
 
         // Then: Should detect 6-column layout
-        XCTAssertEqual(layout, .sixColumn, "Should detect 6-column layout with 'Refunds & Expenses'")
+        XCTAssertEqual(layout, ColumnLayout.sixColumn, "Should detect 6-column layout with 'Refunds & Expenses'")
     }
 
     func testDetectFiveColumnLayout() throws {
@@ -93,14 +93,18 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         """
 
         // When: Detect column layout
-        let layout = parser.detectColumnLayout(from: tableHeader)
+        let layout: ColumnLayout = detectColumnLayout(from: tableHeader)
 
         // Then: Should detect 5-column layout
-        XCTAssertEqual(layout, .fiveColumn, "Should detect 5-column layout without 'Refunds & Expenses'")
+        XCTAssertEqual(layout, ColumnLayout.fiveColumn, "Should detect 5-column layout without 'Refunds & Expenses'")
     }
 
     // MARK: - Transaction Parsing Tests
+    // NOTE: The following tests were disabled during refactoring to UberStatementParser.swift
+    // They tested a deprecated API (parseTransaction from line string) that has been replaced
+    // with coordinate-based parsing. The coordinate-based tests below provide equivalent coverage.
 
+    /*
     func testParseTransactionWithToll() throws {
         // Given: Transaction row with toll reimbursement
         let transactionLine = "Oct 19 7:49 PM   UberX   $21.55   $2.71   $0.00   $448.32"
@@ -220,6 +224,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         let year = calendar.component(.year, from: transaction!.transactionDate)
         XCTAssertEqual(year, 2025)
     }
+    */
 
     // MARK: - Event Categorization Tests
 
@@ -340,7 +345,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         ]
 
         // When: Parse using coordinate-based logic
-        let transaction = parser.parseTransactionFromElements(elements, layout: .fiveColumn)
+        let transaction = parseTransactionFromElements(elements, layout: ColumnLayout.fiveColumn, rowIndex: 0)
 
         // Then: Should extract first amount as transaction amount, ignore second (balance)
         XCTAssertNotNil(transaction, "Should parse bank transfer transaction")
@@ -365,7 +370,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         ]
 
         // When: Parse transaction
-        let transaction = parser.parseTransactionFromElements(elements, layout: .fiveColumn)
+        let transaction = parseTransactionFromElements(elements, layout: ColumnLayout.fiveColumn, rowIndex: 0)
 
         // Then: Should NOT treat balance as toll
         XCTAssertNotNil(transaction, "Should parse Quest transaction")
@@ -391,7 +396,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         ]
 
         // When: Parse transaction
-        let transaction = parser.parseTransactionFromElements(elements, layout: .sixColumn)
+        let transaction = parseTransactionFromElements(elements, layout: ColumnLayout.sixColumn, rowIndex: 0)
 
         // Then: Should parse toll correctly
         XCTAssertNotNil(transaction, "Should parse ride transaction")
@@ -416,7 +421,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         ]
 
         // When: Parse transaction
-        let transaction = parser.parseTransactionFromElements(elements, layout: .fiveColumn)
+        let transaction = parseTransactionFromElements(elements, layout: ColumnLayout.fiveColumn, rowIndex: 0)
 
         // Then: Should parse correctly
         XCTAssertNotNil(transaction, "Should parse Promotion transaction")
@@ -451,7 +456,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         ]
 
         // When: Parse transaction
-        let transaction = parser.parseTransactionFromElements(elements, layout: .fiveColumn)
+        let transaction = parseTransactionFromElements(elements, layout: ColumnLayout.fiveColumn, rowIndex: 0)
 
         // Then: Should parse correctly
         XCTAssertNotNil(transaction, "Should parse Incentive-Quest transaction")
@@ -489,7 +494,7 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         ]
 
         // When: Parse transaction
-        let transaction = parser.parseTransactionFromElements(elements, layout: .fiveColumn)
+        let transaction = parseTransactionFromElements(elements, layout: ColumnLayout.fiveColumn, rowIndex: 0)
 
         // Then: Should parse correctly with full event description
         XCTAssertNotNil(transaction, "Should parse real-world Quest transaction")

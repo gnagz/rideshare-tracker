@@ -366,61 +366,59 @@ struct ImportView: View {
         }
 
         // Import successful, process shifts
-        do {
-            debugMessage("CSV import successful, processing \(csvResult.shifts.count) shifts with duplicate action: \(duplicateAction)")
-            var addedCount = 0
-            var updatedCount = 0
-            var skippedCount = 0
+        debugMessage("CSV import successful, processing \(csvResult.shifts.count) shifts with duplicate action: \(duplicateAction)")
+        var addedCount = 0
+        var updatedCount = 0
+        var skippedCount = 0
 
-            for shift in csvResult.shifts {
-                let existingShiftIndex = dataManager.shifts.firstIndex { existingShift in
-                    Calendar.current.isDate(existingShift.startDate, inSameDayAs: shift.startDate) &&
-                    existingShift.startMileage == shift.startMileage
-                }
-
-                let isDuplicate = existingShiftIndex != nil
-                debugMessage("Processing shift \(shift.startDate): duplicate=\(isDuplicate), action=\(duplicateAction)")
-
-                switch duplicateAction {
-                case .merge:
-                    dataManager.addShift(shift)
-                    addedCount += 1
-                    debugMessage("MERGE: Added shift (total shifts: \(dataManager.shifts.count))")
-                case .replace:
-                    if let index = existingShiftIndex {
-                        dataManager.shifts[index] = shift
-                        updatedCount += 1
-                        debugMessage("REPLACE: Updated existing shift at index \(index)")
-                    } else {
-                        dataManager.addShift(shift)
-                        addedCount += 1
-                        debugMessage("REPLACE: Added new shift (total shifts: \(dataManager.shifts.count))")
-                    }
-                case .skip:
-                    if existingShiftIndex == nil {
-                        dataManager.addShift(shift)
-                        addedCount += 1
-                        debugMessage("SKIP: Added non-duplicate shift (total shifts: \(dataManager.shifts.count))")
-                    } else {
-                        skippedCount += 1
-                        debugMessage("SKIP: Skipped duplicate shift")
-                    }
-                }
+        for shift in csvResult.shifts {
+            let existingShiftIndex = dataManager.shifts.firstIndex { existingShift in
+                Calendar.current.isDate(existingShift.startDate, inSameDayAs: shift.startDate) &&
+                existingShift.startMileage == shift.startMileage
             }
 
-            var message = "Import completed:\n"
-            if addedCount > 0 { message += "\n• Added: \(addedCount) shifts" }
-            if updatedCount > 0 { message += "\n• Updated: \(updatedCount) shifts" }
-            if skippedCount > 0 { message += "\n• Skipped: \(skippedCount) duplicates" }
+            let isDuplicate = existingShiftIndex != nil
+            debugMessage("Processing shift \(shift.startDate): duplicate=\(isDuplicate), action=\(duplicateAction)")
 
-            debugMessage("Import completed: added=\(addedCount), updated=\(updatedCount), skipped=\(skippedCount)")
-
-            importAlertTitle = "Import Successful"
-            importMessage = message
-            showingImportAlert = true
+            switch duplicateAction {
+            case .merge:
+                dataManager.addShift(shift)
+                addedCount += 1
+                debugMessage("MERGE: Added shift (total shifts: \(dataManager.shifts.count))")
+            case .replace:
+                if let index = existingShiftIndex {
+                    dataManager.shifts[index] = shift
+                    updatedCount += 1
+                    debugMessage("REPLACE: Updated existing shift at index \(index)")
+                } else {
+                    dataManager.addShift(shift)
+                    addedCount += 1
+                    debugMessage("REPLACE: Added new shift (total shifts: \(dataManager.shifts.count))")
+                }
+            case .skip:
+                if existingShiftIndex == nil {
+                    dataManager.addShift(shift)
+                    addedCount += 1
+                    debugMessage("SKIP: Added non-duplicate shift (total shifts: \(dataManager.shifts.count))")
+                } else {
+                    skippedCount += 1
+                    debugMessage("SKIP: Skipped duplicate shift")
+                }
+            }
         }
+
+        var message = "Import completed:\n"
+        if addedCount > 0 { message += "\n• Added: \(addedCount) shifts" }
+        if updatedCount > 0 { message += "\n• Updated: \(updatedCount) shifts" }
+        if skippedCount > 0 { message += "\n• Skipped: \(skippedCount) duplicates" }
+
+        debugMessage("Import completed: added=\(addedCount), updated=\(updatedCount), skipped=\(skippedCount)")
+
+        importAlertTitle = "Import Successful"
+        importMessage = message
+        showingImportAlert = true
     }
-    
+
     private func importExpenses(from url: URL) {
         let csvResult: ExpenseImportResult
         do {

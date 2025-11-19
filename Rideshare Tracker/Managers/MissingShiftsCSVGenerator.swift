@@ -48,7 +48,9 @@ class MissingShiftsCSVGenerator {
         var grouped: [Date: [UberTransaction]] = [:]
 
         for transaction in transactions {
-            let shiftDate = calculateShiftDate(for: transaction.transactionDate)
+            // Use eventDate (when trip occurred) if available, fallback to transactionDate (when processed)
+            let effectiveDate = transaction.eventDate ?? transaction.transactionDate
+            let shiftDate = calculateShiftDate(for: effectiveDate)
             grouped[shiftDate, default: []].append(transaction)
         }
 
@@ -60,7 +62,8 @@ class MissingShiftsCSVGenerator {
     /// - Parameter transactions: Transactions for this shift
     /// - Returns: Tuple of (startTime, endTime)
     func calculateShiftTimes(for transactions: [UberTransaction]) -> (startTime: Date, endTime: Date) {
-        let dates = transactions.map { $0.transactionDate }
+        // Use eventDate (when trip occurred) if available, fallback to transactionDate (when processed)
+        let dates = transactions.map { $0.eventDate ?? $0.transactionDate }
         let startTime = dates.min() ?? Date()
         let endTime = dates.max() ?? Date()
         return (startTime, endTime)
