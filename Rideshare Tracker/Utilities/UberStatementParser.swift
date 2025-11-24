@@ -204,12 +204,18 @@ internal func parseTransactionFromElements(_ elements: [(text: String, x: CGFloa
     // Parse amounts based on event type and column layout
     let (amount, tollsReimbursed) = parseAmountsByEventType(amounts, eventType: eventType, layout: layout)
 
+    // Mark for manual verification if eventDate is missing
+    // This is critical for accurate shift matching - without eventDate, we fall back to
+    // transactionDate which can be hours later (especially for tips)
+    let needsVerification = (eventDate == nil)
+
     return UberTransaction(
         transactionDate: processedDate,
         eventDate: eventDate,
         eventType: eventType.trimmingCharacters(in: .whitespaces),
         amount: amount,
         tollsReimbursed: tollsReimbursed,
+        needsManualVerification: needsVerification,
         statementPeriod: "",  // Will be filled in by caller
         shiftID: nil,
         importDate: Date(),

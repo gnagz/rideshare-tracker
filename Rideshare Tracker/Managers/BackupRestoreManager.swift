@@ -279,7 +279,7 @@ class BackupRestoreManager: ObservableObject {
     /// Match orphaned transactions to shifts using 4 AM boundary logic
     private func matchOrphanedTransactionsToShifts(_ orphanedTransactions: [UberTransaction], shifts: [RideshareShift], transactionManager: UberTransactionManager) {
         let matcher = UberShiftMatcher()
-        let (matched, _) = matcher.matchTransactionsToShifts(transactions: orphanedTransactions, existingShifts: shifts)
+        let (matched, _, _) = matcher.matchTransactionsToShifts(transactions: orphanedTransactions, existingShifts: shifts)
 
         // Update transactions with their matched shift IDs
         for match in matched {

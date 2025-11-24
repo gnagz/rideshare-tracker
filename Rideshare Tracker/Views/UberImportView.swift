@@ -279,7 +279,7 @@ struct UberImportView: View {
         do {
             // Match transactions to shifts
             let matcher = UberShiftMatcher()
-            let (matched, unmatched) = matcher.matchTransactionsToShifts(
+            let (matched, unmatched, transactionsNeedingVerification) = matcher.matchTransactionsToShifts(
                 transactions: transactions,
                 existingShifts: dataManager.shifts
             )
@@ -314,6 +314,7 @@ struct UberImportView: View {
                 totalTransactions: transactions.count,
                 matchedCount: matched.count,
                 unmatchedCount: unmatched.count,
+                transactionsNeedingVerification: transactionsNeedingVerification,
                 updatedShifts: updatedShifts,
                 missingShiftsCSV: missingShiftsCSV.isEmpty ? nil : missingShiftsCSV
             )
@@ -394,6 +395,7 @@ struct UberImportResult {
     let totalTransactions: Int
     let matchedCount: Int
     let unmatchedCount: Int
+    let transactionsNeedingVerification: Int
     let updatedShifts: [RideshareShift]
     let missingShiftsCSV: String?
 }

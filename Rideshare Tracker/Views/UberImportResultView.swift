@@ -74,8 +74,45 @@ struct UberImportResultView: View {
                                 color: .red
                             )
                         }
+
+                        if result.transactionsNeedingVerification > 0 {
+                            StatCard(
+                                title: "Need Verification",
+                                value: "\(result.transactionsNeedingVerification)",
+                                icon: "exclamationmark.circle.fill",
+                                color: .orange
+                            )
+                        }
                     }
                     .padding(.horizontal)
+
+                    // Data Quality Warning
+                    if result.transactionsNeedingVerification > 0 {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text("Data Quality Issue")
+                                    .font(.headline)
+                            }
+                            .padding(.horizontal)
+
+                            Text("\(result.transactionsNeedingVerification) transaction(s) are missing event dates (trip time). These transactions use the processed date instead, which may cause matching issues for tips that are processed hours after the actual trip.")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal)
+
+                            Text("This is usually caused by PDF parsing issues. The import will proceed, but you should verify the affected transactions manually.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .italic()
+                                .padding(.horizontal)
+                        }
+                        .padding(.vertical)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
+                    }
 
                     // Transaction Summary Image (combines tips, tolls, and all transactions)
                     if let summaryImage = generateTransactionSummaryImage() {
@@ -356,6 +393,7 @@ struct CSVDocument: FileDocument {
         totalTransactions: 25,
         matchedCount: 20,
         unmatchedCount: 5,
+        transactionsNeedingVerification: 3,
         updatedShifts: [],
         missingShiftsCSV: "Sample CSV content"
     )

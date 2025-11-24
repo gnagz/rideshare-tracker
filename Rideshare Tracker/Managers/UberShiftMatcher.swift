@@ -20,19 +20,25 @@ class UberShiftMatcher {
     /// - Parameters:
     ///   - transactions: Array of Uber transactions
     ///   - existingShifts: Array of existing rideshare shifts
-    /// - Returns: Tuple of (matched, unmatched) transactions
+    /// - Returns: Tuple of (matched, unmatched, verificationCount) transactions
     func matchTransactionsToShifts(
         transactions: [UberTransaction],
         existingShifts: [RideshareShift]
-    ) -> (matched: [ShiftMatch], unmatched: [UberTransaction]) {
+    ) -> (matched: [ShiftMatch], unmatched: [UberTransaction], transactionsNeedingVerification: Int) {
 
         var matched: [ShiftMatch] = []
         var unmatched: [UberTransaction] = []
+        var verificationCount = 0
 
         for transaction in transactions {
             // Skip ignored transactions (bank transfers)
             if categorize(transaction) == .ignore {
                 continue
+            }
+
+            // Count transactions needing manual verification
+            if transaction.needsManualVerification {
+                verificationCount += 1
             }
 
             if let shift = findMatchingShift(for: transaction, in: existingShifts) {
@@ -42,7 +48,7 @@ class UberShiftMatcher {
             }
         }
 
-        return (matched, unmatched)
+        return (matched, unmatched, verificationCount)
     }
 
     /// Find shift that matches a transaction
@@ -55,7 +61,10 @@ class UberShiftMatcher {
         in shifts: [RideshareShift]
     ) -> RideshareShift? {
 
-        let transactionDate = transaction.transactionDate
+        // Use eventDate (actual trip time) when available
+        // Fall back to transactionDate (processed time) only when eventDate is nil
+        // This is critical for tips, which are processed hours after the actual trip
+        let transactionDate = transaction.eventDate ?? transaction.transactionDate
 
         for shift in shifts {
             let shiftStart = shift.startDate

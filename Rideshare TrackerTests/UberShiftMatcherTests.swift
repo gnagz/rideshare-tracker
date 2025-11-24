@@ -146,7 +146,7 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
         ]
 
         // When: Match all transactions
-        let (matched, _) = matcher.matchTransactionsToShifts(transactions: transactions, existingShifts: [shift])
+        let (matched, _, _) = matcher.matchTransactionsToShifts(transactions: transactions, existingShifts: [shift])
 
         // Then: All 3 should match to same shift
         XCTAssertEqual(matched.count, 3, "All transactions should match")
@@ -226,7 +226,7 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
         ]
 
         // When: Match transactions
-        let (matched, unmatched) = matcher.matchTransactionsToShifts(transactions: transactions, existingShifts: [shift])
+        let (matched, unmatched, _) = matcher.matchTransactionsToShifts(transactions: transactions, existingShifts: [shift])
 
         // Then: 2 matched, 1 unmatched
         XCTAssertEqual(matched.count, 2, "Should have 2 matched transactions")
@@ -242,7 +242,7 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
         ]
 
         // When: Match transactions
-        let (matched, unmatched) = matcher.matchTransactionsToShifts(transactions: transactions, existingShifts: [])
+        let (matched, unmatched, _) = matcher.matchTransactionsToShifts(transactions: transactions, existingShifts: [])
 
         // Then: All unmatched
         XCTAssertEqual(matched.count, 0, "Should have no matches with empty shift list")
@@ -257,7 +257,7 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
         )
 
         // When: Match transactions
-        let (matched, unmatched) = matcher.matchTransactionsToShifts(transactions: [], existingShifts: [shift])
+        let (matched, unmatched, _) = matcher.matchTransactionsToShifts(transactions: [], existingShifts: [shift])
 
         // Then: No matches, no unmatched
         XCTAssertEqual(matched.count, 0, "Should have no matches with empty transaction list")
@@ -322,12 +322,131 @@ final class UberShiftMatcherTests: RideshareTrackerTestBase {
         ]
 
         // When: Match transactions
-        let (matched, unmatched) = matcher.matchTransactionsToShifts(transactions: transactions, existingShifts: [shift])
+        let (matched, unmatched, _) = matcher.matchTransactionsToShifts(transactions: transactions, existingShifts: [shift])
 
         // Then: Only UberX should be matched, bank transfer ignored
         XCTAssertEqual(matched.count, 1, "Should only match non-ignored transactions")
         XCTAssertEqual(matched[0].transaction.eventType, "UberX")
         XCTAssertEqual(unmatched.count, 0, "Bank transfer should be filtered out")
+    }
+
+    func testTransactionsNeedingVerification() throws {
+        // Given: Shift from 6pm to 2am next day
+        let shift = createShift(
+            startDate: createDate(year: 2025, month: 10, day: 19, hour: 18)!,
+            endDate: createDate(year: 2025, month: 10, day: 20, hour: 2)!
+        )
+
+        // Create transactions with mix of eventDate present and missing
+        let transactions = [
+            // Transaction with eventDate - should NOT need verification
+            UberTransaction(
+                transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!,
+                eventDate: createDate(year: 2025, month: 10, day: 19, hour: 19)!,
+                eventType: "UberX",
+                amount: 20.0,
+                tollsReimbursed: nil,
+                needsManualVerification: false,
+                statementPeriod: "Oct 13 - Oct 20, 2025",
+                shiftID: nil,
+                importDate: Date()
+            ),
+            // Transaction without eventDate - SHOULD need verification (matched)
+            UberTransaction(
+                transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 21)!,
+                eventDate: nil,
+                eventType: "Tip",
+                amount: 5.0,
+                tollsReimbursed: nil,
+                needsManualVerification: true,
+                statementPeriod: "Oct 13 - Oct 20, 2025",
+                shiftID: nil,
+                importDate: Date()
+            ),
+            // Transaction without eventDate - SHOULD need verification (unmatched)
+            UberTransaction(
+                transactionDate: createDate(year: 2025, month: 10, day: 21, hour: 10)!,
+                eventDate: nil,
+                eventType: "Tip",
+                amount: 3.0,
+                tollsReimbursed: nil,
+                needsManualVerification: true,
+                statementPeriod: "Oct 13 - Oct 20, 2025",
+                shiftID: nil,
+                importDate: Date()
+            ),
+            // Another with eventDate - should NOT need verification
+            UberTransaction(
+                transactionDate: createDate(year: 2025, month: 10, day: 20, hour: 2)!,
+                eventDate: createDate(year: 2025, month: 10, day: 20, hour: 1)!,
+                eventType: "UberX",
+                amount: 15.0,
+                tollsReimbursed: nil,
+                needsManualVerification: false,
+                statementPeriod: "Oct 13 - Oct 20, 2025",
+                shiftID: nil,
+                importDate: Date()
+            )
+        ]
+
+        // When: Match transactions
+        let (matched, unmatched, verificationCount) = matcher.matchTransactionsToShifts(
+            transactions: transactions,
+            existingShifts: [shift]
+        )
+
+        // Then: Verify counts
+        XCTAssertEqual(matched.count, 3, "Should match 3 transactions to shift")
+        XCTAssertEqual(unmatched.count, 1, "Should have 1 unmatched transaction")
+        XCTAssertEqual(verificationCount, 2, "Should have 2 transactions needing verification (1 matched + 1 unmatched)")
+
+        // Verify the right transactions are flagged
+        let allTransactions = matched.map { $0.transaction } + unmatched
+        let flaggedTransactions = allTransactions.filter { $0.needsManualVerification }
+        XCTAssertEqual(flaggedTransactions.count, 2, "Should have 2 flagged transactions")
+        XCTAssertTrue(flaggedTransactions.allSatisfy { $0.eventDate == nil }, "All flagged transactions should be missing eventDate")
+    }
+
+    func testTransactionsNeedingVerification_AllHaveEventDate() throws {
+        // Given: Shift and all transactions with eventDate
+        let shift = createShift(
+            startDate: createDate(year: 2025, month: 10, day: 19, hour: 18)!,
+            endDate: createDate(year: 2025, month: 10, day: 20, hour: 2)!
+        )
+
+        let transactions = [
+            UberTransaction(
+                transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!,
+                eventDate: createDate(year: 2025, month: 10, day: 19, hour: 19)!,
+                eventType: "UberX",
+                amount: 20.0,
+                tollsReimbursed: nil,
+                needsManualVerification: false,
+                statementPeriod: "Oct 13 - Oct 20, 2025",
+                shiftID: nil,
+                importDate: Date()
+            ),
+            UberTransaction(
+                transactionDate: createDate(year: 2025, month: 10, day: 19, hour: 21)!,
+                eventDate: createDate(year: 2025, month: 10, day: 19, hour: 20)!,
+                eventType: "Tip",
+                amount: 5.0,
+                tollsReimbursed: nil,
+                needsManualVerification: false,
+                statementPeriod: "Oct 13 - Oct 20, 2025",
+                shiftID: nil,
+                importDate: Date()
+            )
+        ]
+
+        // When: Match transactions
+        let (_, _, verificationCount) = matcher.matchTransactionsToShifts(
+            transactions: transactions,
+            existingShifts: [shift]
+        )
+
+        // Then: No transactions should need verification
+        XCTAssertEqual(verificationCount, 0, "Should have 0 transactions needing verification when all have eventDate")
     }
 
     // MARK: - Helper Methods
