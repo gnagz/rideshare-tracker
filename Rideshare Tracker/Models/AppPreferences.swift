@@ -86,6 +86,9 @@ enum DateRangeOption: String, CaseIterable {
     }
 }
 
+// ⚠️ IMPORTANT: This struct must mirror AppPreferences for backup/restore.
+// When adding new properties to AppPreferences, add them here too (as optional for backward compatibility).
+// See AppPreferences warning comment for full list of locations to update.
 struct BackupPreferences: Codable {
     let tankCapacity: Double
     let gasPrice: Double
@@ -117,6 +120,12 @@ struct BackupData: Codable {
 
 // MARK: - AppPreferences Model (Data Structure Only)
 
+// ⚠️ IMPORTANT: When adding new properties to AppPreferences, you MUST also update:
+// 1. BackupPreferences struct (above) - add the property for backup/restore serialization
+// 2. PreferencesManager.loadPreferences() - add UserDefaults loading logic
+// 3. PreferencesManager.savePreferences() - add UserDefaults saving logic
+// 4. PreferencesManager.restorePreferences() - add restoration from BackupPreferences
+// Failure to update ALL locations will cause DATA LOSS or preferences not persisting!
 struct AppPreferences {
     var tankCapacity: Double
     var gasPrice: Double

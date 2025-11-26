@@ -13,9 +13,13 @@ private func getCurrentDeviceID() -> String {
     return UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
 }
 
+// ⚠️ IMPORTANT: When adding new stored properties to this struct, you MUST also update:
+// 1. CodingKeys enum (at bottom of file) - add the property name
+// 2. init(from decoder:) - add decoding logic with backward compatibility
+// Failure to do so will cause DATA LOSS during backup/restore and cloud sync!
 struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     var id = UUID()
-    
+
     // Sync metadata
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
@@ -141,7 +145,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     }
     
     var revenue: Double {
-        return taxableIncome + (tips ?? 0)
+        return (netFare ?? 0) + (promotions ?? 0) + (tips ?? 0) + (cashTips ?? 0)
     }
     
     // Keep for backward compatibility in UI
@@ -222,7 +226,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
        
     // Gross income (all revenue sources including total tips)
     func grossProfit() -> Double {
-        return (netFare ?? 0) + totalTips + (promotions ?? 0)
+        return (netFare ?? 0) + (promotions ?? 0) + (tips ?? 0) + (cashTips ?? 0)
     }
 
     func grossProfit(tankCapacity: Double) -> Double {
@@ -232,7 +236,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     // Cash Flow Summary Properties
     
     var expectedPayout: Double {
-        return revenue + (tollsReimbursed ?? 0)
+        return (netFare ?? 0) + (promotions ?? 0) + (tips ?? 0) + (tollsReimbursed ?? 0)
     }
     
     func outOfPocketCosts(tankCapacity: Double) -> Double {
@@ -360,17 +364,27 @@ extension RideshareShift {
         // Decode image attachments with backward compatibility
         imageAttachments = try container.decodeIfPresent([ImageAttachment].self, forKey: .imageAttachments) ?? []
 
+        // Decode cash tips with backward compatibility
+        cashTips = try container.decodeIfPresent(Double.self, forKey: .cashTips)
+
         // Decode Uber import metadata with backward compatibility
         uberImportDate = try container.decodeIfPresent(Date.self, forKey: .uberImportDate)
         uberStatementPeriod = try container.decodeIfPresent(String.self, forKey: .uberStatementPeriod)
+        originalTips = try container.decodeIfPresent(Double.self, forKey: .originalTips)
+        originalTollsReimbursed = try container.decodeIfPresent(Double.self, forKey: .originalTollsReimbursed)
+        uberDataUserVerified = try container.decodeIfPresent(Bool.self, forKey: .uberDataUserVerified) ?? false
     }
 
+    // ⚠️ WARNING: When adding new stored properties to RideshareShift, you MUST:
+    // 1. Add the property to CodingKeys enum below
+    // 2. Add decoding logic in init(from decoder:) above
+    // Failure to do so will cause data loss during backup/restore and cloud sync!
     private enum CodingKeys: String, CodingKey {
         case id, createdDate, modifiedDate, deviceID, isDeleted
         case startDate, startMileage, startTankReading, hasFullTankAtStart
         case endDate, endMileage, endTankReading, didRefuelAtEnd, refuelGallons, refuelCost
-        case trips, netFare, tips, promotions, tolls, tollsReimbursed, parkingFees, miscFees
+        case trips, netFare, tips, cashTips, promotions, tolls, tollsReimbursed, parkingFees, miscFees
         case gasPrice, standardMileageRate, imageAttachments
-        case uberImportDate, uberStatementPeriod
+        case uberImportDate, uberStatementPeriod, originalTips, originalTollsReimbursed, uberDataUserVerified
     }
 }
