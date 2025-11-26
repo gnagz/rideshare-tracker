@@ -37,20 +37,18 @@ enum BackupRestoreError: LocalizedError {
 // MARK: - Restore Action Types
 
 enum RestoreAction: String, CaseIterable {
-    case replaceAll = "replaceAll"
-    case skipDuplicates = "skipDuplicates"
-    case merge = "merge"
-}
+    case replaceAll = "Clear & Restore"
+    case skipDuplicates = "Restore Missing"
+    case merge = "Merge & Restore"
 
-extension RestoreAction {
     var description: String {
         switch self {
         case .replaceAll:
-            return "Clear & Restore"
+            return "Delete all current data, then restore from backup"
         case .skipDuplicates:
-            return "Restore Missing"
+            return "Add only records that don't exist in current data"
         case .merge:
-            return "Merge & Restore"
+            return "Update existing records and add new ones"
         }
     }
 }
@@ -64,6 +62,9 @@ struct RestoreResult {
     var expensesAdded: Int = 0
     var expensesUpdated: Int = 0
     var expensesSkipped: Int = 0
+    var transactionsAdded: Int = 0
+    var transactionsUpdated: Int = 0
+    var transactionsSkipped: Int = 0
 }
 
 // MARK: - Backup/Restore Manager
@@ -85,15 +86,26 @@ class BackupRestoreManager: ObservableObject {
         let existingShifts = shiftManager.shifts
         let existingExpenses = expenseManager.expenses
 
+        let transactionManager = UberTransactionManager.shared
+        var restoredOrAddedShifts: [RideshareShift] = []
+
         switch action {
         case .replaceAll:
+            // Orphan all transactions for existing shifts before clearing
+            let existingShiftIDs = Set(existingShifts.map { $0.id })
+            transactionManager.orphanTransactions(forShifts: existingShiftIDs)
+
             // Clear existing data
             shiftManager.shifts.removeAll()
             expenseManager.expenses.removeAll()
 
+            // Clear all transactions (complete purge for replaceAll)
+            transactionManager.clearAllTransactions()
+
             // Restore shifts
             for shift in backupData.shifts {
                 shiftManager.addShift(shift)
+                restoredOrAddedShifts.append(shift)
                 result.shiftsAdded += 1
             }
 
@@ -105,6 +117,14 @@ class BackupRestoreManager: ObservableObject {
                 }
             }
 
+            // Restore transactions from backup (they come with their shiftID assignments)
+            if let transactions = backupData.uberTransactions {
+                for transaction in transactions {
+                    transactionManager.saveTransaction(transaction)
+                    result.transactionsAdded += 1
+                }
+            }
+
         case .skipDuplicates:
             // Restore shifts, skipping duplicates
             for shift in backupData.shifts {
@@ -112,6 +132,7 @@ class BackupRestoreManager: ObservableObject {
                     result.shiftsSkipped += 1
                 } else {
                     shiftManager.addShift(shift)
+                    restoredOrAddedShifts.append(shift)
                     result.shiftsAdded += 1
                 }
             }
@@ -128,14 +149,50 @@ class BackupRestoreManager: ObservableObject {
                 }
             }
 
+            // Restore transactions, using statement-period-based deduplication
+            // Preserve entire local statement periods, only add NEW periods from backup
+            if let transactions = backupData.uberTransactions {
+                let localPeriods = Set(transactionManager.getAllStatementPeriods())
+
+                // Group backup transactions by statement period
+                var backupByPeriod: [String: [UberTransaction]] = [:]
+                for transaction in transactions {
+                    backupByPeriod[transaction.statementPeriod, default: []].append(transaction)
+                }
+
+                // Process each backup statement period
+                for (period, periodTransactions) in backupByPeriod {
+                    if localPeriods.contains(period) {
+                        // Period exists locally - skip all backup transactions (preserve local)
+                        result.transactionsSkipped += periodTransactions.count
+                    } else {
+                        // New period - add all transactions
+                        for transaction in periodTransactions {
+                            transactionManager.saveTransaction(transaction)
+                            result.transactionsAdded += 1
+                        }
+                    }
+                }
+            }
+
+            // Match orphaned transactions to newly restored shifts
+            if !restoredOrAddedShifts.isEmpty {
+                let orphanedTransactions = transactionManager.getOrphanedTransactions()
+                if !orphanedTransactions.isEmpty {
+                    matchOrphanedTransactionsToShifts(orphanedTransactions, shifts: restoredOrAddedShifts, transactionManager: transactionManager)
+                }
+            }
+
         case .merge:
             // Restore shifts, updating existing
             for shift in backupData.shifts {
                 if shiftManager.shifts.contains(where: { $0.id == shift.id }) {
                     shiftManager.updateShift(shift)
+                    restoredOrAddedShifts.append(shift)
                     result.shiftsUpdated += 1
                 } else {
                     shiftManager.addShift(shift)
+                    restoredOrAddedShifts.append(shift)
                     result.shiftsAdded += 1
                 }
             }
@@ -152,7 +209,45 @@ class BackupRestoreManager: ObservableObject {
                     }
                 }
             }
+
+            // Restore transactions, using statement-period-based deduplication
+            // Preserve entire local statement periods, only add NEW periods from backup
+            // (same as skipDuplicates for Uber transactions - local data takes precedence)
+            if let transactions = backupData.uberTransactions {
+                let localPeriods = Set(transactionManager.getAllStatementPeriods())
+
+                // Group backup transactions by statement period
+                var backupByPeriod: [String: [UberTransaction]] = [:]
+                for transaction in transactions {
+                    backupByPeriod[transaction.statementPeriod, default: []].append(transaction)
+                }
+
+                // Process each backup statement period
+                for (period, periodTransactions) in backupByPeriod {
+                    if localPeriods.contains(period) {
+                        // Period exists locally - preserve local (don't update)
+                        // Count as skipped since we're not modifying
+                        result.transactionsSkipped += periodTransactions.count
+                    } else {
+                        // New period - add all transactions
+                        for transaction in periodTransactions {
+                            transactionManager.saveTransaction(transaction)
+                            result.transactionsAdded += 1
+                        }
+                    }
+                }
+            }
+
+            // Match orphaned transactions to restored/added shifts
+            if !restoredOrAddedShifts.isEmpty {
+                let orphanedTransactions = transactionManager.getOrphanedTransactions()
+                if !orphanedTransactions.isEmpty {
+                    matchOrphanedTransactionsToShifts(orphanedTransactions, shifts: restoredOrAddedShifts, transactionManager: transactionManager)
+                }
+            }
         }
+
+        debugMessage("Uber transactions: added=\(result.transactionsAdded), updated=\(result.transactionsUpdated), skipped=\(result.transactionsSkipped)")
 
         // Restore preferences (always)
         preferencesManager.restorePreferences(backupData.preferences)
@@ -166,8 +261,81 @@ class BackupRestoreManager: ObservableObject {
             existingExpenses: existingExpenses
         )
 
+        // Regenerate Uber transaction summary images for restored/added shifts
+        if !restoredOrAddedShifts.isEmpty {
+            regenerateUberTransactionImages(
+                for: restoredOrAddedShifts,
+                shiftManager: shiftManager,
+                transactionManager: transactionManager
+            )
+        }
+
         debugMessage("Restore completed: action=\(action), shifts added=\(result.shiftsAdded), updated=\(result.shiftsUpdated), skipped=\(result.shiftsSkipped), expenses added=\(result.expensesAdded), updated=\(result.expensesUpdated), skipped=\(result.expensesSkipped)")
         return result
+    }
+
+    // MARK: - Transaction Matching Helper
+
+    /// Match orphaned transactions to shifts using 4 AM boundary logic
+    private func matchOrphanedTransactionsToShifts(_ orphanedTransactions: [UberTransaction], shifts: [RideshareShift], transactionManager: UberTransactionManager) {
+        let matcher = UberShiftMatcher()
+        let (matched, _, _) = matcher.matchTransactionsToShifts(transactions: orphanedTransactions, existingShifts: shifts)
+
+        // Update transactions with their matched shift IDs
+        for match in matched {
+            var transaction = match.transaction
+            transaction.shiftID = match.shift.id
+            transactionManager.saveTransaction(transaction)
+        }
+
+        debugMessage("Matched \(matched.count) orphaned transactions to restored shifts")
+    }
+
+    // MARK: - Uber Transaction Image Regeneration
+
+    /// Regenerate Uber transaction summary images for restored/added shifts
+    private func regenerateUberTransactionImages(for shifts: [RideshareShift], shiftManager: ShiftDataManager, transactionManager: UberTransactionManager) {
+        let imageManager = ImageManager.shared
+        var imagesGenerated = 0
+
+        for shift in shifts {
+            // Get transactions assigned to this shift
+            let shiftTransactions = transactionManager.getTransactions(forShift: shift.id)
+
+            guard !shiftTransactions.isEmpty else { continue }
+
+            // Get the shift index for updating
+            guard let shiftIndex = shiftManager.shifts.firstIndex(where: { $0.id == shift.id }) else { continue }
+
+            // Remove existing system-generated Uber transaction images
+            let existingUberAttachments = shiftManager.shifts[shiftIndex].imageAttachments.filter { $0.type == .importedUberTxns }
+            for attachment in existingUberAttachments {
+                imageManager.deleteImage(attachment, for: shift.id, parentType: .shift)
+            }
+            shiftManager.shifts[shiftIndex].imageAttachments.removeAll { $0.type == .importedUberTxns }
+
+            // Generate single transaction summary image with all transactions
+            if let transactionImage = UberTransactionImageGenerator.generate(
+                transactions: shiftTransactions,
+                shift: shift
+            ) {
+                do {
+                    let attachment = try imageManager.saveImage(
+                        transactionImage,
+                        for: shift.id,
+                        parentType: .shift,
+                        type: .importedUberTxns,
+                        description: "Uber Import - \(shiftTransactions.count) transactions"
+                    )
+                    shiftManager.shifts[shiftIndex].imageAttachments.append(attachment)
+                    imagesGenerated += 1
+                } catch {
+                    debugMessage("Failed to save transaction summary image for shift \(shift.id): \(error)")
+                }
+            }
+        }
+
+        debugMessage("Regenerated \(imagesGenerated) Uber transaction summary images for \(shifts.count) shifts")
     }
 
     // MARK: - Create Backup (ZIP with JSON and Images)
@@ -175,9 +343,13 @@ class BackupRestoreManager: ObservableObject {
     func createFullBackup(shifts: [RideshareShift], expenses: [ExpenseItem], preferences: AppPreferences, includeImages: Bool = true) throws(BackupRestoreError) -> URL {
         lastError = nil
 
+        // Get all Uber transactions to include in backup
+        let uberTransactions = UberTransactionManager.shared.getAllTransactions()
+
         let backupData = BackupData(
             shifts: shifts,
             expenses: expenses,
+            uberTransactions: uberTransactions.isEmpty ? nil : uberTransactions,
             preferences: BackupPreferences(
                 tankCapacity: preferences.tankCapacity,
                 gasPrice: preferences.gasPrice,

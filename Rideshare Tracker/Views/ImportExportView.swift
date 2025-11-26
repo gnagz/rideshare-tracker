@@ -28,7 +28,7 @@ struct ImportExportView: View {
                     .environmentObject(dataManager)
                     .environmentObject(expenseManager)
                     .environmentObject(preferencesManager)
-                
+
                 ExportView()
                     .tabItem {
                         Image(systemName: "square.and.arrow.up")
@@ -60,24 +60,49 @@ struct ImportView: View {
     private var preferences: AppPreferences { preferencesManager.preferences }
 
     @State private var importType: ImportType = .shifts
+    @State private var shiftSubtype: ShiftImportSubtype = .shiftCSV
     @State private var showingFilePicker = false
+    @State private var showingUberImport = false
     @State private var importMessage = ""
     @State private var showingImportAlert = false
     @State private var importAlertTitle = ""
     @State private var showingDuplicateOptions = false
     @State private var pendingImportData: PendingImportData?
     @State private var duplicateAction: DuplicateAction = .merge
-    
+
     enum ImportType: String, CaseIterable {
         case shifts = "Shifts"
         case expenses = "Expenses"
-        case tolls = "Tolls"
 
         var icon: String {
             switch self {
             case .shifts: return "car.fill"
             case .expenses: return "receipt.fill"
-            case .tolls: return "road.lanes.curved.left"
+            }
+        }
+    }
+
+    enum ShiftImportSubtype: String, CaseIterable {
+        case shiftCSV = "Shift CSV"
+        case tollCSV = "Toll Authority CSV"
+        case uberPDF = "Uber Weekly Statement"
+
+        var icon: String {
+            switch self {
+            case .shiftCSV: return "doc.text"
+            case .tollCSV: return "road.lanes.curved.left"
+            case .uberPDF: return "doc.text.fill"
+            }
+        }
+
+        var description: String {
+            switch self {
+            case .shiftCSV:
+                return "Import shift data from CSV files with flexible column detection and duplicate handling."
+            case .tollCSV:
+                return "Import toll transactions and automatically match them to existing shifts by date and time."
+            case .uberPDF:
+                return "Import tips and toll reimbursements from Uber weekly statements, matching to existing shifts."
             }
         }
     }
@@ -99,28 +124,42 @@ struct ImportView: View {
     struct PendingImportData {
         let url: URL
         let type: ImportType
+        let shiftSubtype: ShiftImportSubtype?
     }
 
     private func getImportDescription(for type: ImportType) -> String {
         switch type {
         case .shifts:
-            return "Import shift data from CSV files with trip details, earnings, and expenses."
+            return "Import shift data from CSV or PDF files with flexible format detection."
         case .expenses:
-            return "Import business expense records with categories, descriptions, and amounts."
-        case .tolls:
-            return "Import toll transaction data and automatically match tolls to existing shifts by date and time."
+            return "Import business expense records from CSV files with category and amount data."
         }
     }
     
     var body: some View {
         VStack(spacing: 20) {
-            
-            VStack(spacing: 20) {
-                // Import Type Selection
-                VStack(alignment: .leading, spacing: 12) {
+
+            VStack(spacing: 16) {
+                Image(systemName: "square.and.arrow.down")
+                    .font(.system(size: 60))
+                    .foregroundColor(.green)
+
+                Text("Import \(importType.rawValue)")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Text(getImportDescription(for: importType))
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal)
+
+                // Import Type Picker
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Import Type")
                         .font(.headline)
-                    
+
                     Picker("Import Type", selection: $importType) {
                         ForEach(ImportType.allCases, id: \.self) { type in
                             Text(type.rawValue).tag(type)
@@ -128,34 +167,39 @@ struct ImportView: View {
                     }
                     .pickerStyle(.segmented)
                 }
-                .padding()
-                .background(Color(.systemGroupedBackground))
-                .cornerRadius(12)
                 .padding(.horizontal)
-                
-                // Import Section
-                VStack(spacing: 16) {
-                    Image(systemName: "square.and.arrow.down.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(.blue)
-                    
-                    Text("Import \(importType.rawValue)")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    Text(getImportDescription(for: importType))
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                    
-                    Button("Select CSV File") {
-                        debugMessage("CSV file picker button pressed for import type: \(importType.rawValue)")
+
+                // Shift Subtype Selection (only show when Shifts is selected)
+                if importType == .shifts {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Shift Import Type")
+                            .font(.headline)
+
+                        Picker("Shift Import Type", selection: $shiftSubtype) {
+                            ForEach(ShiftImportSubtype.allCases, id: \.self) { subtype in
+                                Text(subtype.rawValue).tag(subtype)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        Text(shiftSubtype.description)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.horizontal)
+                }
+
+                Button(importType == .shifts && shiftSubtype == .uberPDF ? "Select PDF File" : "Select CSV File") {
+                    debugMessage("File picker button pressed for import type: \(importType.rawValue)")
+                    if importType == .shifts && shiftSubtype == .uberPDF {
+                        showingUberImport = true
+                    } else {
                         showingFilePicker = true
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
             }
             
             Spacer()
@@ -163,27 +207,37 @@ struct ImportView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Label("Import Details", systemImage: "info.circle")
                     .font(.headline)
-                
+
                 switch importType {
                 case .shifts:
-                    Text("• Rideshare Tracker shift CSV exports")
-                    Text("• Custom CSV files with compatible columns")
-                    Text("• Flexible date/time format detection")
-                    Text("• Automatic preference detection and warnings")
+                    switch shiftSubtype {
+                    case .shiftCSV:
+                        Text("• Rideshare Tracker shift CSV exports")
+                        Text("• Custom CSV files with compatible columns")
+                        Text("• Flexible date/time format detection")
+                        Text("• Automatic preference detection and warnings")
+                        Text("• Duplicate handling options available")
+                            .foregroundColor(.blue)
+                    case .tollCSV:
+                        Text("• Toll authority CSV exports")
+                        Text("• Automatically matches transactions to shifts by time")
+                        Text("• Updates existing shift toll amounts")
+                        Text("• Requires: Transaction Date/Time, Transaction Amount")
+                    case .uberPDF:
+                        Text("• Uber weekly statement PDF files")
+                        Text("• Extracts tips and toll reimbursements")
+                        Text("• Matches to existing shifts using 4 AM boundaries")
+                        Text("• Generates summary images for matched data")
+                        Text("• Creates CSV for missing shifts (unmatched transactions)")
+                    }
                 case .expenses:
                     Text("• Business expense CSV files")
                     Text("• Required columns: Date, Category, Description, Amount")
                     Text("• Categories: Vehicle, Equipment, Supplies, Amenities")
                     Text("• Flexible date format detection")
-                case .tolls:
-                    Text("• Toll authority CSV exports")
-                    Text("• Automatically matches transactions to shifts by time")
-                    Text("• Updates existing shift toll amounts")
-                    Text("• Requires: Transaction Date/Time, Transaction Amount")
+                    Text("• Duplicate handling options available")
+                        .foregroundColor(.blue)
                 }
-                
-                Text("• Duplicate handling options available")
-                    .foregroundColor(.blue)
             }
             .font(.caption)
             .foregroundColor(.secondary)
@@ -199,6 +253,10 @@ struct ImportView: View {
             allowsMultipleSelection: false
         ) { result in
             handleFileSelection(result)
+        }
+        .sheet(isPresented: $showingUberImport) {
+            UberImportView()
+                .environmentObject(dataManager)
         }
         .alert("Duplicate Data Found", isPresented: $showingDuplicateOptions) {
             Button("Cancel", role: .cancel) {
@@ -237,11 +295,12 @@ struct ImportView: View {
             debugMessage("Selected file: \(url.lastPathComponent)")
             debugMessage("File URL: \(url)")
 
-            pendingImportData = PendingImportData(url: url, type: importType)
-            
-            // Check if we have existing data that might cause duplicates (not applicable for tolls)
-            if importType == .tolls {
-                // Tolls update existing shifts, no duplicate handling needed
+            pendingImportData = PendingImportData(url: url, type: importType, shiftSubtype: importType == .shifts ? shiftSubtype : nil)
+
+            // Check if we have existing data that might cause duplicates
+            // Tolls and Uber imports update existing shifts, no duplicate handling needed
+            if (importType == .shifts && (shiftSubtype == .tollCSV || shiftSubtype == .uberPDF)) {
+                // These update existing shifts, no duplicate handling needed
                 performImport()
             } else {
                 let hasExistingData = importType == .shifts ? !dataManager.shifts.isEmpty : !expenseManager.expenses.isEmpty
@@ -269,16 +328,26 @@ struct ImportView: View {
     
     private func performImport() {
         guard let pendingData = pendingImportData else { return }
-        
+
         switch pendingData.type {
         case .shifts:
-            importShifts(from: pendingData.url)
+            if let subtype = pendingData.shiftSubtype {
+                switch subtype {
+                case .shiftCSV:
+                    importShifts(from: pendingData.url)
+                case .tollCSV:
+                    importTolls(from: pendingData.url)
+                case .uberPDF:
+                    // Uber PDF handled via sheet modal, not file picker
+                    break
+                }
+            } else {
+                importShifts(from: pendingData.url)
+            }
         case .expenses:
             importExpenses(from: pendingData.url)
-        case .tolls:
-            importTolls(from: pendingData.url)
         }
-        
+
         pendingImportData = nil
     }
     
@@ -297,61 +366,59 @@ struct ImportView: View {
         }
 
         // Import successful, process shifts
-        do {
-            debugMessage("CSV import successful, processing \(csvResult.shifts.count) shifts with duplicate action: \(duplicateAction)")
-            var addedCount = 0
-            var updatedCount = 0
-            var skippedCount = 0
+        debugMessage("CSV import successful, processing \(csvResult.shifts.count) shifts with duplicate action: \(duplicateAction)")
+        var addedCount = 0
+        var updatedCount = 0
+        var skippedCount = 0
 
-            for shift in csvResult.shifts {
-                let existingShiftIndex = dataManager.shifts.firstIndex { existingShift in
-                    Calendar.current.isDate(existingShift.startDate, inSameDayAs: shift.startDate) &&
-                    existingShift.startMileage == shift.startMileage
-                }
-
-                let isDuplicate = existingShiftIndex != nil
-                debugMessage("Processing shift \(shift.startDate): duplicate=\(isDuplicate), action=\(duplicateAction)")
-
-                switch duplicateAction {
-                case .merge:
-                    dataManager.addShift(shift)
-                    addedCount += 1
-                    debugMessage("MERGE: Added shift (total shifts: \(dataManager.shifts.count))")
-                case .replace:
-                    if let index = existingShiftIndex {
-                        dataManager.shifts[index] = shift
-                        updatedCount += 1
-                        debugMessage("REPLACE: Updated existing shift at index \(index)")
-                    } else {
-                        dataManager.addShift(shift)
-                        addedCount += 1
-                        debugMessage("REPLACE: Added new shift (total shifts: \(dataManager.shifts.count))")
-                    }
-                case .skip:
-                    if existingShiftIndex == nil {
-                        dataManager.addShift(shift)
-                        addedCount += 1
-                        debugMessage("SKIP: Added non-duplicate shift (total shifts: \(dataManager.shifts.count))")
-                    } else {
-                        skippedCount += 1
-                        debugMessage("SKIP: Skipped duplicate shift")
-                    }
-                }
+        for shift in csvResult.shifts {
+            let existingShiftIndex = dataManager.shifts.firstIndex { existingShift in
+                Calendar.current.isDate(existingShift.startDate, inSameDayAs: shift.startDate) &&
+                existingShift.startMileage == shift.startMileage
             }
 
-            var message = "Import completed:\n"
-            if addedCount > 0 { message += "\n• Added: \(addedCount) shifts" }
-            if updatedCount > 0 { message += "\n• Updated: \(updatedCount) shifts" }
-            if skippedCount > 0 { message += "\n• Skipped: \(skippedCount) duplicates" }
+            let isDuplicate = existingShiftIndex != nil
+            debugMessage("Processing shift \(shift.startDate): duplicate=\(isDuplicate), action=\(duplicateAction)")
 
-            debugMessage("Import completed: added=\(addedCount), updated=\(updatedCount), skipped=\(skippedCount)")
-
-            importAlertTitle = "Import Successful"
-            importMessage = message
-            showingImportAlert = true
+            switch duplicateAction {
+            case .merge:
+                dataManager.addShift(shift)
+                addedCount += 1
+                debugMessage("MERGE: Added shift (total shifts: \(dataManager.shifts.count))")
+            case .replace:
+                if let index = existingShiftIndex {
+                    dataManager.shifts[index] = shift
+                    updatedCount += 1
+                    debugMessage("REPLACE: Updated existing shift at index \(index)")
+                } else {
+                    dataManager.addShift(shift)
+                    addedCount += 1
+                    debugMessage("REPLACE: Added new shift (total shifts: \(dataManager.shifts.count))")
+                }
+            case .skip:
+                if existingShiftIndex == nil {
+                    dataManager.addShift(shift)
+                    addedCount += 1
+                    debugMessage("SKIP: Added non-duplicate shift (total shifts: \(dataManager.shifts.count))")
+                } else {
+                    skippedCount += 1
+                    debugMessage("SKIP: Skipped duplicate shift")
+                }
+            }
         }
+
+        var message = "Import completed:\n"
+        if addedCount > 0 { message += "\n• Added: \(addedCount) shifts" }
+        if updatedCount > 0 { message += "\n• Updated: \(updatedCount) shifts" }
+        if skippedCount > 0 { message += "\n• Skipped: \(skippedCount) duplicates" }
+
+        debugMessage("Import completed: added=\(addedCount), updated=\(updatedCount), skipped=\(skippedCount)")
+
+        importAlertTitle = "Import Successful"
+        importMessage = message
+        showingImportAlert = true
     }
-    
+
     private func importExpenses(from url: URL) {
         let csvResult: ExpenseImportResult
         do {
@@ -467,13 +534,28 @@ struct ExportView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            
-            VStack(spacing: 20) {
-                // Export Type Selection
-                VStack(alignment: .leading, spacing: 12) {
+
+            VStack(spacing: 16) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 60))
+                    .foregroundColor(.green)
+
+                Text("Export \(exportType.rawValue)")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Text("Export data to CSV files for the selected date range.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal)
+
+                // Export Type Picker
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Export Type")
                         .font(.headline)
-                    
+
                     Picker("Export Type", selection: $exportType) {
                         ForEach(ExportType.allCases, id: \.self) { type in
                             Text(type.rawValue).tag(type)
@@ -481,9 +563,10 @@ struct ExportView: View {
                     }
                     .pickerStyle(.segmented)
                 }
+                .padding(.horizontal)
                 
                 // Date Range Selection
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Date Range")
                         .font(.headline)
                     
@@ -549,28 +632,21 @@ struct ExportView: View {
                         }
                     } else {
                         // Show selected range info for non-custom options
-                        Text("Range: \(preferencesManager.formatDate(fromDate)) - \(preferencesManager.formatDate(toDate))")
-                            .font(.caption)
+                        Text("\(preferencesManager.formatDate(fromDate)) - \(preferencesManager.formatDate(toDate))")
+                            .font(.subheadline)
                             .foregroundColor(.secondary)
                             .padding(.top, 4)
                     }
                 }
-                
-                // Export Button
-                Button(action: performExport) {
-                    HStack {
-                        Image(systemName: "square.and.arrow.up.fill")
-                        Text("Export \(exportType.rawValue)")
-                    }
+                .padding(.horizontal)
+
+                Button("Export \(exportType.rawValue)") {
+                    performExport()
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .disabled(fromDate > toDate)
             }
-            .padding()
-            .background(Color(.systemGroupedBackground))
-            .cornerRadius(12)
-            .padding(.horizontal)
             
             Spacer()
             

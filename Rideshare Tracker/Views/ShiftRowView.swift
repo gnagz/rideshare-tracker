@@ -22,6 +22,22 @@ struct ShiftRowView: View {
             HStack {
                 Text(formatDateTime(shift.startDate))
                     .font(.headline)
+
+                // Uber import status badges
+                if shift.hasUberData {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                        .accessibilityLabel("Has Uber data")
+                }
+
+                if shift.hasAnyUberDiscrepancy {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .accessibilityLabel("Uber data discrepancy")
+                }
+
                 Spacer()
                 if shift.endDate != nil {
                     Text("$\(shift.expectedPayout, specifier: "%.2f")")

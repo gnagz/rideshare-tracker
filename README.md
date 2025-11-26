@@ -23,7 +23,10 @@ A comprehensive SwiftUI iOS Universal app (iPhone, iPad, Mac) for rideshare driv
 - **Revenue Tracking**: Comprehensive earnings including promotions and rider fees
 
 ### Data Management
-- **Export/Import**: JSON backup/restore and CSV export with date range selection
+- **ZIP Backup/Restore**: Complete backups with images in single compressed archive
+- **Selective Image Backup**: Choose to include or exclude images from backup files
+- **Restore Options**: Replace all data, restore missing items, or merge with existing data
+- **CSV Export/Import**: Comprehensive CSV export with date range selection
 - **Expense Export**: Separate CSV export for business expenses
 - **Toll Import**: CSV import with automatic toll-to-shift matching and Excel formula parsing
 - **Incremental Cloud Sync**: Real-time iCloud synchronization across all devices
@@ -110,9 +113,10 @@ fi
 The app includes a professional UI automated testing system with comprehensive debug utilities and environment detection. See [UI_AUTOMATED_TESTING.md](UI_AUTOMATED_TESTING.md) for complete documentation.
 
 ### Key Testing Features
-- **35+ UI Automated Tests**: Complete test coverage with 100% pass rate
+- **100 Unit Tests + 35 UI Tests**: Comprehensive test coverage with 100% pass rate
+- **Backup/Restore Testing**: Complete ZIP backup validation including image restoration
 - **Environment-Aware Testing**: Tests adapt to iCloud availability automatically
-- **Local Sync Testing**: Tests use local storage instead of requiring iCloud connectivity  
+- **Local Sync Testing**: Tests use local storage instead of requiring iCloud connectivity
 - **Conditional Debug Output**: Clean test runs by default, detailed debug when needed
 - **Visual Verification Controls**: Configurable pauses for manual UI inspection
 
@@ -167,6 +171,7 @@ Rideshare Tracker/
 │   ├── RideshareShift.swift          # Core shift data model with sync metadata
 │   ├── ExpenseItem.swift             # Business expense data model with sync metadata
 │   ├── ImageAttachment.swift         # Photo attachment model with file management
+│   ├── TollTransaction.swift         # Toll transaction data model for imports
 │   └── AppPreferences.swift          # User preferences, settings & sync configuration
 ├── Views/
 │   ├── MainTabView.swift             # Main tab navigation (Shifts/Expenses)
@@ -191,11 +196,19 @@ Rideshare Tracker/
 │   ├── ShiftDataManager.swift        # Shift data persistence (singleton)
 │   ├── ExpenseDataManager.swift      # Expense data persistence (singleton)
 │   ├── ImageManager.swift            # Photo storage and file management (singleton)
+│   ├── BackupRestoreManager.swift    # ZIP backup/restore with image support (singleton)
+│   ├── ImportExportManager.swift     # CSV import/export and toll processing (singleton)
 │   ├── CloudSyncManager.swift        # iCloud sync operations & conflict resolution
 │   └── SyncLifecycleManager.swift    # Automatic sync triggers on app lifecycle
 ├── Extensions/
-│   ├── NumberFormatter+Extensions.swift # Currency input & formatting
-│   └── DateFormatter+Extensions.swift   # Date/time formatting utilities
+│   ├── CalculatorEngine.swift           # Math expression evaluation engine
+│   ├── CalculatorTextField.swift        # Calculator-enhanced number input
+│   ├── CurrencyTextField.swift          # Calculator-enhanced currency input
+│   ├── NumberFormatter+Extensions.swift # Currency formatting utilities
+│   ├── DateFormatter+Extensions.swift   # Date/time formatting utilities
+│   ├── FileManager+Extensions.swift     # ZIP archive operations (backup/restore)
+│   ├── DocumentFile.swift               # File management utilities
+│   └── TollSummaryImageGenerator.swift  # Toll summary image generation
 ├── Assets.xcassets/
 │   └── AppIcon.appiconset/           # App icons for all platforms
 ├── Rideshare TrackerTests/
@@ -456,6 +469,35 @@ The cloud sync system provides ultimate data protection and seamless multi-devic
 - **Automatic Backup**: Every change is automatically backed up to the cloud
 - **Device Recovery**: New device setup restores 100% of your data instantly
 - **No Manual Export**: No need for manual backups or exports anymore
+
+## Backup and Restore System
+
+The app provides comprehensive local backup and restore functionality with full image support:
+
+### ZIP Archive Backups
+- **Complete Backups**: Single ZIP file contains all data (shifts, expenses, preferences) plus images
+- **Selective Image Inclusion**: Choose whether to include images in backup (default: ON)
+- **Cross-Platform Compatibility**: Backups work across iPhone, iPad, and Mac
+- **Backward Compatible**: Can still restore legacy JSON backups without images
+
+### Restore Options
+- **Replace All**: Clear all current data and restore only from backup (use for fresh restore)
+- **Restore Missing**: Add missing records while preserving existing data (use for data recovery)
+- **Merge**: Update existing records from backup and add new ones (use for bug fixes)
+
+### Image Restoration
+- **Automatic Image Handling**: Images restored based on selected restore action
+- **Selective Copying**: Only copies images for items actually being restored
+- **Replace All**: Deletes all current images, restores only backup images
+- **Restore Missing**: Copies images only for newly added items
+- **Merge**: Updates images for merged items, copies images for new items
+
+### Usage Workflow
+1. **Create Backup**: Navigate to Settings → Backup & Restore → Create Backup
+2. **Choose Image Option**: Toggle "Include Images" (recommended: ON for complete backup)
+3. **Save Backup**: ZIP file saved to Files app, can be shared/stored anywhere
+4. **Restore Backup**: Select backup ZIP file, choose restore action
+5. **Review Results**: See counts of items added/updated/skipped
 
 ## CSV Export/Import
 

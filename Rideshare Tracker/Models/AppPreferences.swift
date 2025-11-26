@@ -108,6 +108,7 @@ struct BackupPreferences: Codable {
 struct BackupData: Codable {
     let shifts: [RideshareShift]
     let expenses: [ExpenseItem]?
+    let uberTransactions: [UberTransaction]?  // Uber statement transaction data
     let preferences: BackupPreferences
     let exportDate: Date
     let appVersion: String

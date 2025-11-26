@@ -23,12 +23,12 @@ class ShiftDataManager: ObservableObject {
     }
     
     // MARK: - Error Types
-    
+
     enum ShiftDataError: LocalizedError {
         case decodingFailed(Error)
         case encodingFailed(Error)
         case userDefaultsUnavailable
-        
+
         var errorDescription: String? {
             switch self {
             case .decodingFailed(let error):
@@ -86,7 +86,7 @@ class ShiftDataManager: ObservableObject {
             // Set lastError for UI observation; do not throw to avoid crashing during save operations; no debugMessage to avoid log clutter during frequent saves.
         }
     }
-    
+
     func addShift(_ shift: RideshareShift) {
         debugMessage("=== ADDING SHIFT ===")
         debugMessage("Shift ID: \(shift.id)")

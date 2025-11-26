@@ -167,6 +167,23 @@ The project includes comprehensive test coverage:
 - Singleton pattern for data managers with thread-safe access
 - Async/await throughout sync operations with proper error handling
 
+### Git Commit Attribution Policy
+**CRITICAL: Follow these attribution rules:**
+
+**In Git Commit Messages - NO ATTRIBUTION AT ALL:**
+- DO NOT use `🤖 Generated with [Claude Code](...)` - This is advertising clutter
+- DO NOT use `Co-Authored-By: Claude <noreply@anthropic.com>` - Claude is not a co-author
+- Keep commit messages clean and focused on the changes only
+
+**In Code File Headers:**
+- USE "Created by George Knaggs in collaboration with Claude AI" when appropriate
+- This is the proper place for attribution, not commit messages
+
+**Rationale:**
+- George Knaggs is THE creator with the vision and ideas
+- Claude provides technical implementation assistance (collaboration, not co-authorship)
+- The changelog should not be cluttered with automated credit tags
+
 ## Current System Capabilities
 
 ### **Core Features**

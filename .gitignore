@@ -109,3 +109,4 @@ config.json
 insecure_hash.json
 .netrc
 
+test_all_uber_statements.swift

@@ -17,324 +17,413 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
     /// Sync setup and configuration test
     /// Consolidates: testIncrementalSyncMenuNavigation, testInitialSyncWorkflow, testSyncToggleInteraction
     /// Tests: Complete sync setup, configuration, initial setup
+    /// NOTE: Currently skipped as Cloud Sync feature is intentionally disabled
     @MainActor
     func testSyncSetupAndConfiguration() throws {
-        debugPrint("Testing sync setup and configuration workflow")
-
-        let app = launchApp()
-
-        // Navigate to settings
-        navigateToSettings(in: app)
-
-        // Look for sync settings option
-        if app.buttons["sync_settings_button"].exists {
-            app.buttons["sync_settings_button"].tap()
-
-            // Verify sync setup screen
-            if app.navigationBars["Incremental Cloud Sync"].waitForExistence(timeout: 3) {
-                debugPrint("Successfully navigated to sync settings")
-
-                // Test sync toggle interaction
-                if app.switches["enable_sync_toggle"].exists {
-                    let syncToggle = app.switches["enable_sync_toggle"]
-                    let initialState = syncToggle.value as? String
-
-                    syncToggle.tap()
-                    visualDebugPause(1)
-
-                    // Verify state changed
-                    let newState = syncToggle.value as? String
-                    XCTAssertNotEqual(initialState, newState, "Sync toggle should change state")
-
-                    debugPrint("Sync toggle interaction working")
-                }
-
-                // Test initial sync workflow if available
-                if app.buttons["setup_initial_sync_button"].exists {
-                    app.buttons["setup_initial_sync_button"].tap()
-
-                    if app.alerts.count > 0 {
-                        debugPrint("Initial sync confirmation dialog appeared")
-                        // Handle confirmation dialog
-                        if app.buttons["Confirm"].exists {
-                            app.buttons["Confirm"].tap()
-                        }
-                    }
-                }
-            }
-        }
-
-        debugPrint("Sync setup and configuration test passed")
+        throw XCTSkip("Cloud Sync feature is currently disabled - skipping sync tests until feature is re-enabled")
     }
 
     /// Sync operations and status test
     /// Consolidates: testManualSyncButton, testSyncStatusDisplay, testSyncSettingsVisibility
     /// Tests: Manual sync, status display, settings visibility
+    /// NOTE: Currently skipped as Cloud Sync feature is intentionally disabled
     @MainActor
     func testSyncOperationsAndStatus() throws {
-        debugPrint("Testing sync operations and status display")
-
-        let app = launchApp()
-        navigateToSettings(in: app)
-
-        // Navigate to sync settings
-        if app.buttons["sync_settings_button"].exists {
-            app.buttons["sync_settings_button"].tap()
-
-            if app.navigationBars["Incremental Cloud Sync"].waitForExistence(timeout: 3) {
-                // Test manual sync button
-                if app.buttons["manual_sync_button"].exists {
-                    app.buttons["manual_sync_button"].tap()
-
-                    // Look for sync progress or status indication
-                    if app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Syncing'")).count > 0 {
-                        debugPrint("Sync status display working")
-                        visualDebugPause(2) // Allow sync to complete
-                    }
-                }
-
-                // Test sync status display
-                if app.staticTexts["last_sync_status"].exists {
-                    let statusText = app.staticTexts["last_sync_status"]
-                    debugPrint("Sync status: \(statusText.label)")
-                }
-
-                // Test sync settings visibility
-                if app.staticTexts["sync_frequency_label"].exists {
-                    debugPrint("Sync frequency settings visible")
-                }
-            }
-        }
-
-        debugPrint("Sync operations and status test passed")
+        throw XCTSkip("Cloud Sync feature is currently disabled - skipping sync tests until feature is re-enabled")
     }
 
     /// Sync frequency and scheduling test
     /// Consolidates: testSyncFrequencySelection, testSyncScreenScrolling
     /// Tests: Frequency selection, scheduling options
+    /// NOTE: Currently skipped as Cloud Sync feature is intentionally disabled
     @MainActor
     func testSyncFrequencyAndScheduling() throws {
-        debugPrint("Testing sync frequency and scheduling options")
-
-        let app = launchApp()
-        navigateToSettings(in: app)
-
-        if app.buttons["sync_settings_button"].exists {
-            app.buttons["sync_settings_button"].tap()
-
-            if app.navigationBars["Incremental Cloud Sync"].waitForExistence(timeout: 3) {
-                // Test sync frequency selection
-                if app.buttons["sync_frequency_picker"].exists {
-                    app.buttons["sync_frequency_picker"].tap()
-
-                    // Test different frequency options
-                    if app.buttons["Immediate"].exists {
-                        app.buttons["Immediate"].tap()
-                        debugPrint("Selected immediate sync frequency")
-                    } else if app.buttons["Hourly"].exists {
-                        app.buttons["Hourly"].tap()
-                        debugPrint("Selected hourly sync frequency")
-                    } else if app.buttons["Daily"].exists {
-                        app.buttons["Daily"].tap()
-                        debugPrint("Selected daily sync frequency")
-                    }
-                }
-
-                // Test screen scrolling if content is long
-                if app.scrollViews.count > 0 {
-                    let scrollView = app.scrollViews.firstMatch
-                    scrollView.swipeUp()
-                    visualDebugPause(1)
-                    scrollView.swipeDown()
-                    debugPrint("Sync screen scrolling working")
-                }
-            }
-        }
-
-        debugPrint("Sync frequency and scheduling test passed")
+        throw XCTSkip("Cloud Sync feature is currently disabled - skipping sync tests until feature is re-enabled")
     }
 
     /// Sync education and dismissal test
     /// Consolidates: testSyncScreenDismissal, testHowItWorksSection, testRequirementsSection
     /// Tests: User education, screen dismissal, requirements
+    /// NOTE: Currently skipped as Cloud Sync feature is intentionally disabled
     @MainActor
     func testSyncEducationAndDismissal() throws {
-        debugPrint("Testing sync education and screen dismissal")
+        throw XCTSkip("Cloud Sync feature is currently disabled - skipping sync tests until feature is re-enabled")
+    }
+
+    // MARK: - Import/Export Functionality Tests (Enhanced with new UI structure)
+
+    /// Import navigation and type selection test
+    /// Tests: Import page navigation, type picker, shift subtype picker, UI consistency, tab switching
+    @MainActor
+    func testImportNavigationAndTypes() throws {
+        debugPrint("Testing import navigation, type selection, and tab switching")
 
         let app = launchApp()
         navigateToSettings(in: app)
 
-        if app.buttons["sync_settings_button"].exists {
-            app.buttons["sync_settings_button"].tap()
+        // Navigate to Import/Export
+        let importExportElements = [
+            app.staticTexts["Import/Export"],
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Import'")).firstMatch
+        ]
 
-            if app.navigationBars["Incremental Cloud Sync"].waitForExistence(timeout: 3) {
-                // Test "How It Works" section
-                if app.buttons["how_it_works_section"].exists {
-                    app.buttons["how_it_works_section"].tap()
-
-                    // Look for educational content
-                    if app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'iCloud'")).count > 0 {
-                        debugPrint("How It Works section displaying educational content")
-                    }
-                }
-
-                // Test requirements section
-                if app.buttons["requirements_section"].exists {
-                    app.buttons["requirements_section"].tap()
-
-                    // Look for requirements information
-                    if app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'iOS'")).count > 0 {
-                        debugPrint("Requirements section displaying system requirements")
-                    }
-                }
-
-                // Test screen dismissal
-                if app.navigationBars.buttons["Back"].exists {
-                    app.navigationBars.buttons["Back"].tap()
-                } else if app.navigationBars.buttons["Done"].exists {
-                    app.navigationBars.buttons["Done"].tap()
-                } else if app.navigationBars.buttons.count > 0 {
-                    app.navigationBars.buttons.firstMatch.tap()
-                }
-
-                // Verify we're back to settings
-                XCTAssertTrue(app.staticTexts["Menu"].waitForExistence(timeout: 3) ||
-                             app.navigationBars["Menu"].exists,
-                             "Should return to settings after dismissal")
+        var navigated = false
+        for element in importExportElements {
+            if element.exists {
+                element.tap()
+                navigated = true
+                break
             }
         }
 
-        debugPrint("Sync education and dismissal test passed")
-    }
+        XCTAssertTrue(navigated, "Should find Import/Export option in menu")
 
-    // MARK: - Export Functionality Tests (Consolidates 3 → 2 tests)
+        // Wait for Import/Export view to load
+        XCTAssertTrue(app.navigationBars["Import/Export"].waitForExistence(timeout: 3),
+                     "Should navigate to Import/Export page")
+        debugPrint("Successfully navigated to Import/Export page")
+
+        // Test tab switching between Import and Export
+        let importTab = app.buttons["Import"]
+        let exportTab = app.buttons["Export"]
+
+        XCTAssertTrue(importTab.exists, "Import tab should exist")
+        XCTAssertTrue(exportTab.exists, "Export tab should exist")
+
+        // Tap Export tab first to verify switching works
+        exportTab.tap()
+        visualDebugPause(1)
+        XCTAssertTrue(app.images["square.and.arrow.up"].exists, "Export icon should appear when Export tab selected")
+        debugPrint("Export tab switch working")
+
+        // Switch back to Import tab
+        importTab.tap()
+        visualDebugPause(1)
+
+        // Verify green import icon exists
+        XCTAssertTrue(app.images["square.and.arrow.down"].exists, "Green import icon should be visible on Import tab")
+        debugPrint("Import tab switch working")
+
+        // Verify Import Type picker exists
+        let importTypePicker = app.segmentedControls.firstMatch
+        XCTAssertTrue(importTypePicker.exists, "Import Type picker should exist")
+
+        // Test selecting Shifts import type
+        XCTAssertTrue(importTypePicker.buttons["Shifts"].exists, "Shifts button should exist in picker")
+        importTypePicker.buttons["Shifts"].tap()
+        visualDebugPause(1)
+        debugPrint("Selected Shifts import type")
+
+        // Verify Shift Import Type picker appears for Shifts
+        let shiftSubtypePicker = app.segmentedControls.element(boundBy: 1)
+        XCTAssertTrue(shiftSubtypePicker.exists, "Shift Import Type picker should appear for Shifts")
+
+        // Test all shift import subtypes and verify descriptions change
+        XCTAssertTrue(shiftSubtypePicker.buttons["Shift CSV"].exists, "Shift CSV button should exist")
+        shiftSubtypePicker.buttons["Shift CSV"].tap()
+        visualDebugPause(1)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'CSV' OR label CONTAINS 'flexible column detection'")).count > 0,
+                     "Shift CSV description should be visible")
+
+        let shiftCSVButtonText = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Select CSV'")).firstMatch
+        XCTAssertTrue(shiftCSVButtonText.exists, "Button should say 'Select CSV File' for CSV import")
+        debugPrint("Shift CSV option verified with description and button text")
+
+        let tollCSVButton = shiftSubtypePicker.buttons["Toll Authority CSV"]
+        XCTAssertTrue(tollCSVButton.waitForExistence(timeout: 2), "Toll Authority CSV button should exist")
+        tollCSVButton.tap()
+        visualDebugPause(1)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'toll' OR label CONTAINS 'match'")).count > 0,
+                     "Toll Authority CSV description should be visible")
+        debugPrint("Toll Authority CSV option verified with description")
+
+        // Note: Button label may be truncated in UI as "Uber Weekly Sta..." but full text is "Uber Weekly Statement"
+        let uberButton = shiftSubtypePicker.buttons.matching(NSPredicate(format: "label CONTAINS 'Uber Weekly'")).firstMatch
+        XCTAssertTrue(uberButton.waitForExistence(timeout: 2), "Uber Weekly Statement button should exist")
+        uberButton.tap()
+        visualDebugPause(1)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Uber' OR label CONTAINS 'tips'")).count > 0,
+                     "Uber Weekly Statement description should be visible")
+
+        let uberPDFButtonText = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Select PDF'")).firstMatch
+        XCTAssertTrue(uberPDFButtonText.exists, "Button should say 'Select PDF File' for PDF import")
+        debugPrint("Uber Weekly Statement option verified with description and button text")
+
+        // Test selecting Expenses import type
+        XCTAssertTrue(importTypePicker.buttons["Expenses"].exists, "Expenses button should exist in picker")
+        importTypePicker.buttons["Expenses"].tap()
+        visualDebugPause(1)
+        debugPrint("Selected Expenses import type")
+
+        // Verify Shift Import Type picker is hidden for Expenses
+        XCTAssertFalse(shiftSubtypePicker.exists, "Shift Import Type picker should be hidden for Expenses")
+        debugPrint("Shift subtype picker correctly hidden for Expenses")
+
+        // Verify button text changes for Expenses
+        let expensesButtonText = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Select CSV'")).firstMatch
+        XCTAssertTrue(expensesButtonText.exists, "Button should say 'Select CSV File' for Expenses import")
+
+        debugPrint("Import navigation and types test passed")
+    }
 
     /// Export features test
     /// Consolidates: testExportFunctionality, testExportWithDifferentTypes
-    /// Tests: Complete export workflow, different formats
+    /// Tests: Complete export workflow, different formats, new UI structure, type switching
     @MainActor
-    func testExportFeatures() throws {
-        debugPrint("Testing export functionality and different formats")
+    func testExportNavigationAndTypes() throws {
+        debugPrint("Testing export navigation, type selection, and UI changes")
 
         let app = launchApp()
         navigateToSettings(in: app)
 
-        // Look for export option
-        if app.buttons["export_data_button"].exists {
-            app.buttons["export_data_button"].tap()
+        // Navigate to Import/Export
+        let importExportElements = [
+            app.staticTexts["Import/Export"],
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Import'")).firstMatch
+        ]
 
-            if app.navigationBars["Export Data"].waitForExistence(timeout: 3) {
-                // Test different export types if available
-                if app.segmentedControls["export_type_selector"].exists {
-                    let segmentedControl = app.segmentedControls["export_type_selector"]
-
-                    // Test CSV export
-                    if segmentedControl.buttons["CSV"].exists {
-                        segmentedControl.buttons["CSV"].tap()
-                        debugPrint("Selected CSV export format")
-                    }
-
-                    // Test JSON export if available
-                    if segmentedControl.buttons["JSON"].exists {
-                        segmentedControl.buttons["JSON"].tap()
-                        debugPrint("Selected JSON export format")
-                    }
-                }
-
-                // Test date range selection for export
-                if app.buttons["date_range_picker"].exists {
-                    app.buttons["date_range_picker"].tap()
-
-                    if app.buttons["This Month"].exists {
-                        app.buttons["This Month"].tap()
-                    } else if app.buttons["All Time"].exists {
-                        app.buttons["All Time"].tap()
-                    }
-                }
-
-                // Test export execution
-                if app.buttons["start_export_button"].exists {
-                    app.buttons["start_export_button"].tap()
-
-                    // Handle share sheet or file picker
-                    if app.sheets.count > 0 || app.alerts.count > 0 {
-                        debugPrint("Export share sheet or confirmation appeared")
-                        visualDebugPause(2)
-
-                        // Cancel export for test
-                        if app.buttons["Cancel"].exists {
-                            app.buttons["Cancel"].tap()
-                        }
-                    }
-                }
+        var navigated = false
+        for element in importExportElements {
+            if element.exists {
+                element.tap()
+                navigated = true
+                break
             }
         }
 
-        debugPrint("Export features test passed")
+        XCTAssertTrue(navigated, "Should find Import/Export option in menu")
+
+        // Wait for Import/Export view to load
+        XCTAssertTrue(app.navigationBars["Import/Export"].waitForExistence(timeout: 3),
+                     "Should navigate to Import/Export page")
+        debugPrint("Successfully navigated to Import/Export page")
+
+        // Tap Export tab
+        let exportTab = app.buttons["Export"]
+        XCTAssertTrue(exportTab.exists, "Export tab should exist")
+        exportTab.tap()
+        visualDebugPause(1)
+
+        // Verify green export icon exists
+        XCTAssertTrue(app.images["square.and.arrow.up"].exists, "Green export icon should be visible")
+        debugPrint("Export icon verified")
+
+        // Verify Export Type picker exists
+        let exportTypePicker = app.segmentedControls.firstMatch
+        XCTAssertTrue(exportTypePicker.exists, "Export Type picker should exist")
+
+        // Test selecting Shifts export type and verify UI changes
+        XCTAssertTrue(exportTypePicker.buttons["Shifts"].exists, "Shifts button should exist in picker")
+        exportTypePicker.buttons["Shifts"].tap()
+        visualDebugPause(1)
+        debugPrint("Selected Shifts export type")
+
+        // Verify title updated to "Export Shifts"
+        XCTAssertTrue(app.staticTexts["Export Shifts"].exists, "Title should be 'Export Shifts'")
+
+        // Verify date range section exists
+        XCTAssertTrue(app.staticTexts["Date Range"].exists, "Date Range section should exist")
+
+        // Verify export button text includes "Shifts"
+        let shiftsExportButton = app.buttons["Export Shifts"]
+        XCTAssertTrue(shiftsExportButton.exists, "Export button should say 'Export Shifts'")
+        debugPrint("Shifts export UI verified")
+
+        // Test selecting Expenses export type and verify UI changes
+        XCTAssertTrue(exportTypePicker.buttons["Expenses"].exists, "Expenses button should exist in picker")
+        exportTypePicker.buttons["Expenses"].tap()
+        visualDebugPause(1)
+        debugPrint("Selected Expenses export type")
+
+        // Verify title updated to "Export Expenses"
+        XCTAssertTrue(app.staticTexts["Export Expenses"].exists, "Title should be 'Export Expenses'")
+
+        // Verify export button text changed to "Expenses"
+        let expensesExportButton = app.buttons["Export Expenses"]
+        XCTAssertTrue(expensesExportButton.exists, "Export button should say 'Export Expenses'")
+        debugPrint("Expenses export UI verified")
+
+        // Verify Date Range section still exists (should be present for both types)
+        XCTAssertTrue(app.staticTexts["Date Range"].exists, "Date Range section should exist for all export types")
+
+        debugPrint("Export navigation and types test passed")
     }
 
-    /// Backup and restore test
-    /// Consolidates: testBackupFileExtensionIsCorrect, testBackupDateRangePickerBehavior
-    /// Tests: Backup/restore functionality, file handling
+    /// Backup navigation and options test
+    /// Tests: Backup page navigation, data summary, tab switching
     @MainActor
-    func testBackupAndRestore() throws {
-        debugPrint("Testing backup and restore functionality")
+    func testBackupNavigationAndOptions() throws {
+        debugPrint("Testing backup navigation, options, and UI state changes")
 
         let app = launchApp()
         navigateToSettings(in: app)
 
-        // Test backup functionality
-        if app.buttons["backup_data_button"].exists {
-            app.buttons["backup_data_button"].tap()
+        // Navigate to Backup/Restore
+        let backupRestoreElements = [
+            app.staticTexts["Backup/Restore"],
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Backup'")).firstMatch
+        ]
 
-            if app.navigationBars["Backup"].waitForExistence(timeout: 3) {
-                // Test backup date range picker behavior
-                if app.buttons["backup_date_range_picker"].exists {
-                    app.buttons["backup_date_range_picker"].tap()
-
-                    // Test custom date range if available
-                    if app.buttons["Custom Range"].exists {
-                        app.buttons["Custom Range"].tap()
-
-                        // Look for date pickers
-                        if app.datePickers.count > 0 {
-                            debugPrint("Custom date range picker working")
-                        }
-                    }
-                }
-
-                // Test backup execution
-                if app.buttons["create_backup_button"].exists {
-                    app.buttons["create_backup_button"].tap()
-
-                    // Handle file save dialog
-                    if app.sheets.count > 0 {
-                        debugPrint("Backup file save dialog appeared")
-
-                        // Cancel backup for test
-                        if app.buttons["Cancel"].exists {
-                            app.buttons["Cancel"].tap()
-                        }
-                    }
-                }
+        var navigated = false
+        for element in backupRestoreElements {
+            if element.exists {
+                element.tap()
+                navigated = true
+                break
             }
         }
 
-        // Test restore functionality
-        if app.buttons["restore_data_button"].exists {
-            app.buttons["restore_data_button"].tap()
+        XCTAssertTrue(navigated, "Should find Backup/Restore option in menu")
 
-            if app.alerts.count > 0 {
-                debugPrint("Restore confirmation dialog appeared")
+        // Wait for Backup/Restore view to load
+        XCTAssertTrue(app.navigationBars["Backup/Restore"].waitForExistence(timeout: 3),
+                     "Should navigate to Backup/Restore page")
+        debugPrint("Successfully navigated to Backup/Restore page")
 
-                // Cancel restore for test
-                if app.buttons["Cancel"].exists {
-                    app.buttons["Cancel"].tap()
-                }
+        // Test tab switching - verify Restore tab exists
+        let backupTab = app.buttons["Backup"]
+        let restoreTab = app.buttons["Restore"]
+
+        XCTAssertTrue(backupTab.exists, "Backup tab should exist")
+        XCTAssertTrue(restoreTab.exists, "Restore tab should exist")
+
+        // Tap Restore tab to verify switching works
+        restoreTab.tap()
+        visualDebugPause(1)
+        XCTAssertTrue(app.images["externaldrive.badge.plus"].exists, "Restore icon should appear when Restore tab selected")
+        debugPrint("Restore tab switch working")
+
+        // Switch back to Backup tab
+        backupTab.tap()
+        visualDebugPause(1)
+
+        // Verify orange backup icon exists
+        XCTAssertTrue(app.images["externaldrive"].exists, "Orange backup icon should be visible")
+        debugPrint("Backup tab switch working")
+
+        // Verify title
+        XCTAssertTrue(app.staticTexts["Create Full Backup"].exists, "Backup title should be visible")
+
+        // Verify Data Summary section exists
+        XCTAssertTrue(app.staticTexts["Data to Backup"].exists, "Data summary section should exist")
+
+        // Verify data summary cards exist
+        XCTAssertTrue(app.staticTexts["Shifts"].exists, "Shifts card should exist")
+        XCTAssertTrue(app.staticTexts["Expenses"].exists, "Expenses card should exist")
+        XCTAssertTrue(app.staticTexts["Images"].exists, "Images card should exist")
+
+        // Verify Backup Details section exists
+        XCTAssertTrue(app.staticTexts["Backup Details"].exists, "Backup Details section should exist")
+
+        // Verify ZIP archive format is always shown (images always included)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'ZIP archive' OR label CONTAINS 'Image attachments'")).count > 0,
+                     "Should show ZIP archive or Image attachments text")
+        debugPrint("Verified ZIP archive text present")
+
+        // Verify Create Backup button exists
+        let createBackupButton = app.buttons["Create Backup"]
+        XCTAssertTrue(createBackupButton.exists, "Create Backup button should exist")
+
+        debugPrint("Backup navigation and options test passed")
+    }
+
+    /// Restore navigation and options test
+    /// Tests: Restore page navigation, restore method picker, UI changes, method switching
+    @MainActor
+    func testRestoreNavigationAndOptions() throws {
+        debugPrint("Testing restore navigation, options, and UI state changes")
+
+        let app = launchApp()
+        navigateToSettings(in: app)
+
+        // Navigate to Backup/Restore
+        let backupRestoreElements = [
+            app.staticTexts["Backup/Restore"],
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Backup'")).firstMatch
+        ]
+
+        var navigated = false
+        for element in backupRestoreElements {
+            if element.exists {
+                element.tap()
+                navigated = true
+                break
             }
         }
 
-        debugPrint("Backup and restore test passed")
+        XCTAssertTrue(navigated, "Should find Backup/Restore option in menu")
+
+        // Wait for Backup/Restore view to load
+        XCTAssertTrue(app.navigationBars["Backup/Restore"].waitForExistence(timeout: 3),
+                     "Should navigate to Backup/Restore page")
+        debugPrint("Successfully navigated to Backup/Restore page")
+
+        // Tap Restore tab
+        let restoreTab = app.buttons["Restore"]
+        XCTAssertTrue(restoreTab.exists, "Restore tab should exist")
+        restoreTab.tap()
+        visualDebugPause(1)
+
+        // Verify orange restore icon exists
+        XCTAssertTrue(app.images["externaldrive.badge.plus"].exists, "Orange restore icon should be visible")
+
+        // Verify title
+        XCTAssertTrue(app.staticTexts["Restore from Backup"].exists, "Restore title should be visible")
+
+        // Verify Restore Method picker exists
+        XCTAssertTrue(app.staticTexts["Restore Method"].exists, "Restore Method section should exist")
+
+        let restoreMethodPicker = app.segmentedControls.firstMatch
+        XCTAssertTrue(restoreMethodPicker.exists, "Restore Method picker should exist")
+
+        // Test Clear & Restore method and verify UI changes
+        XCTAssertTrue(restoreMethodPicker.buttons["Clear & Restore"].exists, "Clear & Restore button should exist")
+        restoreMethodPicker.buttons["Clear & Restore"].tap()
+        visualDebugPause(1)
+
+        // Verify description shows correct text for Clear & Restore
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Delete all current data'")).count > 0,
+                     "Should show 'Delete all current data' text for Clear & Restore")
+
+        // Verify warning message appears for Clear & Restore
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Consider creating a backup first'")).count > 0,
+                     "Should show warning for Clear & Restore method")
+        debugPrint("Clear & Restore UI verified with warning message")
+
+        // Test Restore Missing method and verify UI changes
+        let restoreMissingButton = restoreMethodPicker.buttons["Restore Missing"]
+        XCTAssertTrue(restoreMissingButton.waitForExistence(timeout: 2), "Restore Missing button should exist")
+        restoreMissingButton.tap()
+        visualDebugPause(1)
+
+        // Verify description shows correct text for Restore Missing
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Keep all current data'")).count > 0,
+                     "Should show 'Keep all current data' text for Restore Missing")
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Add only records that don\\'t exist'")).count > 0,
+                     "Should show 'Add only records' text for Restore Missing")
+        debugPrint("Restore Missing UI verified")
+
+        // Test Merge & Restore method and verify UI changes
+        let mergeButton = restoreMethodPicker.buttons["Merge & Restore"]
+        XCTAssertTrue(mergeButton.waitForExistence(timeout: 2), "Merge & Restore button should exist")
+        mergeButton.tap()
+        visualDebugPause(1)
+
+        // Verify description shows correct text for Merge & Restore
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Update existing records'")).count > 0,
+                     "Should show 'Update existing records' text for Merge & Restore")
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Add new records'")).count > 0,
+                     "Should show 'Add new records' text for Merge & Restore")
+        debugPrint("Merge & Restore UI verified")
+
+        // Verify Select Backup File button exists
+        let selectFileButton = app.buttons["Select Backup File"]
+        XCTAssertTrue(selectFileButton.exists, "Select Backup File button should exist")
+
+        // Verify Restore Details section exists
+        XCTAssertTrue(app.staticTexts["Restore Details"].exists, "Restore Details section should exist")
+
+        debugPrint("Restore navigation and options test passed")
     }
 
     // MARK: - Date and Navigation Tests (Consolidates 7 → 4 tests)
@@ -351,34 +440,36 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
         // Test date range picker in shifts view
         navigateToTab("Shifts", in: app)
 
-        if app.buttons["date_range_picker"].exists {
-            app.buttons["date_range_picker"].tap()
+        // Note: Date range picker may not exist on empty shifts view
+        // This test verifies behavior only if picker is present
+        if !app.buttons["date_range_picker"].exists {
+            debugPrint("Date range picker not found - may indicate empty shifts view")
+            return
+        }
 
-            // Test predefined ranges hide custom fields
-            if app.buttons["This Week"].exists {
-                app.buttons["This Week"].tap()
+        app.buttons["date_range_picker"].tap()
 
-                // Custom date fields should be hidden
-                XCTAssertFalse(app.datePickers["start_date_picker"].exists,
-                              "Custom date fields should be hidden for predefined ranges")
-                debugPrint("Predefined range hides custom fields correctly")
-            }
+        // Test predefined ranges hide custom fields
+        XCTAssertTrue(app.buttons["This Week"].exists || app.buttons["Custom"].exists,
+                     "Date range picker should show at least 'This Week' or 'Custom' option")
+
+        if app.buttons["This Week"].exists {
+            app.buttons["This Week"].tap()
+
+            // Custom date fields should be hidden
+            XCTAssertFalse(app.datePickers["start_date_picker"].exists,
+                          "Custom date fields should be hidden for predefined ranges")
+            debugPrint("Predefined range hides custom fields correctly")
 
             // Test custom range shows custom fields
             app.buttons["date_range_picker"].tap()
-            if app.buttons["Custom"].exists {
-                app.buttons["Custom"].tap()
+            XCTAssertTrue(app.buttons["Custom"].exists, "Custom option should be available")
 
-                // Custom date fields should be visible
-                if app.datePickers.count > 0 {
-                    debugPrint("Custom range shows date picker fields correctly")
-                }
-            }
+            app.buttons["Custom"].tap()
 
-            // Test calculated dates display
-            if app.staticTexts.containing(NSPredicate(format: "label CONTAINS '2025'")).count > 0 {
-                debugPrint("Date range displays calculated dates")
-            }
+            // Custom date fields should be visible
+            XCTAssertTrue(app.datePickers.count > 0, "Date pickers should appear for custom range")
+            debugPrint("Custom range shows date picker fields correctly")
         }
 
         debugPrint("Date range picker functionality test passed")
@@ -394,38 +485,44 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
         let app = launchApp()
         navigateToTab("Shifts", in: app)
 
-        // Test week navigation controls
-        if app.buttons["previous_week"].exists {
+        // Test week navigation controls (may not exist on empty shifts view)
+        if app.buttons["previous_week"].exists && app.buttons["next_week"].exists {
             app.buttons["previous_week"].tap()
             visualDebugPause(1)
 
             app.buttons["next_week"].tap()
             visualDebugPause(1)
             debugPrint("Week navigation controls working")
+        } else {
+            debugPrint("Week navigation controls not found - may indicate different view mode or empty state")
         }
 
-        // Test week start day preference
+        // Test week start day preference in Settings
         navigateToSettings(in: app)
 
-        if app.buttons["preferences_button"].exists {
-            app.buttons["preferences_button"].tap()
+        // Navigate to Preferences
+        let preferencesElements = [
+            app.staticTexts["Preferences"],
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Preferences'")).firstMatch
+        ]
 
-            if app.buttons["week_start_day_picker"].exists {
-                app.buttons["week_start_day_picker"].tap()
-
-                // Test different start days
-                if app.buttons["Monday"].exists {
-                    app.buttons["Monday"].tap()
-                    debugPrint("Selected Monday as week start day")
-                } else if app.buttons["Sunday"].exists {
-                    app.buttons["Sunday"].tap()
-                    debugPrint("Selected Sunday as week start day")
-                }
-
-                // Go back and verify week display respects preference
-                navigateToTab("Shifts", in: app)
-                debugPrint("Week start day preference test completed")
+        var foundPreferences = false
+        for element in preferencesElements {
+            if element.exists {
+                element.tap()
+                foundPreferences = true
+                break
             }
+        }
+
+        XCTAssertTrue(foundPreferences, "Should be able to navigate to Preferences")
+
+        if foundPreferences && app.navigationBars["Preferences"].waitForExistence(timeout: 3) {
+            debugPrint("Successfully navigated to Preferences")
+
+            // Week start day picker test would go here, but it may not be implemented yet
+            // Just verify we can access preferences
+            debugPrint("Week start day preference test completed")
         }
 
         debugPrint("Date picker and week navigation test passed")
@@ -481,7 +578,7 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
 
         let app = launchApp()
 
-        // Test swipe gestures in list views
+        // Test swipe gestures in list views (only if shifts exist)
         navigateToTab("Shifts", in: app)
 
         if app.cells.count > 0 {
@@ -497,21 +594,24 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
 
                 // Cancel swipe action
                 firstCell.swipeRight()
+            } else {
+                debugPrint("No swipe action buttons found - may not be implemented or different UI")
             }
+        } else {
+            debugPrint("No shift cells found - testing with empty state")
         }
 
-        // Test actionable elements accessibility
+        // Test actionable elements accessibility in settings
         navigateToSettings(in: app)
 
-        // Count and test actionable elements
+        // Verify settings menu has some buttons
         let buttons = app.buttons.allElementsBoundByIndex
         debugPrint("Found \(buttons.count) actionable buttons in settings")
+        XCTAssertTrue(buttons.count > 0, "Settings should have at least some actionable buttons")
 
-        for button in buttons.prefix(5) { // Test first 5 to avoid timeout
-            if button.exists && button.isEnabled {
-                debugPrint("Button '\(button.identifier)' is actionable")
-            }
-        }
+        // Verify at least one button is enabled
+        let enabledButtons = buttons.filter { $0.exists && $0.isEnabled }
+        XCTAssertTrue(enabledButtons.count > 0, "Settings should have at least one enabled button")
 
         debugPrint("Gestures and interaction test passed")
     }
@@ -539,33 +639,111 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
         XCTAssertTrue(menuTextExists || menuNavExists, "Menu screen should be accessible")
 
         // Test preferences navigation - look for "Preferences" text/button on Menu screen
-        if app.staticTexts["Preferences"].exists {
-            app.staticTexts["Preferences"].tap()
-            debugPrint("Tapped Preferences via staticText")
+        let preferencesElements = [
+            app.staticTexts["Preferences"],
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Preferences'")).firstMatch
+        ]
 
-            // Wait for preferences screen to load
-            if app.navigationBars["Preferences"].waitForExistence(timeout: 3) {
-                debugPrint("Successfully navigated to Preferences screen")
-
-                // Test basic preference fields if they exist
-                // Note: Using generic field identifiers since we don't know exact names
-                let textFields = app.textFields.allElementsBoundByIndex
-                debugPrint("Found \(textFields.count) text fields in preferences")
-
-                if textFields.count > 0 {
-                    debugPrint("Preference fields are accessible")
-                    debugPrint("\(textFields)")
-                }
-            } else {
-                debugPrint("Could not reach Preferences screen")
+        var foundPreferences = false
+        for element in preferencesElements {
+            if element.exists {
+                element.tap()
+                foundPreferences = true
+                debugPrint("Found and tapped Preferences element")
+                break
             }
-        } else if app.buttons.matching(NSPredicate(format: "label CONTAINS 'Preferences'")).firstMatch.exists {
-            let preferencesButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Preferences'")).firstMatch
-            preferencesButton.tap()
-            debugPrint("Tapped Preferences via button search")
-        } else {
-            debugPrint("Preferences option not found on Menu screen")
         }
+
+        XCTAssertTrue(foundPreferences, "Preferences option should exist on Menu screen")
+
+        // Wait for preferences screen to load
+        XCTAssertTrue(app.navigationBars["Preferences"].waitForExistence(timeout: 3),
+                     "Should navigate to Preferences screen")
+
+        debugPrint("Successfully navigated to Preferences screen")
+
+        // Test Display Settings pickers existence
+        let weekStartDayPicker = app.buttons.matching(identifier: "week_start_day_picker").firstMatch
+        XCTAssertTrue(weekStartDayPicker.exists, "Week Start Day picker should exist")
+        debugPrint("Week Start Day picker verified")
+
+        let dateFormatPicker = app.buttons.matching(identifier: "date_format_picker").firstMatch
+        XCTAssertTrue(dateFormatPicker.exists, "Date Format picker should exist")
+        debugPrint("Date Format picker verified")
+
+        let timeFormatPicker = app.buttons.matching(identifier: "time_format_picker").firstMatch
+        XCTAssertTrue(timeFormatPicker.exists, "Time Format picker should exist")
+        debugPrint("Time Format picker verified")
+
+        // Scroll to Tax Settings section to reveal the tip deduction toggle
+        let taxSettingsHeader = app.staticTexts["Tax Settings"]
+        if taxSettingsHeader.exists {
+            taxSettingsHeader.swipeUp()
+            visualDebugPause(1)
+        }
+
+        // Test Tips are tax deductible toggle
+        // NOTE: SwiftUI Toggles require special handling in XCTest
+        // Must use .switches.firstMatch.tap() instead of direct .tap()
+        let tipToggle = app.switches["tip_deduction_toggle"]
+        XCTAssertTrue(tipToggle.waitForExistence(timeout: 2), "Tip deduction toggle should exist")
+        XCTAssertTrue(tipToggle.isEnabled, "Tip deduction toggle should be enabled")
+        debugPrint("Tip deduction toggle found")
+
+        // Read initial toggle state
+        let initialTipToggleState = tipToggle.value as? String
+        debugPrint("Initial tip toggle state: \(initialTipToggleState ?? "unknown")")
+        XCTAssertNotNil(initialTipToggleState, "Should be able to read tip toggle state")
+
+        // Toggle the tip deduction setting using proper SwiftUI toggle tap method
+        tipToggle.switches.firstMatch.tap()
+        visualDebugPause(1)
+
+        // Verify toggle state changed
+        let newTipToggleState = tipToggle.value as? String
+        debugPrint("New tip toggle state after tap: \(newTipToggleState ?? "unknown")")
+        XCTAssertNotEqual(initialTipToggleState, newTipToggleState, "Toggle state should change after tap")
+
+        let finalToggleState = newTipToggleState
+        debugPrint("Final tip toggle state for persistence test: \(finalToggleState ?? "unknown")")
+
+        // Test preference persistence: Save, navigate away, come back, verify setting retained
+        let doneButton = app.buttons["preferences_done_button"]
+        XCTAssertTrue(doneButton.exists, "Done button should exist")
+        doneButton.tap()
+        visualDebugPause(1)
+        debugPrint("Saved preferences and navigated away")
+
+        // Navigate back to preferences
+        XCTAssertTrue(app.navigationBars["Menu"].waitForExistence(timeout: 2),
+                     "Should return to Menu screen")
+
+        var foundPreferencesAgain = false
+        for element in preferencesElements {
+            if element.exists {
+                element.tap()
+                foundPreferencesAgain = true
+                debugPrint("Re-opened Preferences to verify persistence")
+                break
+            }
+        }
+
+        XCTAssertTrue(foundPreferencesAgain, "Should be able to navigate back to Preferences")
+        XCTAssertTrue(app.navigationBars["Preferences"].waitForExistence(timeout: 3),
+                     "Should navigate to Preferences screen again")
+
+        // Scroll to tip toggle again
+        if taxSettingsHeader.exists {
+            taxSettingsHeader.swipeUp()
+            visualDebugPause(1)
+        }
+
+        // Verify the toggle state persisted
+        let persistedToggleState = tipToggle.value as? String
+        debugPrint("Persisted tip toggle state: \(persistedToggleState ?? "unknown")")
+        XCTAssertEqual(finalToggleState, persistedToggleState,
+                      "Toggle state should persist after navigating away and back")
+        debugPrint("Preference persistence verified - toggle state matches after save/reload")
 
         debugPrint("Preferences and settings test passed")
     }
@@ -586,46 +764,51 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
         let expensesTab = app.tabBars.buttons["Expenses"]
         XCTAssertTrue(expensesTab.exists, "Expenses tab should have accessibility label")
 
-        // Test settings accessibility
+        // Test settings accessibility - verify menu is accessible
         navigateToSettings(in: app)
+        XCTAssertTrue(app.staticTexts["Menu"].exists || app.navigationBars["Menu"].exists,
+                     "Settings menu should be accessible")
 
-        let settingsElements = [
-            "preferences_button",
-            "sync_settings_button",
-            "backup_data_button",
-            "export_data_button"
-        ]
+        // Count how many expected settings elements exist
+        let settingsElements = ["Preferences", "Import/Export", "Backup/Restore"]
+        var foundElements = 0
 
-        for elementId in settingsElements {
-            if app.buttons[elementId].exists {
-                debugPrint("Settings element '\(elementId)' has accessibility identifier")
+        for elementName in settingsElements {
+            if app.staticTexts[elementName].exists || app.buttons.matching(NSPredicate(format: "label CONTAINS %@", elementName)).firstMatch.exists {
+                foundElements += 1
+                debugPrint("Settings element '\(elementName)' is accessible")
             }
         }
 
-        // Test date range options accessibility
+        XCTAssertTrue(foundElements >= 2, "At least 2 major settings elements should be accessible")
+
+        // Test date range options accessibility (if picker exists)
         navigateToTab("Shifts", in: app)
 
         if app.buttons["date_range_picker"].exists {
             app.buttons["date_range_picker"].tap()
 
-            let dateRangeOptions = [
-                "This Week",
-                "Last Week",
-                "This Month",
-                "Last Month",
-                "Custom"
-            ]
+            // Verify at least some date range options exist
+            let dateRangeOptions = ["This Week", "Last Week", "This Month", "Last Month", "Custom"]
+            var foundOptions = 0
 
             for option in dateRangeOptions {
                 if app.buttons[option].exists {
+                    foundOptions += 1
                     debugPrint("Date range option '\(option)' is accessible")
                 }
             }
 
+            XCTAssertTrue(foundOptions >= 2, "At least 2 date range options should be accessible")
+
             // Dismiss picker
             if app.buttons["This Week"].exists {
                 app.buttons["This Week"].tap()
+            } else if app.buttons["Custom"].exists {
+                app.buttons["Custom"].tap()
             }
+        } else {
+            debugPrint("Date range picker not found - may indicate empty shifts view")
         }
 
         debugPrint("Accessibility and labels test passed")
@@ -677,38 +860,39 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
 
         let app = launchApp()
 
-        // Test calculator utility if available
+        // Test Start Shift navigation and form fields
         navigateToTab("Shifts", in: app)
 
         let startShiftButton = findButton(keyword: "start_shift_button", in: app)
         waitAndTap(startShiftButton)
 
-        if app.navigationBars["Start Shift"].waitForExistence(timeout: 3) {
-            // Test calculator utility in mileage field
-            let mileageField = findTextField(keyword: "mileage", in: app)
-            if mileageField.exists {
-                waitAndTap(mileageField)
+        XCTAssertTrue(app.navigationBars["Start Shift"].waitForExistence(timeout: 3),
+                     "Should navigate to Start Shift form")
 
-                // Test if calculator is available
-                if app.keyboards.count > 0 {
-                    debugPrint("Calculator/keyboard utility available")
-                }
+        // Test calculator utility in mileage field
+        let mileageField = findTextField(keyword: "mileage", in: app)
+        XCTAssertTrue(mileageField.exists, "Mileage field should exist in Start Shift form")
 
-                dismissKeyboardIfPresent(in: app)
-            }
+        if mileageField.exists {
+            waitAndTap(mileageField)
 
-            // Test form auto-completion utilities
-            let locationField = findTextField(keyword: "location", in: app)
-            if locationField.exists {
-                enterText("Test Location", in: locationField, app: app)
-                debugPrint("Location field utility working")
-            }
+            // Verify keyboard appears (calculator or standard)
+            XCTAssertTrue(app.keyboards.count > 0, "Keyboard should appear for mileage field")
+            debugPrint("Keyboard utility available for mileage field")
 
-            // Cancel shift creation
-            if app.navigationBars.buttons["Cancel"].exists {
-                app.navigationBars.buttons["Cancel"].tap()
-            }
+            dismissKeyboardIfPresent(in: app)
         }
+
+        // Test form field availability
+        let locationField = findTextField(keyword: "location", in: app)
+        if locationField.exists {
+            enterText("Test Location", in: locationField, app: app)
+            debugPrint("Location field utility working")
+        }
+
+        // Cancel shift creation
+        XCTAssertTrue(app.navigationBars.buttons["Cancel"].exists, "Cancel button should exist")
+        app.navigationBars.buttons["Cancel"].tap()
 
         debugPrint("Utility features test passed")
     }
@@ -721,39 +905,41 @@ final class RideshareTrackerToolsUITests: RideshareTrackerUITestBase {
 
         let app = launchApp()
 
-        // Test empty data scenarios
+        // Test empty data scenarios - verify app doesn't crash with no data
         navigateToTab("Shifts", in: app)
 
-        // Test behavior with no shifts
-        if app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'No shifts'")).count > 0 {
-            debugPrint("Empty shifts state handled correctly")
-        }
+        // App should handle empty shifts gracefully (either showing message or empty list)
+        debugPrint("Shifts tab loaded - verifying empty state handling")
+        // No assertion here - just verify app doesn't crash
 
         navigateToTab("Expenses", in: app)
 
-        // Test behavior with no expenses
-        if app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'No expenses'")).count > 0 {
-            debugPrint("Empty expenses state handled correctly")
-        }
+        // App should handle empty expenses gracefully
+        debugPrint("Expenses tab loaded - verifying empty state handling")
+        // No assertion here - just verify app doesn't crash
 
-        // Test network error scenarios (sync)
+        // Test navigation to settings without errors
         navigateToSettings(in: app)
+        XCTAssertTrue(app.staticTexts["Menu"].exists || app.navigationBars["Menu"].exists,
+                     "Should navigate to settings without errors")
 
-        if app.buttons["sync_settings_button"].exists {
-            app.buttons["sync_settings_button"].tap()
+        // Verify Import/Export doesn't crash with no data
+        let importExportElements = [
+            app.staticTexts["Import/Export"],
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Import'")).firstMatch
+        ]
 
-            // Test sync when potentially offline
-            if app.buttons["manual_sync_button"].exists {
-                app.buttons["manual_sync_button"].tap()
+        for element in importExportElements {
+            if element.exists {
+                element.tap()
+                XCTAssertTrue(app.navigationBars["Import/Export"].waitForExistence(timeout: 3),
+                             "Import/Export should load without errors even with no data")
 
-                // Look for error handling
-                if app.alerts.count > 0 {
-                    debugPrint("Sync error dialog appeared - good error handling")
-
-                    if app.buttons["OK"].exists {
-                        app.buttons["OK"].tap()
-                    }
+                // Go back
+                if app.navigationBars.buttons.firstMatch.exists {
+                    app.navigationBars.buttons.firstMatch.tap()
                 }
+                break
             }
         }
 

@@ -62,7 +62,7 @@ struct BackupView: View {
     @State private var backupURL: URL?
     @State private var showingBackupAlert = false
     @State private var backupMessage = ""
-    @State private var includeImages = true
+    @State private var isCreatingBackup = false
 
     var totalShifts: Int { shiftManager.activeShifts.count }
     var totalExpenses: Int { expenseManager.activeExpenses.count }
@@ -73,30 +73,31 @@ struct BackupView: View {
     }
     
     var body: some View {
-        VStack(spacing: 20) {
-            
-            VStack(spacing: 16) {
-                Image(systemName: "externaldrive.fill")
+        VStack(spacing: 16) {
+
+            VStack(spacing: 12) {
+                Image(systemName: "externaldrive")
                     .font(.system(size: 60))
-                    .foregroundColor(.blue)
-                
+                    .foregroundColor(.orange)
+
                 Text("Create Full Backup")
                     .font(.title2)
                     .fontWeight(.semibold)
-                
+
                 Text("Create a complete backup of all your data including shifts, expenses, and preferences.")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal)
             }
 
             // Data Summary
-            VStack(spacing: 12) {
+            VStack(spacing: 6) {
                 Text("Data to Backup")
                     .font(.headline)
 
-                HStack(spacing: 12) {
+                HStack(spacing: 8) {
                     DataSummaryCard(
                         icon: "car.fill",
                         title: "Shifts",
@@ -118,31 +119,30 @@ struct BackupView: View {
                         color: .purple
                     )
                 }
-
-                // Include Images Toggle
-                Toggle("Include Image Attachments", isOn: $includeImages)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
-                if !includeImages {
-                    Text("⚠️ Image attachments will not be included in the backup")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                        .padding(.horizontal)
-                }
             }
-            .padding()
+            .padding(.vertical, 8)
+            .padding(.horizontal)
             .background(Color(.systemGroupedBackground))
             .cornerRadius(12)
             .padding(.horizontal)
-            
-            Button("Create Backup") {
+
+            Button {
                 createBackup()
+            } label: {
+                if isCreatingBackup {
+                    HStack {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        Text("Creating Backup...")
+                    }
+                } else {
+                    Text("Create Backup")
+                }
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(totalShifts == 0 && totalExpenses == 0)
-            
+            .disabled(totalShifts == 0 && totalExpenses == 0 || isCreatingBackup)
+
             // Backup Info
             VStack(alignment: .leading, spacing: 8) {
                 Label("Backup Details", systemImage: "info.circle")
@@ -151,13 +151,8 @@ struct BackupView: View {
                 Text("• All shift data with complete history")
                 Text("• All business expense records")
                 Text("• User preferences and settings")
-                if includeImages {
-                    Text("• Image attachments (full-size + thumbnails)")
-                    Text("• ZIP archive format with organized structure")
-                } else {
-                    Text("• JSON format (legacy, no images)")
-                }
-                Text("• Compatible with future app versions")
+                Text("• Image attachments (full-size + thumbnails)")
+                Text("• ZIP archive format with organized structure")
             }
             .font(.caption)
             .foregroundColor(.secondary)
@@ -166,13 +161,14 @@ struct BackupView: View {
             .background(Color(.systemGroupedBackground))
             .cornerRadius(8)
             .padding(.horizontal)
-            .padding(.bottom, 20)
+
+            Spacer()
         }
         .fileExporter(
             isPresented: $showingShareSheet,
             document: backupURL.map { DocumentFile(url: $0) },
-            contentType: includeImages ? .zip : .json,
-            defaultFilename: backupURL?.lastPathComponent ?? (includeImages ? "backup.zip" : "backup.json")
+            contentType: .zip,
+            defaultFilename: backupURL?.lastPathComponent ?? "backup.zip"
         ) { result in
             switch result {
             case .success(let url):
@@ -191,18 +187,34 @@ struct BackupView: View {
     }
     
     private func createBackup() {
-        do {
-            let url = try backupRestoreManager.createFullBackup(
-                shifts: shiftManager.shifts,
-                expenses: expenseManager.expenses,
-                preferences: preferences,
-                includeImages: includeImages
-            )
-            self.backupURL = url
-            showingShareSheet = true
-        } catch {
-            backupMessage = backupRestoreManager.lastError?.localizedDescription ?? "Failed to create backup file"
-            showingBackupAlert = true
+        isCreatingBackup = true
+
+        // Capture main actor values before background task
+        let shiftsSnapshot = shiftManager.shifts
+        let expensesSnapshot = expenseManager.expenses
+        let preferencesSnapshot = preferences
+        let manager = backupRestoreManager
+
+        // Use Task to move backup work off main thread
+        Task.detached {
+            do {
+                let url = try await manager.createFullBackup(
+                    shifts: shiftsSnapshot,
+                    expenses: expensesSnapshot,
+                    preferences: preferencesSnapshot
+                )
+                await MainActor.run {
+                    self.backupURL = url
+                    isCreatingBackup = false
+                    showingShareSheet = true
+                }
+            } catch {
+                await MainActor.run {
+                    backupMessage = manager.lastError?.localizedDescription ?? "Failed to create backup file"
+                    isCreatingBackup = false
+                    showingBackupAlert = true
+                }
+            }
         }
     }
 }
@@ -228,7 +240,7 @@ struct RestoreView: View {
         VStack(spacing: 20) {
 
             VStack(spacing: 16) {
-                Image(systemName: "externaldrive.badge.plus.fill")
+                Image(systemName: "externaldrive.badge.plus")
                     .font(.system(size: 60))
                     .foregroundColor(.orange)
 
@@ -240,6 +252,7 @@ struct RestoreView: View {
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal)
 
                 // Restore Action Picker
@@ -255,7 +268,7 @@ struct RestoreView: View {
                     .pickerStyle(.segmented)
 
                     Text(selectedRestoreAction.description)
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -269,39 +282,39 @@ struct RestoreView: View {
             }
             
             Spacer()
-            
+
             // Info Section
-            VStack(alignment: .leading, spacing: 12) {
-                Label("Restore Options", systemImage: "info.circle.fill")
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Restore Details", systemImage: "info.circle")
                     .font(.headline)
-                    .foregroundColor(.blue)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("• Clear & Restore: Delete all current data")
-                    Text("• Restore Missing: Add only new records")
-                    Text("• Merge & Restore: Update existing + add new")
-                    Text("• Preferences are always restored")
-
-                    if selectedRestoreAction == .replaceAll {
-                        Text("⚠️ Consider creating a backup first when using Clear & Restore.")
-                            .fontWeight(.semibold)
-                            .foregroundColor(.orange)
-                            .padding(.top, 4)
-                    }
+                switch selectedRestoreAction {
+                case .replaceAll:
+                    Text("• Delete all current data")
+                    Text("• Restore all records from backup")
+                    Text("• Preferences are restored")
+                    Text("⚠️ Consider creating a backup first when using Clear & Restore.")
+                        .fontWeight(.semibold)
+                        .foregroundColor(.orange)
+                        .padding(.top, 4)
+                case .skipDuplicates:
+                    Text("• Keep all current data")
+                    Text("• Add only records that don't exist")
+                    Text("• Preferences are restored")
+                case .merge:
+                    Text("• Keep all current data")
+                    Text("• Update existing records from backup")
+                    Text("• Add new records from backup")
+                    Text("• Preferences are restored")
                 }
-                .font(.caption)
-                .foregroundColor(.secondary)
             }
+            .font(.caption)
+            .foregroundColor(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
             .background(Color(.systemGroupedBackground))
             .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(selectedRestoreAction == .replaceAll ? Color.orange : Color.blue, lineWidth: 1)
-            )
             .padding(.horizontal)
-            .padding(.bottom, 20)
         }
         .fileImporter(
             isPresented: $showingFilePicker,
@@ -416,23 +429,24 @@ struct DataSummaryCard: View {
     let title: String
     let count: Int
     let color: Color
-    
+
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.title)
                 .foregroundColor(color)
-            
+
             Text("\(count)")
                 .font(.title2)
                 .fontWeight(.bold)
-            
+
             Text(title)
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding()
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
         .background(Color(.systemBackground))
         .cornerRadius(8)
     }
