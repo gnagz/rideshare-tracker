@@ -12,9 +12,15 @@ struct UberDataSectionView: View {
     let shift: RideshareShift
     @State private var isExpanded = true
     @EnvironmentObject var preferencesManager: PreferencesManager
+    @EnvironmentObject var dataManager: ShiftDataManager
+
+    // Get the current shift from data manager for reactive updates
+    private var currentShift: RideshareShift {
+        dataManager.shifts.first(where: { $0.id == shift.id }) ?? shift
+    }
 
     private var transactions: [UberTransaction] {
-        shift.uberTransactions
+        currentShift.uberTransactions
     }
 
     private var tipTransactions: [UberTransaction] {
@@ -45,11 +51,11 @@ struct UberDataSectionView: View {
             if isExpanded {
                 VStack(spacing: 8) {
                     // Statement info
-                    if let period = shift.uberStatementPeriod {
+                    if let period = currentShift.uberStatementPeriod {
                         DetailRow("Statement Period", period)
                     }
 
-                    if let importDate = shift.uberImportDate {
+                    if let importDate = currentShift.uberImportDate {
                         DetailRow("Last Import", preferencesManager.formatDate(importDate) + " " + preferencesManager.formatTime(importDate))
                     }
 
@@ -81,7 +87,7 @@ struct UberDataSectionView: View {
                             }
                         }
 
-                        DetailRow("Total Uber Tips", String(format: "$%.2f", shift.totalUberTips), valueColor: .green)
+                        DetailRow("Total Uber Tips", String(format: "$%.2f", currentShift.totalUberTips), valueColor: .green)
                     }
 
                     // Tolls section
@@ -112,34 +118,60 @@ struct UberDataSectionView: View {
                             }
                         }
 
-                        DetailRow("Total Reimbursed", String(format: "$%.2f", shift.totalUberTollReimbursements), valueColor: .green)
+                        DetailRow("Total Reimbursed", String(format: "$%.2f", currentShift.totalUberTollReimbursements), valueColor: .green)
                     }
 
-                    // Reconciliation section
-                    if shift.hasAnyUberDiscrepancy {
-                        Divider()
-                            .padding(.vertical, 4)
+                    // Reconciliation section - UPDATED with interactive UI
+                    if currentShift.hasAnyUberDiscrepancy {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text("Manual Entry Higher Than Import")
+                                    .font(.headline)
+                            }
+                            .padding(.horizontal)
 
-                        Text("Reconciliation")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
+                            Text("Manual entry exceeds imported value. This may indicate a manual entry error or import parsing issue.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal)
 
-                        if shift.hasUberTipDiscrepancy {
-                            reconciliationRow(
-                                label: "Tips",
-                                manualValue: shift.tips ?? 0,
-                                uberValue: shift.totalUberTips
-                            )
+                            Divider()
+                                .padding(.vertical, 4)
+
+                            if currentShift.hasUberTipDiscrepancy {
+                                verificationRow(
+                                    label: "Tips",
+                                    manualValue: currentShift.originalTips ?? 0,
+                                    importedValue: currentShift.tips ?? 0
+                                )
+                            }
+
+                            if currentShift.hasUberTollDiscrepancy {
+                                verificationRow(
+                                    label: "Tolls Reimbursed",
+                                    manualValue: currentShift.originalTollsReimbursed ?? 0,
+                                    importedValue: currentShift.tollsReimbursed ?? 0
+                                )
+                            }
+
+                            HStack(spacing: 12) {
+                                Button("Keep Manual") {
+                                    keepManualEntry()
+                                }
+                                .buttonStyle(.bordered)
+
+                                Button("Use Imported") {
+                                    useImportedData()
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                            .padding(.horizontal)
                         }
-
-                        if shift.hasUberTollDiscrepancy {
-                            reconciliationRow(
-                                label: "Tolls Reimbursed",
-                                manualValue: shift.tollsReimbursed ?? 0,
-                                uberValue: shift.totalUberTollReimbursements
-                            )
-                        }
+                        .padding(.vertical)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
                     }
                 }
                 .padding()
@@ -159,44 +191,57 @@ struct UberDataSectionView: View {
         return formatter.string(from: date)
     }
 
-    private func reconciliationRow(label: String, manualValue: Double, uberValue: Double) -> some View {
-        let difference = manualValue - uberValue
-        let hasDiscrepancy = abs(difference) > 0.01
-
-        return VStack(alignment: .leading, spacing: 4) {
+    private func verificationRow(label: String, manualValue: Double, importedValue: Double) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Manual \(label)")
                     .font(.caption)
                 Spacer()
                 Text(String(format: "$%.2f", manualValue))
                     .font(.caption)
+                    .fontWeight(.semibold)
             }
             HStack {
-                Text("Uber Statement")
+                Text("Imported \(label)")
                     .font(.caption)
                 Spacer()
-                Text(String(format: "$%.2f", uberValue))
+                Text(String(format: "$%.2f", importedValue))
                     .font(.caption)
             }
             HStack {
                 Text("Difference")
                     .font(.caption)
-                    .fontWeight(.semibold)
+                    .foregroundColor(.orange)
                 Spacer()
-                HStack(spacing: 4) {
-                    if hasDiscrepancy {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                            .font(.caption)
-                    }
-                    Text(String(format: "%@$%.2f", difference >= 0 ? "+" : "", abs(difference)))
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(hasDiscrepancy ? .orange : .green)
-                }
+                Text(String(format: "+$%.2f", manualValue - importedValue))
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.orange)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal)
+    }
+
+    private func keepManualEntry() {
+        guard let index = dataManager.shifts.firstIndex(where: { $0.id == shift.id }) else { return }
+        var updatedShift = dataManager.shifts[index]
+
+        // Revert to manual values
+        updatedShift.tips = currentShift.originalTips
+        updatedShift.tollsReimbursed = currentShift.originalTollsReimbursed
+        updatedShift.uberDataUserVerified = true
+
+        dataManager.shifts[index] = updatedShift
+    }
+
+    private func useImportedData() {
+        guard let index = dataManager.shifts.firstIndex(where: { $0.id == shift.id }) else { return }
+        var updatedShift = dataManager.shifts[index]
+
+        // Keep imported values (already set), just mark as verified
+        updatedShift.uberDataUserVerified = true
+
+        dataManager.shifts[index] = updatedShift
     }
 }
 

@@ -444,4 +444,141 @@ final class RideshareShiftModelTests: RideshareTrackerTestBase {
         assertCurrency(grossProfit, equals: 145.0)
         debugMessage("Gross profit with total tips: \(grossProfit)")
     }
+
+    // MARK: - Uber Import Reconciliation Tests
+
+    func testOriginalTipsPreserved() async throws {
+        // Given: A shift with manual entry
+        var shift = createBasicTestShift()
+        shift.tips = 15.0
+        shift.tollsReimbursed = 5.0
+
+        // When: Setting original values (should only happen once)
+        shift.originalTips = shift.tips
+        shift.originalTollsReimbursed = shift.tollsReimbursed
+
+        // Then: Original values are preserved
+        XCTAssertEqual(shift.originalTips, 15.0, "Original tips should be saved")
+        XCTAssertEqual(shift.originalTollsReimbursed, 5.0, "Original tolls should be saved")
+
+        // When: Tips updated by import
+        shift.tips = 13.50
+        shift.tollsReimbursed = 5.00
+
+        // Then: Original still preserved
+        XCTAssertEqual(shift.originalTips, 15.0, "Original tips should remain unchanged")
+        XCTAssertEqual(shift.originalTollsReimbursed, 5.0, "Original tolls should remain unchanged")
+    }
+
+    func testDiscrepancyDetectionManualGreater() async throws {
+        // Given: Shift with manual > imported (unexpected scenario)
+        var shift = createBasicTestShift()
+        shift.tips = 13.50  // Current (imported) value
+        shift.tollsReimbursed = 5.00  // Current (imported) value
+        shift.originalTips = 17.50  // Manual was higher
+        shift.originalTollsReimbursed = 7.00  // Manual was higher
+        shift.uberImportDate = Date()  // Has Uber data
+        shift.uberDataUserVerified = false  // Not yet verified
+
+        // Then: Discrepancy detected
+        XCTAssertTrue(shift.hasUberTipDiscrepancy, "Should detect tip discrepancy when manual > imported")
+        XCTAssertTrue(shift.hasUberTollDiscrepancy, "Should detect toll discrepancy when manual > imported")
+        XCTAssertTrue(shift.hasAnyUberDiscrepancy, "Should detect overall discrepancy")
+    }
+
+    func testNoDiscrepancyWhenImportedGreater() async throws {
+        // Given: Shift with imported > manual (normal scenario - delayed tips)
+        var shift = createBasicTestShift()
+        shift.tips = 17.50  // Current (imported) value - higher
+        shift.tollsReimbursed = 7.00  // Current (imported) value - higher
+        shift.originalTips = 13.50  // Manual was lower (expected)
+        shift.originalTollsReimbursed = 5.00  // Manual was lower (expected)
+        shift.uberImportDate = Date()  // Has Uber data
+        shift.uberDataUserVerified = false
+
+        // Then: NO discrepancy (this is expected behavior)
+        XCTAssertFalse(shift.hasUberTipDiscrepancy, "Should NOT flag when imported > manual (delayed tips)")
+        XCTAssertFalse(shift.hasUberTollDiscrepancy, "Should NOT flag when imported > manual")
+        XCTAssertFalse(shift.hasAnyUberDiscrepancy, "Should have no discrepancy")
+    }
+
+    func testNoDiscrepancyWhenEqual() async throws {
+        // Given: Shift with manual == imported (perfect match)
+        var shift = createBasicTestShift()
+        shift.tips = 15.0
+        shift.tollsReimbursed = 5.0
+        shift.originalTips = 15.0  // Same as imported
+        shift.originalTollsReimbursed = 5.0  // Same as imported
+        shift.uberImportDate = Date()
+        shift.uberDataUserVerified = false
+
+        // Then: NO discrepancy
+        XCTAssertFalse(shift.hasUberTipDiscrepancy, "Should NOT flag when values match")
+        XCTAssertFalse(shift.hasUberTollDiscrepancy, "Should NOT flag when values match")
+        XCTAssertFalse(shift.hasAnyUberDiscrepancy, "Should have no discrepancy")
+    }
+
+    func testVerificationSuppressesWarning() async throws {
+        // Given: Shift with discrepancy but user has verified
+        var shift = createBasicTestShift()
+        shift.tips = 13.50  // Imported
+        shift.tollsReimbursed = 5.00  // Imported
+        shift.originalTips = 17.50  // Manual was higher
+        shift.originalTollsReimbursed = 7.00  // Manual was higher
+        shift.uberImportDate = Date()
+        shift.uberDataUserVerified = true  // User made decision
+
+        // Then: No warning shown (user verified)
+        XCTAssertFalse(shift.hasUberTipDiscrepancy, "Should NOT show warning after verification")
+        XCTAssertFalse(shift.hasUberTollDiscrepancy, "Should NOT show warning after verification")
+        XCTAssertFalse(shift.hasAnyUberDiscrepancy, "Should have no warning")
+    }
+
+    func testNoDiscrepancyWhenNoOriginal() async throws {
+        // Given: Shift imported without saving original (legacy data)
+        var shift = createBasicTestShift()
+        shift.tips = 15.0  // Imported value
+        shift.tollsReimbursed = 5.0  // Imported value
+        shift.originalTips = nil  // No original saved
+        shift.originalTollsReimbursed = nil  // No original saved
+        shift.uberImportDate = Date()
+        shift.uberDataUserVerified = false
+
+        // Then: No discrepancy possible
+        XCTAssertFalse(shift.hasUberTipDiscrepancy, "Should NOT flag without original to compare")
+        XCTAssertFalse(shift.hasUberTollDiscrepancy, "Should NOT flag without original to compare")
+        XCTAssertFalse(shift.hasAnyUberDiscrepancy, "Should have no discrepancy")
+    }
+
+    func testNoDiscrepancyWhenNoUberData() async throws {
+        // Given: Shift without Uber import
+        var shift = createBasicTestShift()
+        shift.tips = 15.0
+        shift.tollsReimbursed = 5.0
+        shift.originalTips = 17.50  // Would be discrepancy if imported
+        shift.originalTollsReimbursed = 7.00
+        shift.uberImportDate = nil  // No import yet
+        shift.uberDataUserVerified = false
+
+        // Then: No discrepancy (no Uber data to compare)
+        XCTAssertFalse(shift.hasUberTipDiscrepancy, "Should NOT flag without Uber data")
+        XCTAssertFalse(shift.hasUberTollDiscrepancy, "Should NOT flag without Uber data")
+        XCTAssertFalse(shift.hasAnyUberDiscrepancy, "Should have no discrepancy")
+    }
+
+    func testSmallDifferenceIgnored() async throws {
+        // Given: Shift with tiny difference (rounding)
+        var shift = createBasicTestShift()
+        shift.tips = 15.00  // Imported
+        shift.tollsReimbursed = 5.00  // Imported
+        shift.originalTips = 15.005  // Negligible difference (< 1 cent)
+        shift.originalTollsReimbursed = 5.005  // Negligible difference
+        shift.uberImportDate = Date()
+        shift.uberDataUserVerified = false
+
+        // Then: No discrepancy (within tolerance)
+        XCTAssertFalse(shift.hasUberTipDiscrepancy, "Should ignore sub-penny differences")
+        XCTAssertFalse(shift.hasUberTollDiscrepancy, "Should ignore sub-penny differences")
+        XCTAssertFalse(shift.hasAnyUberDiscrepancy, "Should have no discrepancy")
+    }
 }

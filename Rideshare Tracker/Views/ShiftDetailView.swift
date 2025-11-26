@@ -24,6 +24,11 @@ struct ShiftDetailView: View {
 
     private var preferences: AppPreferences { preferencesManager.preferences }
 
+    // Get the current shift from data manager for reactive updates
+    private var currentShift: RideshareShift {
+        dataManager.shifts.first(where: { $0.id == shift.id }) ?? shift
+    }
+
     private func formatDateTime(_ date: Date) -> String {
         return "\(preferencesManager.formatDate(date)) \(preferencesManager.formatTime(date))"
     }
@@ -294,16 +299,16 @@ struct ShiftDetailView: View {
                 .foregroundColor(.primary)
             
             VStack(spacing: 8) {
-                DetailRow("# Trips", "\(shift.trips ?? 0)")
-                DetailRow("Net Fare", String(format: "$%.2f", shift.netFare ?? 0))
-                if let promotions = shift.promotions, promotions > 0 {
+                DetailRow("# Trips", "\(currentShift.trips ?? 0)")
+                DetailRow("Net Fare", String(format: "$%.2f", currentShift.netFare ?? 0))
+                if let promotions = currentShift.promotions, promotions > 0 {
                     DetailRow("Promotions", String(format: "$%.2f", promotions))
                 }
-                DetailRow("Tips", String(format: "$%.2f", shift.tips ?? 0))
-                if let cashTips = shift.cashTips, cashTips > 0 {
+                DetailRow("Tips", String(format: "$%.2f", currentShift.tips ?? 0))
+                if let cashTips = currentShift.cashTips, cashTips > 0 {
                     DetailRow("Cash Tips", String(format: "$%.2f", cashTips))
                 }
-                DetailRow("Revenue", String(format: "$%.2f", shift.revenue), valueColor: .green)
+                DetailRow("Revenue", String(format: "$%.2f", currentShift.revenue), valueColor: .green)
             }
             .padding()
             .background(Color(.systemGray6))
@@ -322,21 +327,21 @@ struct ShiftDetailView: View {
                 .foregroundColor(.primary)
             
             VStack(spacing: 8) {
-                DetailRow("Gas Cost", String(format: "$%.2f", shift.shiftGasCost(tankCapacity: preferences.tankCapacity)))
-                DetailRow("Gas Used", String(format: "%.1f gal", shift.shiftGasUsage(tankCapacity: preferences.tankCapacity)))
-                DetailRow("MPG", String(format: "%.1f", shift.shiftMPG(tankCapacity: preferences.tankCapacity)))
-                
+                DetailRow("Gas Cost", String(format: "$%.2f", currentShift.shiftGasCost(tankCapacity: preferences.tankCapacity)))
+                DetailRow("Gas Used", String(format: "%.1f gal", currentShift.shiftGasUsage(tankCapacity: preferences.tankCapacity)))
+                DetailRow("MPG", String(format: "%.1f", currentShift.shiftMPG(tankCapacity: preferences.tankCapacity)))
+
                 // Show gas price used for this shift
-                DetailRow("Gas Price Used", String(format: "$%.3f/gal", shift.gasPrice))
-                
-                if let tolls = shift.tolls, tolls > 0 {
+                DetailRow("Gas Price Used", String(format: "$%.3f/gal", currentShift.gasPrice))
+
+                if let tolls = currentShift.tolls, tolls > 0 {
                     DetailRow("Tolls", String(format: "$%.2f", tolls))
-                    DetailRow("Tolls Reimbursed", String(format: "$%.2f", shift.tollsReimbursed ?? 0))
+                    DetailRow("Tolls Reimbursed", String(format: "$%.2f", currentShift.tollsReimbursed ?? 0))
                 }
-                if let parking = shift.parkingFees, parking > 0 {
+                if let parking = currentShift.parkingFees, parking > 0 {
                     DetailRow("Parking Fees", String(format: "$%.2f", parking))
                 }
-                if let miscFees = shift.miscFees, miscFees > 0 {
+                if let miscFees = currentShift.miscFees, miscFees > 0 {
                     DetailRow("Misc Fees", String(format: "$%.2f", miscFees))
                 }
             }

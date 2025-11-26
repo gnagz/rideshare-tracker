@@ -57,6 +57,9 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     // Uber statement import metadata
     var uberImportDate: Date?  // Last import timestamp
     var uberStatementPeriod: String?  // "Oct 13, 2025 - Oct 20, 2025"
+    var originalTips: Double?  // Manual entry at shift end (saved on first import)
+    var originalTollsReimbursed: Double?  // Manual entry at shift end (saved on first import)
+    var uberDataUserVerified: Bool = false  // User verified discrepancy (suppresses warning)
 
     // Uber data helper computed properties
     var hasUberData: Bool {
@@ -76,13 +79,13 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     }
 
     var hasUberTipDiscrepancy: Bool {
-        guard hasUberData else { return false }
-        return abs((tips ?? 0) - totalUberTips) > 0.01
+        guard let original = originalTips, hasUberData, !uberDataUserVerified else { return false }
+        return original > (tips ?? 0) + 0.01  // Only flag when manual > imported
     }
 
     var hasUberTollDiscrepancy: Bool {
-        guard hasUberData else { return false }
-        return abs((tollsReimbursed ?? 0) - totalUberTollReimbursements) > 0.01
+        guard let original = originalTollsReimbursed, hasUberData, !uberDataUserVerified else { return false }
+        return original > (tollsReimbursed ?? 0) + 0.01  // Only flag when manual > imported
     }
 
     var hasAnyUberDiscrepancy: Bool {

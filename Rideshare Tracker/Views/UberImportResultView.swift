@@ -21,6 +21,8 @@ struct UberImportResultView: View {
     @State private var csvFilename = "missing_shifts.csv"
     @State private var showingExportAlert = false
     @State private var exportMessage = ""
+    @State private var csvWasExported = false
+    @State private var showingDismissWarning = false
 
     var body: some View {
         NavigationView {
@@ -44,7 +46,7 @@ struct UberImportResultView: View {
                     .padding(.top)
 
                     // Statistics Cards
-                    VStack(spacing: 12) {
+                    VStack(spacing: 8) {
                         StatCard(
                             title: "Total Transactions",
                             value: "\(result.totalTransactions)",
@@ -154,6 +156,7 @@ struct UberImportResultView: View {
                                 .padding(.horizontal)
 
                             Button {
+                                csvWasExported = true  // Mark as exported when user initiates download
                                 prepareCSVExport(csv: csv, filename: "Missing Shifts - \(result.statementPeriod).csv")
                             } label: {
                                 Label("Export Missing Shifts CSV", systemImage: "arrow.down.doc.fill")
@@ -170,7 +173,7 @@ struct UberImportResultView: View {
                                 Text("• Pre-filled Uber earnings data (tips, tolls, net fares)")
                                 Text("• Start/end times from actual transactions")
                                 Text("• Blank vehicle fields for you to fill in")
-                                Text("• Ready to import back into Rideshare Tracker")
+                                Text("• Ready to update and then import back into Rideshare Tracker.")
                             }
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -184,7 +187,7 @@ struct UberImportResultView: View {
 
                     // Updated Shifts List
                     if !result.updatedShifts.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text("Updated Shifts")
                                 .font(.headline)
                                 .padding(.horizontal)
@@ -203,7 +206,7 @@ struct UberImportResultView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
-                        presentationMode.wrappedValue.dismiss()
+                        handleDoneButtonTap()
                     }
                 }
             }
@@ -215,6 +218,7 @@ struct UberImportResultView: View {
             ) { result in
                 switch result {
                 case .success(let url):
+                    csvWasExported = true
                     exportMessage = "CSV saved to: \(url.lastPathComponent)"
                     showingExportAlert = true
                 case .failure(let error):
@@ -227,10 +231,32 @@ struct UberImportResultView: View {
             } message: {
                 Text(exportMessage)
             }
+            .alert("Missing Shifts CSV Not Downloaded", isPresented: $showingDismissWarning) {
+                Button("Download CSV", role: .cancel) {
+                    if let csv = result.missingShiftsCSV {
+                        csvWasExported = true  // Mark as exported when user initiates download
+                        prepareCSVExport(csv: csv, filename: "Missing Shifts - \(result.statementPeriod).csv")
+                    }
+                }
+                Button("Close Anyway", role: .destructive) {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            } message: {
+                Text("You haven't downloaded the Missing Shifts CSV yet. Would you like to download it before closing?")
+            }
         }
     }
 
     // MARK: - Helper Methods
+
+    private func handleDoneButtonTap() {
+        // Check if there's a missing shifts CSV that hasn't been downloaded
+        if result.missingShiftsCSV != nil && !csvWasExported {
+            showingDismissWarning = true
+        } else {
+            presentationMode.wrappedValue.dismiss()
+        }
+    }
 
     private func prepareCSVExport(csv: String, filename: String) {
         csvDocument = CSVDocument(content: csv)
@@ -329,8 +355,16 @@ struct ShiftUpdateCard: View {
         shiftTransactions.filter { $0.tollsReimbursed != nil && $0.tollsReimbursed! > 0 }.count
     }
 
+    private var totalTips: Double {
+        shift.totalUberTips
+    }
+
+    private var totalTolls: Double {
+        shift.totalUberTollReimbursements
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(shift.startDate, style: .date)
                     .font(.headline)
@@ -342,14 +376,14 @@ struct ShiftUpdateCard: View {
 
             HStack(spacing: 16) {
                 if tipCount > 0 {
-                    Label("\(tipCount) tips", systemImage: "dollarsign.circle.fill")
-                        .font(.caption)
+                    Label("\(tipCount) tips - total $\(String(format: "%.2f", totalTips))", systemImage: "dollarsign.circle.fill")
+                        .font(.subheadline)
                         .foregroundColor(.green)
                 }
 
                 if tollCount > 0 {
-                    Label("\(tollCount) tolls", systemImage: "road.lanes.curved.left")
-                        .font(.caption)
+                    Label("\(tollCount) tolls - total $\(String(format: "%.2f", totalTolls))", systemImage: "road.lanes.curved.left")
+                        .font(.subheadline)
                         .foregroundColor(.blue)
                 }
             }

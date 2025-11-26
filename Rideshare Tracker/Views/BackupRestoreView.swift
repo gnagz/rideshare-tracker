@@ -189,22 +189,28 @@ struct BackupView: View {
     private func createBackup() {
         isCreatingBackup = true
 
-        // Use DispatchQueue to move backup work off main thread and allow UI to update
-        DispatchQueue.global(qos: .userInitiated).async {
+        // Capture main actor values before background task
+        let shiftsSnapshot = shiftManager.shifts
+        let expensesSnapshot = expenseManager.expenses
+        let preferencesSnapshot = preferences
+        let manager = backupRestoreManager
+
+        // Use Task to move backup work off main thread
+        Task.detached {
             do {
-                let url = try backupRestoreManager.createFullBackup(
-                    shifts: shiftManager.shifts,
-                    expenses: expenseManager.expenses,
-                    preferences: preferences
+                let url = try await manager.createFullBackup(
+                    shifts: shiftsSnapshot,
+                    expenses: expensesSnapshot,
+                    preferences: preferencesSnapshot
                 )
-                DispatchQueue.main.async {
+                await MainActor.run {
                     self.backupURL = url
                     isCreatingBackup = false
                     showingShareSheet = true
                 }
             } catch {
-                DispatchQueue.main.async {
-                    backupMessage = backupRestoreManager.lastError?.localizedDescription ?? "Failed to create backup file"
+                await MainActor.run {
+                    backupMessage = manager.lastError?.localizedDescription ?? "Failed to create backup file"
                     isCreatingBackup = false
                     showingBackupAlert = true
                 }

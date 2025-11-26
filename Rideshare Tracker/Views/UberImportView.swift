@@ -167,7 +167,7 @@ struct UberImportView: View {
                 }
 
                 // Parse transactions from PDF (using coordinate-based parsing)
-                var transactions = try await parser.parseStatement(from: url)
+                var transactions = try parser.parseStatement(from: url)
 
                 // Add metadata to all transactions
                 let importDate = Date()
@@ -243,10 +243,21 @@ struct UberImportView: View {
                 } else {
                     let totals = transactions.totals()
 
+                    // Save original manual values on first import (before overwriting)
+                    if shift.originalTips == nil {
+                        shift.originalTips = shift.tips
+                    }
+                    if shift.originalTollsReimbursed == nil {
+                        shift.originalTollsReimbursed = shift.tollsReimbursed
+                    }
+
                     // Update shift with aggregated data
                     shift.tips = totals.tips
                     shift.tollsReimbursed = totals.tollsReimbursed
                     shift.uberImportDate = Date()
+
+                    // Reset verification flag on any import/re-import so user must re-verify
+                    shift.uberDataUserVerified = false
 
                     // Generate and attach transaction detail image
                     if let image = UberTransactionImageGenerator.generate(
