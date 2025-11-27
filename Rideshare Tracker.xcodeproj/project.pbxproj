@@ -86,6 +86,7 @@
 		3598F6232ECA1A14000B983F /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 3598F6222ECA1A14000B983F /* ZIPFoundation */; };
 		3598F6252ECD84A1000B983F /* UberStatementParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3598F6242ECD84A1000B983F /* UberStatementParser.swift */; };
 		3598F6262ECD84A1000B983F /* UberStatementParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3598F6242ECD84A1000B983F /* UberStatementParser.swift */; };
+		3598F6522ED7D751000B983F /* YTDSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3598F6512ED7D751000B983F /* YTDSummaryView.swift */; };
 		35A841842E711EE60050192C /* ImageAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841832E711EE60050192C /* ImageAttachment.swift */; };
 		35A841862E711EF30050192C /* ImageViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841852E711EF30050192C /* ImageViewerView.swift */; };
 		35A841882E711EFF0050192C /* ImageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A841872E711EFF0050192C /* ImageManager.swift */; };
@@ -191,6 +192,7 @@
 		3598F61A2EC81143000B983F /* UberTransactionImageGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberTransactionImageGenerator.swift; sourceTree = "<group>"; };
 		3598F61F2EC8194A000B983F /* UberDataSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberDataSectionView.swift; sourceTree = "<group>"; };
 		3598F6242ECD84A1000B983F /* UberStatementParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberStatementParser.swift; sourceTree = "<group>"; };
+		3598F6512ED7D751000B983F /* YTDSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YTDSummaryView.swift; sourceTree = "<group>"; };
 		35A25DC02EA0DDE80036A2F0 /* xcodetest.command */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = xcodetest.command; sourceTree = "<group>"; };
 		35A25DC12EA0DDFE0036A2F0 /* XCODETEST.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = XCODETEST.md; sourceTree = "<group>"; };
 		35A841832E711EE60050192C /* ImageAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageAttachment.swift; sourceTree = "<group>"; };
@@ -336,6 +338,7 @@
 		3531FC592E498777000F2CD7 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				3598F6512ED7D751000B983F /* YTDSummaryView.swift */,
 				3598F61F2EC8194A000B983F /* UberDataSectionView.swift */,
 				354423AA2EC06BAC005CDC52 /* UberImportResultView.swift */,
 				354423AB2EC06BAC005CDC52 /* UberImportView.swift */,
@@ -577,6 +580,7 @@
 				3531FC6C2E498E2F000F2CD7 /* DateFormatter+Extensions.swift in Sources */,
 				3538E64D2E918D9D00D18302 /* KeyboardInputUtility.swift in Sources */,
 				357F17972E8A258B00262CFA /* TollSummaryImageGenerator.swift in Sources */,
+				3598F6522ED7D751000B983F /* YTDSummaryView.swift in Sources */,
 				3598F6262ECD84A1000B983F /* UberStatementParser.swift in Sources */,
 				357F17982E8A258B00262CFA /* DocumentFile.swift in Sources */,
 				353424962E5286FF00B86346 /* NumberFormatter+Extensions.swift in Sources */,

@@ -33,6 +33,15 @@ struct MainTabView: View {
                 .environmentObject(preferencesManager)
                 .environmentObject(dataManager)
                 .environmentObject(expenseManager)
+
+            YTDSummaryView()
+                .tabItem {
+                    Image(systemName: "chart.bar.doc.horizontal")
+                    Text("YTD Summary")
+                }
+                .environmentObject(preferencesManager)
+                .environmentObject(dataManager)
+                .environmentObject(expenseManager)
         }
     }
 }
