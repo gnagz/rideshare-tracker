@@ -57,7 +57,8 @@ class PreferencesManager: ObservableObject {
     }
 
     // MARK: - Load Preferences
-
+    // ⚠️ When adding new AppPreferences properties, add UserDefaults loading here.
+    // See AppPreferences struct for full list of locations to update.
     func loadPreferences() {
         var tankCapacity = UserDefaults.standard.double(forKey: "tankCapacity")
         if tankCapacity == 0 { tankCapacity = 14.3 } // Default tank capacity in gallons
@@ -105,7 +106,8 @@ class PreferencesManager: ObservableObject {
     }
 
     // MARK: - Save Preferences
-
+    // ⚠️ When adding new AppPreferences properties, add UserDefaults saving here.
+    // See AppPreferences struct for full list of locations to update.
     func savePreferences() {
         UserDefaults.standard.set(preferences.tankCapacity, forKey: "tankCapacity")
         UserDefaults.standard.set(preferences.gasPrice, forKey: "gasPrice")
@@ -129,7 +131,8 @@ class PreferencesManager: ObservableObject {
     }
 
     // MARK: - Restore Preferences from Backup
-
+    // ⚠️ When adding new AppPreferences properties, add restoration from BackupPreferences here.
+    // See AppPreferences struct for full list of locations to update.
     func restorePreferences(_ backupPrefs: BackupPreferences) {
         preferences = AppPreferences(
             tankCapacity: backupPrefs.tankCapacity,

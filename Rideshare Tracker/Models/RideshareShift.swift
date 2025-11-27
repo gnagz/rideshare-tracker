@@ -13,9 +13,13 @@ private func getCurrentDeviceID() -> String {
     return UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
 }
 
+// ⚠️ IMPORTANT: When adding new stored properties to this struct, you MUST also update:
+// 1. CodingKeys enum (at bottom of file) - add the property name
+// 2. init(from decoder:) - add decoding logic with backward compatibility
+// Failure to do so will cause DATA LOSS during backup/restore and cloud sync!
 struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     var id = UUID()
-    
+
     // Sync metadata
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
@@ -141,7 +145,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     }
     
     var revenue: Double {
-        return taxableIncome + (tips ?? 0)
+        return (netFare ?? 0) + (promotions ?? 0) + (tips ?? 0) + (cashTips ?? 0)
     }
     
     // Keep for backward compatibility in UI
@@ -222,7 +226,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
        
     // Gross income (all revenue sources including total tips)
     func grossProfit() -> Double {
-        return (netFare ?? 0) + totalTips + (promotions ?? 0)
+        return (netFare ?? 0) + (promotions ?? 0) + (tips ?? 0) + (cashTips ?? 0)
     }
 
     func grossProfit(tankCapacity: Double) -> Double {
@@ -232,7 +236,7 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     // Cash Flow Summary Properties
     
     var expectedPayout: Double {
-        return revenue + (tollsReimbursed ?? 0)
+        return (netFare ?? 0) + (promotions ?? 0) + (tips ?? 0) + (tollsReimbursed ?? 0)
     }
     
     func outOfPocketCosts(tankCapacity: Double) -> Double {
@@ -244,8 +248,8 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     
     func cashFlowProfit(tankCapacity: Double) -> Double {
         let outOfPocketCosts = outOfPocketCosts(tankCapacity: tankCapacity)
-        let cashFlowProfit = expectedPayout - outOfPocketCosts
-        // debugPrint("cashFlowProfit: expectedPayout:\(expectedPayout) - outOfPocketCosts:\(outOfPocketCosts)=\(cashFlowProfit)")
+        let cashFlowProfit = expectedPayout + (cashTips ?? 0) - outOfPocketCosts
+        // debugPrint("cashFlowProfit: expectedPayout:\(expectedPayout) + cashTips:\(cashTips ?? 0) - outOfPocketCosts:\(outOfPocketCosts)=\(cashFlowProfit)")
         return cashFlowProfit
     }
     
@@ -315,7 +319,93 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
         return min(totalTips, 25000.0)
     }
 
-    
+    // MARK: - YTD Tax Summary Calculation Methods
+
+    /// Get list of years with completed shifts (descending order, most recent first)
+    static func getAvailableYears(shifts: [RideshareShift]) -> [Int] {
+        let calendar = Calendar.current
+        let years = Set(shifts
+            .filter { $0.endDate != nil && !$0.isDeleted }
+            .map { calendar.component(.year, from: $0.startDate) }
+        )
+        return years.sorted(by: >)
+    }
+
+    /// Get mileage rate for a given year
+    /// Current year: use preferences rate
+    /// Past years: use rate from last shift of that year
+    static func getMileageRateForYear(_ year: Int, shifts: [RideshareShift], currentRate: Double) -> Double {
+        let currentYear = Calendar.current.component(.year, from: Date())
+
+        if year == currentYear {
+            return currentRate
+        }
+
+        // Find last shift of the requested year
+        let calendar = Calendar.current
+        let lastShiftOfYear = shifts
+            .filter { calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil }
+            .max(by: { $0.startDate < $1.startDate })
+
+        return lastShiftOfYear?.standardMileageRate ?? currentRate
+    }
+
+    /// Calculate total mileage for a given year
+    static func calculateYearTotalMileage(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + $1.shiftMileage }
+    }
+
+    /// Calculate total business revenue for a given year (uses shift.revenue which includes all income)
+    static func calculateYearTotalBusinessRevenue(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + $1.revenue }
+    }
+
+    /// Calculate total tolls not reimbursed for a given year
+    static func calculateYearTotalTollsNotReimbursed(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + (($1.tolls ?? 0) - ($1.tollsReimbursed ?? 0)) }
+    }
+
+    /// Calculate total trip fees (parking + misc) for a given year
+    static func calculateYearTotalTripFees(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + ($1.parkingFees ?? 0) + ($1.miscFees ?? 0) }
+    }
+
+    /// Calculate SE taxable earnings (92.35% of net earnings)
+    static func calculateSETaxableEarnings(netEarnings: Double) -> Double {
+        return netEarnings * 0.9235
+    }
+
+    /// Calculate self-employment tax (15.3% of SE taxable earnings)
+    static func calculateSETax(taxableEarnings: Double) -> Double {
+        return taxableEarnings * 0.153
+    }
+
+    /// Calculate Adjusted Gross Income (net earnings minus 50% of SE tax)
+    static func calculateAGI(netEarnings: Double, seTax: Double) -> Double {
+        return netEarnings - (seTax * 0.5)
+    }
+
+    /// Calculate YTD taxable income (AGI minus deductible tips, never negative)
+    static func calculateYTDTaxableIncome(agi: Double, deductibleTips: Double) -> Double {
+        return max(0, agi - deductibleTips)
+    }
+
+    /// Calculate total tax due (SE tax + income tax)
+    static func calculateTotalTaxDue(seTax: Double, incomeTax: Double) -> Double {
+        return seTax + incomeTax
+    }
 
 }
 
@@ -360,17 +450,27 @@ extension RideshareShift {
         // Decode image attachments with backward compatibility
         imageAttachments = try container.decodeIfPresent([ImageAttachment].self, forKey: .imageAttachments) ?? []
 
+        // Decode cash tips with backward compatibility
+        cashTips = try container.decodeIfPresent(Double.self, forKey: .cashTips)
+
         // Decode Uber import metadata with backward compatibility
         uberImportDate = try container.decodeIfPresent(Date.self, forKey: .uberImportDate)
         uberStatementPeriod = try container.decodeIfPresent(String.self, forKey: .uberStatementPeriod)
+        originalTips = try container.decodeIfPresent(Double.self, forKey: .originalTips)
+        originalTollsReimbursed = try container.decodeIfPresent(Double.self, forKey: .originalTollsReimbursed)
+        uberDataUserVerified = try container.decodeIfPresent(Bool.self, forKey: .uberDataUserVerified) ?? false
     }
 
+    // ⚠️ WARNING: When adding new stored properties to RideshareShift, you MUST:
+    // 1. Add the property to CodingKeys enum below
+    // 2. Add decoding logic in init(from decoder:) above
+    // Failure to do so will cause data loss during backup/restore and cloud sync!
     private enum CodingKeys: String, CodingKey {
         case id, createdDate, modifiedDate, deviceID, isDeleted
         case startDate, startMileage, startTankReading, hasFullTankAtStart
         case endDate, endMileage, endTankReading, didRefuelAtEnd, refuelGallons, refuelCost
-        case trips, netFare, tips, promotions, tolls, tollsReimbursed, parkingFees, miscFees
+        case trips, netFare, tips, cashTips, promotions, tolls, tollsReimbursed, parkingFees, miscFees
         case gasPrice, standardMileageRate, imageAttachments
-        case uberImportDate, uberStatementPeriod
+        case uberImportDate, uberStatementPeriod, originalTips, originalTollsReimbursed, uberDataUserVerified
     }
 }

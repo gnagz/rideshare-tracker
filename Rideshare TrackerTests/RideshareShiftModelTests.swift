@@ -581,4 +581,305 @@ final class RideshareShiftModelTests: RideshareTrackerTestBase {
         XCTAssertFalse(shift.hasUberTollDiscrepancy, "Should ignore sub-penny differences")
         XCTAssertFalse(shift.hasAnyUberDiscrepancy, "Should have no discrepancy")
     }
+
+    // MARK: - YTD Calculation Tests
+
+    func testGetAvailableYears() {
+        // Given: Shifts across multiple years
+        let shift2024 = createCompletedShiftForYear(2024, month: 6)
+        let shift2025a = createCompletedShiftForYear(2025, month: 3)
+        let shift2025b = createCompletedShiftForYear(2025, month: 9)
+        let shifts = [shift2024, shift2025a, shift2025b]
+
+        // When: Getting available years
+        let years = RideshareShift.getAvailableYears(shifts: shifts)
+
+        // Then: Should return years in descending order
+        XCTAssertEqual(years, [2025, 2024], "Should return years descending, most recent first")
+    }
+
+    func testGetAvailableYearsExcludesIncompleteShifts() {
+        // Given: Mix of complete and incomplete shifts
+        let completeShift = createCompletedShiftForYear(2025, month: 6)
+        var incompleteShift = createBasicTestShift(startDate: createTestDate(year: 2024, month: 6, day: 15))
+        incompleteShift.endDate = nil  // Not completed
+        let shifts = [completeShift, incompleteShift]
+
+        // When: Getting available years
+        let years = RideshareShift.getAvailableYears(shifts: shifts)
+
+        // Then: Should only include year with completed shift
+        XCTAssertEqual(years, [2025], "Should exclude years with only incomplete shifts")
+    }
+
+    func testGetAvailableYearsExcludesDeletedShifts() {
+        // Given: Mix of active and deleted shifts
+        let activeShift = createCompletedShiftForYear(2025, month: 6)
+        var deletedShift = createCompletedShiftForYear(2024, month: 6)
+        deletedShift.isDeleted = true
+        let shifts = [activeShift, deletedShift]
+
+        // When: Getting available years
+        let years = RideshareShift.getAvailableYears(shifts: shifts)
+
+        // Then: Should only include year with active shift
+        XCTAssertEqual(years, [2025], "Should exclude years with only deleted shifts")
+    }
+
+    func testGetAvailableYearsEmptyShifts() {
+        // Given: No shifts
+        let shifts: [RideshareShift] = []
+
+        // When: Getting available years
+        let years = RideshareShift.getAvailableYears(shifts: shifts)
+
+        // Then: Should return empty array
+        XCTAssertTrue(years.isEmpty, "Should return empty array for no shifts")
+    }
+
+    func testGetMileageRateForCurrentYear() {
+        // Given: Shifts with different rates, current year
+        let currentYear = Calendar.current.component(.year, from: Date())
+        var shift = createCompletedShiftForYear(currentYear, month: 6)
+        shift.standardMileageRate = 0.655  // Old rate on shift
+        let currentRate = 0.70  // Current preference rate
+
+        // When: Getting rate for current year
+        let rate = RideshareShift.getMileageRateForYear(currentYear, shifts: [shift], currentRate: currentRate)
+
+        // Then: Should return current preference rate
+        assertFloat(rate, equals: 0.70, "Current year should use preference rate")
+    }
+
+    func testGetMileageRateForPastYear() {
+        // Given: Shifts in past year with specific rate
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let pastYear = currentYear - 1
+        var shift = createCompletedShiftForYear(pastYear, month: 12)
+        shift.standardMileageRate = 0.655  // Rate captured on shift
+        let currentRate = 0.70  // Current preference rate
+
+        // When: Getting rate for past year
+        let rate = RideshareShift.getMileageRateForYear(pastYear, shifts: [shift], currentRate: currentRate)
+
+        // Then: Should return rate from last shift of that year
+        assertFloat(rate, equals: 0.655, "Past year should use rate from last shift")
+    }
+
+    func testGetMileageRateForPastYearUsesLastShift() {
+        // Given: Multiple shifts in past year with different rates
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let pastYear = currentYear - 1
+        var shiftJan = createCompletedShiftForYear(pastYear, month: 1)
+        shiftJan.standardMileageRate = 0.625
+        var shiftJun = createCompletedShiftForYear(pastYear, month: 6)
+        shiftJun.standardMileageRate = 0.655
+        var shiftDec = createCompletedShiftForYear(pastYear, month: 12)
+        shiftDec.standardMileageRate = 0.67
+        let shifts = [shiftJan, shiftJun, shiftDec]
+
+        // When: Getting rate for past year
+        let rate = RideshareShift.getMileageRateForYear(pastYear, shifts: shifts, currentRate: 0.70)
+
+        // Then: Should return rate from December (last shift)
+        assertFloat(rate, equals: 0.67, "Should use rate from last shift of year")
+    }
+
+    func testGetMileageRateForYearWithNoShifts() {
+        // Given: No shifts for requested year
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let shift = createCompletedShiftForYear(currentYear, month: 6)
+        let currentRate = 0.70
+
+        // When: Getting rate for year with no shifts
+        let rate = RideshareShift.getMileageRateForYear(currentYear - 2, shifts: [shift], currentRate: currentRate)
+
+        // Then: Should fall back to current rate
+        assertFloat(rate, equals: 0.70, "Should fall back to current rate when no shifts for year")
+    }
+
+    func testCalculateYearTotalMileage() {
+        // Given: Multiple shifts in a year
+        let shift1 = createCompletedShiftWithMileage(year: 2025, month: 3, miles: 50.0)
+        let shift2 = createCompletedShiftWithMileage(year: 2025, month: 6, miles: 75.0)
+        let shift3 = createCompletedShiftWithMileage(year: 2025, month: 9, miles: 100.0)
+        let shifts = [shift1, shift2, shift3]
+
+        // When: Calculating total mileage for year
+        let totalMileage = RideshareShift.calculateYearTotalMileage(shifts: shifts, year: 2025)
+
+        // Then: Should sum all shift miles
+        assertFloat(totalMileage, equals: 225.0, "Should sum all shift mileage for year")
+    }
+
+    func testCalculateYearTotalMileageExcludesOtherYears() {
+        // Given: Shifts across multiple years
+        let shift2024 = createCompletedShiftWithMileage(year: 2024, month: 6, miles: 100.0)
+        let shift2025 = createCompletedShiftWithMileage(year: 2025, month: 6, miles: 50.0)
+        let shifts = [shift2024, shift2025]
+
+        // When: Calculating total mileage for 2025 only
+        let totalMileage = RideshareShift.calculateYearTotalMileage(shifts: shifts, year: 2025)
+
+        // Then: Should only include 2025 shifts
+        assertFloat(totalMileage, equals: 50.0, "Should only include shifts from requested year")
+    }
+
+    func testCalculateSETaxableEarnings() {
+        // Given: Net earnings
+        let netEarnings = 50000.0
+
+        // When: Calculating SE taxable earnings
+        let taxableEarnings = RideshareShift.calculateSETaxableEarnings(netEarnings: netEarnings)
+
+        // Then: Should be 92.35% of net earnings
+        assertCurrency(taxableEarnings, equals: 46175.0, "SE taxable = net × 92.35%")
+    }
+
+    func testCalculateSETax() {
+        // Given: SE taxable earnings
+        let taxableEarnings = 46175.0
+
+        // When: Calculating SE tax
+        let seTax = RideshareShift.calculateSETax(taxableEarnings: taxableEarnings)
+
+        // Then: Should be 15.3% of taxable earnings
+        assertCurrency(seTax, equals: 7064.775, "SE tax = taxable × 15.3%")
+    }
+
+    func testCalculateAGI() {
+        // Given: Net earnings and SE tax
+        let netEarnings = 50000.0
+        let seTax = 7064.78
+
+        // When: Calculating AGI
+        let agi = RideshareShift.calculateAGI(netEarnings: netEarnings, seTax: seTax)
+
+        // Then: Should be net earnings minus 50% of SE tax
+        assertCurrency(agi, equals: 46467.61, "AGI = net - (SE tax × 50%)")
+    }
+
+    func testCalculateTaxableIncomeWithTipDeduction() {
+        // Given: AGI and deductible tips
+        let agi = 46467.61
+        let deductibleTips = 5000.0
+
+        // When: Calculating taxable income
+        let taxableIncome = RideshareShift.calculateYTDTaxableIncome(agi: agi, deductibleTips: deductibleTips)
+
+        // Then: Should be AGI minus deductible tips
+        assertCurrency(taxableIncome, equals: 41467.61, "Taxable income = AGI - deductible tips")
+    }
+
+    func testCalculateTaxableIncomeNeverNegative() {
+        // Given: Deductible tips greater than AGI
+        let agi = 5000.0
+        let deductibleTips = 10000.0
+
+        // When: Calculating taxable income
+        let taxableIncome = RideshareShift.calculateYTDTaxableIncome(agi: agi, deductibleTips: deductibleTips)
+
+        // Then: Should be zero, not negative
+        assertCurrency(taxableIncome, equals: 0.0, "Taxable income should never be negative")
+    }
+
+    func testCalculateTotalTaxDue() {
+        // Given: SE tax and income tax
+        let seTax = 7064.78
+        let incomeTax = 9122.87
+
+        // When: Calculating total tax
+        let totalTax = RideshareShift.calculateTotalTaxDue(seTax: seTax, incomeTax: incomeTax)
+
+        // Then: Should sum both taxes
+        assertCurrency(totalTax, equals: 16187.65, "Total tax = SE tax + income tax")
+    }
+
+    func testCalculateYearTotalBusinessRevenue() {
+        // Given: Multiple shifts with various revenue components
+        var shift1 = createCompletedShiftForYear(2025, month: 3)
+        shift1.netFare = 100.0
+        shift1.tips = 20.0
+        shift1.cashTips = 5.0
+        shift1.promotions = 10.0
+
+        var shift2 = createCompletedShiftForYear(2025, month: 6)
+        shift2.netFare = 150.0
+        shift2.tips = 30.0
+        shift2.cashTips = 10.0
+        shift2.promotions = 15.0
+
+        let shifts = [shift1, shift2]
+
+        // When: Calculating total business revenue
+        let revenue = RideshareShift.calculateYearTotalBusinessRevenue(shifts: shifts, year: 2025)
+
+        // Then: Should sum all revenue components
+        // shift1: 100 + 20 + 5 + 10 = 135
+        // shift2: 150 + 30 + 10 + 15 = 205
+        // total: 340
+        assertCurrency(revenue, equals: 340.0, "Should sum all revenue components")
+    }
+
+    func testCalculateYearTotalTollsNotReimbursed() {
+        // Given: Shifts with tolls and reimbursements
+        var shift1 = createCompletedShiftForYear(2025, month: 3)
+        shift1.tolls = 20.0
+        shift1.tollsReimbursed = 15.0  // Net: 5.0
+
+        var shift2 = createCompletedShiftForYear(2025, month: 6)
+        shift2.tolls = 30.0
+        shift2.tollsReimbursed = 30.0  // Net: 0.0
+
+        var shift3 = createCompletedShiftForYear(2025, month: 9)
+        shift3.tolls = 25.0
+        shift3.tollsReimbursed = 10.0  // Net: 15.0
+
+        let shifts = [shift1, shift2, shift3]
+
+        // When: Calculating total tolls not reimbursed
+        let tollsNotReimbursed = RideshareShift.calculateYearTotalTollsNotReimbursed(shifts: shifts, year: 2025)
+
+        // Then: Should sum (tolls - reimbursed) for each shift
+        assertCurrency(tollsNotReimbursed, equals: 20.0, "Should sum net unreimbursed tolls")
+    }
+
+    func testCalculateYearTotalTripFees() {
+        // Given: Shifts with parking and misc fees
+        var shift1 = createCompletedShiftForYear(2025, month: 3)
+        shift1.parkingFees = 10.0
+        shift1.miscFees = 5.0
+
+        var shift2 = createCompletedShiftForYear(2025, month: 6)
+        shift2.parkingFees = 15.0
+        shift2.miscFees = nil
+
+        let shifts = [shift1, shift2]
+
+        // When: Calculating total trip fees
+        let tripFees = RideshareShift.calculateYearTotalTripFees(shifts: shifts, year: 2025)
+
+        // Then: Should sum parking + misc fees
+        assertCurrency(tripFees, equals: 30.0, "Should sum all trip fees")
+    }
+
+    // MARK: - YTD Test Helper Methods
+
+    private func createCompletedShiftForYear(_ year: Int, month: Int) -> RideshareShift {
+        let startDate = createTestDate(year: year, month: month, day: 15, hour: 9)
+        var shift = createBasicTestShift(startDate: startDate)
+        shift.endDate = startDate.addingTimeInterval(4 * 3600)  // 4 hours later
+        shift.endMileage = shift.startMileage + 100
+        shift.netFare = 100.0
+        shift.tips = 20.0
+        return shift
+    }
+
+    private func createCompletedShiftWithMileage(year: Int, month: Int, miles: Double) -> RideshareShift {
+        let startDate = createTestDate(year: year, month: month, day: 15, hour: 9)
+        var shift = createBasicTestShift(startDate: startDate)
+        shift.endDate = startDate.addingTimeInterval(4 * 3600)
+        shift.endMileage = shift.startMileage + miles
+        return shift
+    }
 }

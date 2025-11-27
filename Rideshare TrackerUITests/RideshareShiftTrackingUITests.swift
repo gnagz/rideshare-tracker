@@ -336,6 +336,80 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         debugMessage("Shift detail and navigation test passed")
     }
 
+    /// YTD Summary view navigation test with multi-year data
+    /// Tests: Tab navigation, year selector, section visibility
+    @MainActor
+    func testYTDSummaryViewNavigation() throws {
+        debugMessage("Testing YTD Summary view navigation with multi-year data")
+
+        let app = launchApp()
+
+        // Navigate to YTD Summary and create mock data for multiple years
+        navigateToYTDSummaryWithMockData(in: app)
+
+        // Verify navigation title
+        XCTAssertTrue(app.navigationBars["YTD Tax Summary"].waitForExistence(timeout: 3), "Should show YTD Tax Summary navigation title")
+
+        // Verify three section headers are visible
+        XCTAssertTrue(app.staticTexts["YTD Income"].exists, "Should show YTD Income section")
+        XCTAssertTrue(app.staticTexts["Tax Summary using Mileage Deduction"].exists, "Should show Mileage Deduction section")
+
+        // Scroll to see Actual Expenses section
+        app.swipeUp()
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertTrue(app.staticTexts["Tax Summary using Actual Expenses"].exists, "Should show Actual Expenses section")
+
+        // Scroll back up to see year selector
+        app.swipeDown()
+        Thread.sleep(forTimeInterval: 0.5)
+
+        // Verify year selector exists with all three years
+        let calendar = Calendar.current
+        let currentYear = calendar.component(.year, from: Date())
+        let lastYear = currentYear - 1
+        let twoYearsAgo = currentYear - 2
+
+        let currentYearButton = app.buttons[String(currentYear)]
+        let lastYearButton = app.buttons[String(lastYear)]
+        let twoYearsAgoButton = app.buttons[String(twoYearsAgo)]
+
+        XCTAssertTrue(currentYearButton.exists, "Should show current year (\(currentYear)) button")
+        XCTAssertTrue(lastYearButton.exists, "Should show last year (\(lastYear)) button")
+        XCTAssertTrue(twoYearsAgoButton.exists, "Should show two years ago (\(twoYearsAgo)) button")
+
+        // Test year navigation - tap last year
+        debugMessage("Testing year selector - tapping \(lastYear)")
+        waitAndTap(lastYearButton)
+        Thread.sleep(forTimeInterval: 0.5)
+
+        // Verify sections still visible after year change
+        XCTAssertTrue(app.staticTexts["YTD Income"].exists, "YTD Income section should still be visible after year change")
+
+        // Test year navigation - tap two years ago
+        debugMessage("Testing year selector - tapping \(twoYearsAgo)")
+        waitAndTap(twoYearsAgoButton)
+        Thread.sleep(forTimeInterval: 0.5)
+
+        // Verify sections still visible
+        XCTAssertTrue(app.staticTexts["YTD Income"].exists, "YTD Income section should still be visible after year change")
+
+        // Navigate back to current year
+        debugMessage("Testing year selector - tapping \(currentYear)")
+        waitAndTap(currentYearButton)
+        Thread.sleep(forTimeInterval: 0.5)
+
+        // Verify settings gear button exists (navigation bar leading)
+        let gearButton = app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'gear' OR label CONTAINS 'gear'")).firstMatch
+        if gearButton.exists {
+            debugMessage("✅ Settings gear button found")
+        } else {
+            debugMessage("⚠️ Settings gear button not found by identifier, checking navigation bar buttons")
+            XCTAssertTrue(app.navigationBars.buttons.count > 0, "Should have navigation bar buttons")
+        }
+
+        debugMessage("YTD Summary view navigation test passed")
+    }
+
     /// Start shift form validation test with photo viewing
     /// Tests: Validation rules, keyboard behavior, field requirements, photo viewing
     @MainActor
@@ -1076,7 +1150,162 @@ final class RideshareShiftTrackingUITests: RideshareTrackerUITestBase {
         }
     }
 
-    
+    /// Navigate to YTD Summary tab and ensure mock data exists for multiple years
+    /// Creates shifts for current year, last year, and two years ago if they don't exist
+    @MainActor
+    func navigateToYTDSummaryWithMockData(in app: XCUIApplication) {
+        debugMessage("Ensuring mock data exists for YTD Summary testing across multiple years")
+
+        let calendar = Calendar.current
+        let today = Date()
+        let currentYear = calendar.component(.year, from: today)
+        let lastYear = currentYear - 1
+        let twoYearsAgo = currentYear - 2
+
+        // First, navigate to YTD Summary to check which years already have data
+        navigateToTab("YTD Summary", in: app)
+        Thread.sleep(forTimeInterval: 1.0)
+
+        // Check which year buttons exist
+        let currentYearButton = app.buttons[String(currentYear)]
+        let lastYearButton = app.buttons[String(lastYear)]
+        let twoYearsAgoButton = app.buttons[String(twoYearsAgo)]
+
+        let needsCurrentYear = !currentYearButton.exists
+        let needsLastYear = !lastYearButton.exists
+        let needsTwoYearsAgo = !twoYearsAgoButton.exists
+
+        debugMessage("Year data check - Current(\(currentYear)): \(!needsCurrentYear), Last(\(lastYear)): \(!needsLastYear), TwoYearsAgo(\(twoYearsAgo)): \(!needsTwoYearsAgo)")
+
+        // If all years have data, we're done
+        if !needsCurrentYear && !needsLastYear && !needsTwoYearsAgo {
+            debugMessage("✅ All three years already have shift data")
+            return
+        }
+
+        // Navigate to Shifts tab to create missing data
+        navigateToTab("Shifts", in: app)
+
+        do {
+            // Create shift for current year (today) - WITH PHOTOS to match navigateToShiftsWithMockData
+            if needsCurrentYear {
+                let todayStartTime = calendar.date(bySettingHour: 6, minute: 0, second: 0, of: today)!
+                let todayEndTime = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: today)!
+
+                debugMessage("📅 Creating shift for current year: \(today)")
+                try startShiftWithPhotos(
+                    in: app,
+                    shiftDate: today,
+                    shiftStartTime: todayStartTime,
+                    shiftStartMileage: 10000,
+                    shiftStartTankLevel: "F",
+                    shiftAddPhotoFlag: true,
+                    photoInfoType: "Gas Pump",
+                    photoInfoDesc: "Refueled tank before shift start."
+                )
+
+                try endShiftWithPhotos(
+                    in: app,
+                    shiftDate: today,
+                    shiftEndTime: todayEndTime,
+                    shiftEndMileage: 10100,
+                    shiftEndTankLevel: "3/4",
+                    shiftEndTripCount: 5,
+                    shiftEndNetFare: 50.00,
+                    shiftEndTips: 15.00,
+                    shiftAddPhotoFlag: true,
+                    photoInfoType: "Dashboard",
+                    photoInfoDesc: "Odometer and Fuel Tank reading at shift end."
+                )
+
+                // Navigate back to shifts list
+                let backButton = findButton(keyword: "Back", keyword2: "< ", in: app)
+                if backButton.exists {
+                    waitAndTap(backButton)
+                }
+            }
+
+            // Create shift for last year - WITHOUT photos
+            if needsLastYear {
+                let lastYearDate = calendar.date(byAdding: .year, value: -1, to: today)!
+                let lastYearStartTime = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: lastYearDate)!
+                let lastYearEndTime = calendar.date(bySettingHour: 14, minute: 0, second: 0, of: lastYearDate)!
+
+                debugMessage("📅 Creating shift for last year: \(lastYearDate)")
+                try startShiftWithPhotos(
+                    in: app,
+                    shiftDate: lastYearDate,
+                    shiftStartTime: lastYearStartTime,
+                    shiftStartMileage: 8000,
+                    shiftStartTankLevel: "F",
+                    shiftAddPhotoFlag: false
+                )
+
+                try endShiftWithPhotos(
+                    in: app,
+                    shiftDate: lastYearDate,
+                    shiftEndTime: lastYearEndTime,
+                    shiftEndMileage: 8120,
+                    shiftEndTankLevel: "1/2",
+                    shiftEndTripCount: 8,
+                    shiftEndNetFare: 75.00,
+                    shiftEndTips: 20.00,
+                    shiftAddPhotoFlag: false
+                )
+
+                // Navigate back to shifts list
+                let backButton = findButton(keyword: "Back", keyword2: "< ", in: app)
+                if backButton.exists {
+                    waitAndTap(backButton)
+                }
+            }
+
+            // Create shift for two years ago - WITHOUT photos
+            if needsTwoYearsAgo {
+                let twoYearsAgoDate = calendar.date(byAdding: .year, value: -2, to: today)!
+                let twoYearsAgoStartTime = calendar.date(bySettingHour: 8, minute: 0, second: 0, of: twoYearsAgoDate)!
+                let twoYearsAgoEndTime = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: twoYearsAgoDate)!
+
+                debugMessage("📅 Creating shift for two years ago: \(twoYearsAgoDate)")
+                try startShiftWithPhotos(
+                    in: app,
+                    shiftDate: twoYearsAgoDate,
+                    shiftStartTime: twoYearsAgoStartTime,
+                    shiftStartMileage: 5000,
+                    shiftStartTankLevel: "F",
+                    shiftAddPhotoFlag: false
+                )
+
+                try endShiftWithPhotos(
+                    in: app,
+                    shiftDate: twoYearsAgoDate,
+                    shiftEndTime: twoYearsAgoEndTime,
+                    shiftEndMileage: 5150,
+                    shiftEndTankLevel: "1/4",
+                    shiftEndTripCount: 10,
+                    shiftEndNetFare: 90.00,
+                    shiftEndTips: 25.00,
+                    shiftAddPhotoFlag: false
+                )
+
+                // Navigate back to shifts list
+                let backButton = findButton(keyword: "Back", keyword2: "< ", in: app)
+                if backButton.exists {
+                    waitAndTap(backButton)
+                }
+            }
+
+            debugMessage("✅ Multi-year shift setup complete")
+
+        } catch {
+            XCTFail("Failed to create multi-year test shifts: \(error)")
+        }
+
+        // Navigate to YTD Summary tab
+        navigateToTab("YTD Summary", in: app)
+    }
+
+
     // MARK: - Helper Functions for Mock Data Creation
 
     /// Create a shift with photos using UI automation

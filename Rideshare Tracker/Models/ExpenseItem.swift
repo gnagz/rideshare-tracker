@@ -24,9 +24,13 @@ enum ExpenseCategory: String, CaseIterable, Codable {
     }
 }
 
+// ⚠️ IMPORTANT: When adding new stored properties to this struct, you MUST also update:
+// 1. CodingKeys enum (at bottom of file) - add the property name
+// 2. init(from decoder:) - add decoding logic with backward compatibility
+// Failure to do so will cause DATA LOSS during backup/restore and cloud sync!
 struct ExpenseItem: Codable, Identifiable, Equatable, Hashable {
     var id = UUID()
-    
+
     // Sync metadata
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
