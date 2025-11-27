@@ -319,7 +319,93 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
         return min(totalTips, 25000.0)
     }
 
-    
+    // MARK: - YTD Tax Summary Calculation Methods
+
+    /// Get list of years with completed shifts (descending order, most recent first)
+    static func getAvailableYears(shifts: [RideshareShift]) -> [Int] {
+        let calendar = Calendar.current
+        let years = Set(shifts
+            .filter { $0.endDate != nil && !$0.isDeleted }
+            .map { calendar.component(.year, from: $0.startDate) }
+        )
+        return years.sorted(by: >)
+    }
+
+    /// Get mileage rate for a given year
+    /// Current year: use preferences rate
+    /// Past years: use rate from last shift of that year
+    static func getMileageRateForYear(_ year: Int, shifts: [RideshareShift], currentRate: Double) -> Double {
+        let currentYear = Calendar.current.component(.year, from: Date())
+
+        if year == currentYear {
+            return currentRate
+        }
+
+        // Find last shift of the requested year
+        let calendar = Calendar.current
+        let lastShiftOfYear = shifts
+            .filter { calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil }
+            .max(by: { $0.startDate < $1.startDate })
+
+        return lastShiftOfYear?.standardMileageRate ?? currentRate
+    }
+
+    /// Calculate total mileage for a given year
+    static func calculateYearTotalMileage(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + $1.shiftMileage }
+    }
+
+    /// Calculate total business revenue for a given year (uses shift.revenue which includes all income)
+    static func calculateYearTotalBusinessRevenue(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + $1.revenue }
+    }
+
+    /// Calculate total tolls not reimbursed for a given year
+    static func calculateYearTotalTollsNotReimbursed(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + (($1.tolls ?? 0) - ($1.tollsReimbursed ?? 0)) }
+    }
+
+    /// Calculate total trip fees (parking + misc) for a given year
+    static func calculateYearTotalTripFees(shifts: [RideshareShift], year: Int) -> Double {
+        let calendar = Calendar.current
+        return shifts.filter {
+            calendar.component(.year, from: $0.startDate) == year && $0.endDate != nil
+        }.reduce(0) { $0 + ($1.parkingFees ?? 0) + ($1.miscFees ?? 0) }
+    }
+
+    /// Calculate SE taxable earnings (92.35% of net earnings)
+    static func calculateSETaxableEarnings(netEarnings: Double) -> Double {
+        return netEarnings * 0.9235
+    }
+
+    /// Calculate self-employment tax (15.3% of SE taxable earnings)
+    static func calculateSETax(taxableEarnings: Double) -> Double {
+        return taxableEarnings * 0.153
+    }
+
+    /// Calculate Adjusted Gross Income (net earnings minus 50% of SE tax)
+    static func calculateAGI(netEarnings: Double, seTax: Double) -> Double {
+        return netEarnings - (seTax * 0.5)
+    }
+
+    /// Calculate YTD taxable income (AGI minus deductible tips, never negative)
+    static func calculateYTDTaxableIncome(agi: Double, deductibleTips: Double) -> Double {
+        return max(0, agi - deductibleTips)
+    }
+
+    /// Calculate total tax due (SE tax + income tax)
+    static func calculateTotalTaxDue(seTax: Double, incomeTax: Double) -> Double {
+        return seTax + incomeTax
+    }
 
 }
 
