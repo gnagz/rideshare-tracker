@@ -248,8 +248,8 @@ struct RideshareShift: Codable, Identifiable, Equatable, Hashable {
     
     func cashFlowProfit(tankCapacity: Double) -> Double {
         let outOfPocketCosts = outOfPocketCosts(tankCapacity: tankCapacity)
-        let cashFlowProfit = expectedPayout - outOfPocketCosts
-        // debugPrint("cashFlowProfit: expectedPayout:\(expectedPayout) - outOfPocketCosts:\(outOfPocketCosts)=\(cashFlowProfit)")
+        let cashFlowProfit = expectedPayout + (cashTips ?? 0) - outOfPocketCosts
+        // debugPrint("cashFlowProfit: expectedPayout:\(expectedPayout) + cashTips:\(cashTips ?? 0) - outOfPocketCosts:\(outOfPocketCosts)=\(cashFlowProfit)")
         return cashFlowProfit
     }
     

@@ -464,6 +464,9 @@ struct ShiftDetailView: View {
             
             VStack(spacing: 8) {
                 DetailRow("Expected Payout", String(format: "$%.2f", shift.expectedPayout), valueColor: .blue)
+                if let cashTips = currentShift.cashTips, cashTips > 0 {
+                    DetailRow("Cash Tips", String(format: "$%.2f", cashTips), valueColor: .green)
+                }
                 DetailRow("Out of Pocket Costs", String(format: "$%.2f", shift.outOfPocketCosts(tankCapacity: preferences.tankCapacity)))
                 
                 let profit = shift.cashFlowProfit(tankCapacity: preferences.tankCapacity)
