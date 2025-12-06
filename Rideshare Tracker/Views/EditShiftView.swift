@@ -90,7 +90,7 @@ struct EditShiftView: View {
         self._startTankReading = State(initialValue: shift.wrappedValue.startTankReading)
         
         // Initialize end shift data
-        self._endDate = State(initialValue: shift.wrappedValue.endDate ?? Date())
+        self._endDate = State(initialValue: shift.wrappedValue.endDate ?? shift.wrappedValue.startDate)
         self._endMileage = State(initialValue: shift.wrappedValue.endMileage?.description ?? "")
         self._didRefuel = State(initialValue: shift.wrappedValue.didRefuelAtEnd ?? false)
         self._refuelGallons = State(initialValue: shift.wrappedValue.refuelGallons?.description ?? "")

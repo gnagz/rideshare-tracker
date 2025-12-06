@@ -14,8 +14,23 @@ class ShiftDataManager: ObservableObject {
     @Published var shifts: [RideshareShift] = []
     @Published var lastError: ShiftDataError?
 
+    /// Dictionary for O(1) shift lookup by ID
+    private var shiftsById: [UUID: RideshareShift] = [:]
+
     private let preferencesManager = PreferencesManager.shared
     private var preferences: AppPreferences { preferencesManager.preferences }
+
+    // MARK: - O(1) Shift Lookup
+
+    /// Get a shift by ID in O(1) time
+    func shift(byId id: UUID) -> RideshareShift? {
+        return shiftsById[id]
+    }
+
+    /// Rebuild the shiftsById index from the shifts array
+    private func rebuildShiftsIndex() {
+        shiftsById = Dictionary(uniqueKeysWithValues: shifts.map { ($0.id, $0) })
+    }
 
     private init() {
         loadShifts()
@@ -65,6 +80,8 @@ class ShiftDataManager: ObservableObject {
                     debugMessage("  Shift \(index): ID=\(shift.id), attachments=\(attachmentCount)")
                 }
                 debugMessage("Total attachments loaded: \(totalAttachments)")
+                rebuildShiftsIndex()
+                debugMessage("Built shifts index with \(shiftsById.count) entries")
             } catch {
                 debugMessage("ERROR: Failed to decode shifts from UserDefaults data")
                 lastError = .decodingFailed(error)
@@ -96,6 +113,7 @@ class ShiftDataManager: ObservableObject {
         }
 
         shifts.append(shift)
+        shiftsById[shift.id] = shift
         saveShifts()
 
         debugMessage("Shift added and saved. Total shifts: \(shifts.count)")
@@ -112,6 +130,7 @@ class ShiftDataManager: ObservableObject {
 
         if let index = shifts.firstIndex(where: { $0.id == shift.id }) {
             shifts[index] = shift
+            shiftsById[shift.id] = shift
             saveShifts()
             debugMessage("Shift updated and saved at index \(index)")
         } else {
@@ -126,11 +145,13 @@ class ShiftDataManager: ObservableObject {
             if let index = shifts.firstIndex(where: { $0.id == shift.id }) {
                 shifts[index].isDeleted = true
                 shifts[index].modifiedDate = Date()
+                shiftsById[shift.id] = shifts[index]
                 saveShifts()
             }
         } else {
             // Cloud sync disabled: permanent delete
             shifts.removeAll { $0.id == shift.id }
+            shiftsById.removeValue(forKey: shift.id)
             saveShifts()
         }
     }
@@ -138,6 +159,7 @@ class ShiftDataManager: ObservableObject {
     // Clean up soft-deleted records after successful sync
     func cleanupDeletedShifts() {
         shifts.removeAll { $0.isDeleted }
+        rebuildShiftsIndex()
         saveShifts()
     }
     
@@ -146,6 +168,7 @@ class ShiftDataManager: ObservableObject {
         let deletedCount = shifts.filter { $0.isDeleted }.count
         if deletedCount > 0 {
             shifts.removeAll { $0.isDeleted }
+            rebuildShiftsIndex()
             saveShifts()
         }
     }
@@ -157,7 +180,7 @@ class ShiftDataManager: ObservableObject {
     
     func importShifts(_ importedShifts: [RideshareShift], replaceExisting: Bool) {
         debugMessage("ShiftDataManager importShifts: \(importedShifts.count) shifts, replaceExisting=\(replaceExisting)")
-        
+
         if replaceExisting {
             let oldCount = shifts.count
             shifts = importedShifts
@@ -169,7 +192,8 @@ class ShiftDataManager: ObservableObject {
             shifts.append(contentsOf: newShifts)
             debugMessage("MERGE: Added \(newShifts.count) new shifts (filtered \(importedShifts.count - newShifts.count) duplicates by ID)")
         }
-        
+
+        rebuildShiftsIndex()
         debugMessage("Final shift count: \(shifts.count) total shifts")
         saveShifts()
     }

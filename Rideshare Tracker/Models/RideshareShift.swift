@@ -438,8 +438,12 @@ extension RideshareShift {
         miscFees = try container.decodeIfPresent(Double.self, forKey: .miscFees)
         
         // Decode shift-specific rates (new fields - backward compatible)
-        gasPrice = try container.decodeIfPresent(Double.self, forKey: .gasPrice) ?? 3.50
-        standardMileageRate = try container.decodeIfPresent(Double.self, forKey: .standardMileageRate) ?? 0.67
+        // Fall back to user's current preference if not stored in the shift
+        // Note: Read directly from UserDefaults since decoder may run off main actor
+        let userGasPrice = UserDefaults.standard.double(forKey: "gasPrice")
+        let userMileageRate = UserDefaults.standard.double(forKey: "standardMileageRate")
+        gasPrice = try container.decodeIfPresent(Double.self, forKey: .gasPrice) ?? (userGasPrice > 0 ? userGasPrice : 3.50)
+        standardMileageRate = try container.decodeIfPresent(Double.self, forKey: .standardMileageRate) ?? (userMileageRate > 0 ? userMileageRate : 0.70)
         
         // Decode sync metadata with backward compatibility
         createdDate = try container.decodeIfPresent(Date.self, forKey: .createdDate) ?? startDate

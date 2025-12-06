@@ -43,7 +43,6 @@ struct EditExpenseView: View {
     @State private var showingImageViewer = false
     @State private var viewerImages: [UIImage] = []
     @State private var viewerStartIndex: Int = 0
-    @State private var debugTapCount: Int = 0  // DEBUG: Track thumbnail taps
 
     enum FocusedField {
         case description, amount

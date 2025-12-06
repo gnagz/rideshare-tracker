@@ -14,9 +14,9 @@ struct UberDataSectionView: View {
     @EnvironmentObject var preferencesManager: PreferencesManager
     @EnvironmentObject var dataManager: ShiftDataManager
 
-    // Get the current shift from data manager for reactive updates
+    // Get the current shift from data manager for reactive updates (O(1) lookup)
     private var currentShift: RideshareShift {
-        dataManager.shifts.first(where: { $0.id == shift.id }) ?? shift
+        dataManager.shift(byId: shift.id) ?? shift
     }
 
     private var transactions: [UberTransaction] {

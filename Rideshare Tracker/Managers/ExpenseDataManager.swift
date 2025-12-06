@@ -50,14 +50,6 @@ class ExpenseDataManager: ObservableObject {
         }
     }
     
-//    private func loadExpenses() {
-//        if let data = UserDefaults.standard.data(forKey: expensesKey),
-//           let decodedExpenses = try? JSONDecoder().decode([ExpenseItem].self, from: data) {
-//            expenses = decodedExpenses
-//        } else {
-//            lastError = .decodingFailed(DecodingError.dataCorrupted(DecodingError.Context(codingPath: [], debugDescription: "Failed to decode expenses data")))
-//        }
-//    }
     private func loadExpenses() {
         if let data = UserDefaults.standard.data(forKey: expensesKey) {
             do {

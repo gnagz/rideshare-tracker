@@ -32,7 +32,7 @@ class ImageManager: ObservableObject {
         case deleteFailed(URL, Error)
         case insufficientDiskSpace(required: Int64, available: Int64)
         case invalidImageData
-        
+
         var errorDescription: String? {
             switch self {
             case .directoryCreationFailed(let url, let error):
@@ -55,8 +55,16 @@ class ImageManager: ObservableObject {
     
     // MARK: - Directory Management
 
+    /// Returns documents directory. In practice, this should always succeed on iOS.
+    /// Uses guard instead of force unwrap for safety, but logs error if unavailable.
     private var documentsDirectory: URL {
-        fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        guard let url = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            // This should never happen in normal iOS operation, but we handle it gracefully
+            debugMessage("CRITICAL ERROR: Documents directory unavailable")
+            // Return a fallback to temp directory to avoid crash
+            return fileManager.temporaryDirectory
+        }
+        return url
     }
 
     var imagesDirectory: URL {
@@ -66,31 +74,31 @@ class ImageManager: ObservableObject {
     var thumbnailsDirectory: URL {
         documentsDirectory.appendingPathComponent("Thumbnails")
     }
-    
+
     private func parentDirectory(for parentID: UUID, parentType: AttachmentParentType) -> URL {
         imagesDirectory.appendingPathComponent(parentType.rawValue).appendingPathComponent(parentID.uuidString)
     }
-    
+
     private func thumbnailParentDirectory(for parentID: UUID, parentType: AttachmentParentType) -> URL {
         thumbnailsDirectory.appendingPathComponent(parentType.rawValue).appendingPathComponent(parentID.uuidString)
     }
-    
+
     // MARK: - File URLs
-    
+
     func imageURL(for parentID: UUID, parentType: AttachmentParentType, filename: String) -> URL {
         parentDirectory(for: parentID, parentType: parentType).appendingPathComponent(filename)
     }
-    
+
     func thumbnailURL(for parentID: UUID, parentType: AttachmentParentType, filename: String) -> URL {
         thumbnailParentDirectory(for: parentID, parentType: parentType).appendingPathComponent(filename)
     }
-    
+
     // MARK: - Directory Creation
-    
+
     private func createDirectories(for parentID: UUID, parentType: AttachmentParentType) throws {
         let imageDir = parentDirectory(for: parentID, parentType: parentType)
         let thumbnailDir = thumbnailParentDirectory(for: parentID, parentType: parentType)
-        
+
         try fileManager.createDirectory(at: imageDir, withIntermediateDirectories: true)
         try fileManager.createDirectory(at: thumbnailDir, withIntermediateDirectories: true)
     }
@@ -193,7 +201,7 @@ class ImageManager: ObservableObject {
     }
     
     // MARK: - Load Images
-    
+
     func loadImage(for parentID: UUID, parentType: AttachmentParentType, filename: String) -> UIImage? {
         let url = imageURL(for: parentID, parentType: parentType, filename: filename)
         do {
@@ -206,7 +214,7 @@ class ImageManager: ObservableObject {
             // no debugMessage to avoid log clutter during frequent loads.
         }
     }
-    
+
     func loadThumbnail(for parentID: UUID, parentType: AttachmentParentType, filename: String) -> UIImage? {
         let url = thumbnailURL(for: parentID, parentType: parentType, filename: filename)
         do {
@@ -221,11 +229,11 @@ class ImageManager: ObservableObject {
     }
     
     // MARK: - Delete Images
-    
+
     func deleteImage(_ attachment: ImageAttachment, for parentID: UUID, parentType: AttachmentParentType) {
         let imageURL = self.imageURL(for: parentID, parentType: parentType, filename: attachment.filename)
         let thumbnailURL = self.thumbnailURL(for: parentID, parentType: parentType, filename: attachment.filename)
-        
+
         do {
             try fileManager.removeItem(at: imageURL)
             debugMessage("Deleted image: \(imageURL.path)")
@@ -234,7 +242,7 @@ class ImageManager: ObservableObject {
             lastError = .deleteFailed(imageURL, error)
             // Set lastError and log error; do not throw to allow partial deletion success.
         }
-        
+
         do {
             try fileManager.removeItem(at: thumbnailURL)
             debugMessage("Deleted thumbnail: \(thumbnailURL.path)")
@@ -244,11 +252,11 @@ class ImageManager: ObservableObject {
             // Set lastError and log error; do not throw to allow partial deletion success.
         }
     }
-    
+
     func deleteAllImages(for parentID: UUID, parentType: AttachmentParentType) {
         let imageDir = parentDirectory(for: parentID, parentType: parentType)
         let thumbnailDir = thumbnailParentDirectory(for: parentID, parentType: parentType)
-        
+
         do {
             try fileManager.removeItem(at: imageDir)
             debugMessage("Deleted image directory: \(imageDir.path)")
@@ -257,7 +265,7 @@ class ImageManager: ObservableObject {
             lastError = .deleteFailed(imageDir, error)
             // Set lastError and log error; do not throw to allow partial deletion success.
         }
-        
+
         do {
             try fileManager.removeItem(at: thumbnailDir)
             debugMessage("Deleted thumbnail directory: \(thumbnailDir.path)")
@@ -337,21 +345,21 @@ class ImageManager: ObservableObject {
         }
         debugMessage("=== END IMAGE ATTACHMENT DEBUG ===")
     }
-    
+
     private func directorySize(_ url: URL) -> Int64 {
         guard let enumerator = fileManager.enumerator(
             at: url,
             includingPropertiesForKeys: [.fileSizeKey],
             options: [.skipsHiddenFiles]
         ) else { return 0 }
-        
+
         var totalSize: Int64 = 0
         for case let fileURL as URL in enumerator {
             guard let resourceValues = try? fileURL.resourceValues(forKeys: [.fileSizeKey]),
                   let fileSize = resourceValues.fileSize else { continue }
             totalSize += Int64(fileSize)
         }
-        
+
         return totalSize
     }
 }

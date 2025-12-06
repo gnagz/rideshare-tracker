@@ -61,13 +61,13 @@ class PreferencesManager: ObservableObject {
     // See AppPreferences struct for full list of locations to update.
     func loadPreferences() {
         var tankCapacity = UserDefaults.standard.double(forKey: "tankCapacity")
-        if tankCapacity == 0 { tankCapacity = 14.3 } // Default tank capacity in gallons
+        if tankCapacity == 0 { tankCapacity = 14.3 }
 
         var gasPrice = UserDefaults.standard.double(forKey: "gasPrice")
-        if gasPrice == 0 { gasPrice = 3.50 } // Default gas price per gallon
+        if gasPrice == 0 { gasPrice = 3.50 }
 
         var standardMileageRate = UserDefaults.standard.double(forKey: "standardMileageRate")
-        if standardMileageRate == 0 { standardMileageRate = 0.70 } // 2025 IRS standard mileage rate
+        if standardMileageRate == 0 { standardMileageRate = 0.70 }
 
         var weekStartDay = UserDefaults.standard.integer(forKey: "weekStartDay")
         if weekStartDay == 0 { weekStartDay = 2 } // Default to Monday (Calendar.Weekday)
