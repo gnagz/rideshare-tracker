@@ -161,16 +161,28 @@ struct YTDSummaryView: View {
 
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    yearSelectorSection
-                    ytdIncomeSection
-                    mileageDeductionSection
-                    actualExpensesSection
-                    footnotesSection
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(spacing: 20) {
+                        yearSelectorSection
+                        ytdIncomeSection
+
+                        // Use two columns on wide screens (iPad landscape, Mac)
+                        if geometry.size.width > 700 {
+                            HStack(alignment: .top, spacing: 20) {
+                                mileageDeductionSection
+                                actualExpensesSection
+                            }
+                        } else {
+                            mileageDeductionSection
+                            actualExpensesSection
+                        }
+
+                        footnotesSection
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 20)
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 20)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("YTD Tax Summary")
@@ -186,6 +198,7 @@ struct YTDSummaryView: View {
                 MainMenuView()
             }
         }
+        .navigationViewStyle(.stack)
     }
 
     // MARK: - Year Selector

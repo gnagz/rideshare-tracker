@@ -2,11 +2,32 @@
 //  CloudSyncManager.swift
 //  Rideshare Tracker
 //
-//  Created by George Knaggs with Claude AI assistance on 8/30/25.
+//  Created by George Knaggs in collaboration with Claude AI on 8/30/25.
 //
 
 import Foundation
 import UIKit
+
+// MARK: - Cloud Sync Architecture Overview
+//
+// This file implements iCloud sync with a strategy pattern for storage backends:
+//
+// 1. SyncStorageProtocol: Abstraction layer for file operations
+//    - CloudSyncStorage: Real iCloud implementation (currently disabled for development)
+//    - LocalSyncStorage: Test implementation using temporary directory
+//
+// 2. CloudSyncManager: Main @MainActor class handling sync operations
+//    - Initial sync: Uploads all local data to cloud
+//    - Incremental sync: Merges local and cloud changes using last-modified-wins
+//    - Conflict resolution: Newer modification timestamp wins
+//
+// 3. Data files stored in iCloud:
+//    - shifts_sync.json: All shift records
+//    - expenses_sync.json: All expense records
+//    - sync_metadata.json: Last sync timestamp, device ID, schema version
+//
+// Note: iCloud sync is currently disabled (CloudSyncStorage.isAvailable returns false)
+// To re-enable, uncomment line 34: return documentsURL != nil
 
 // MARK: - Storage Protocol
 
@@ -25,11 +46,15 @@ protocol SyncStorageProtocol: Sendable {
 
 // MARK: - Storage Implementations
 
+/// Real iCloud storage implementation using FileManager ubiquity container.
+/// Currently disabled (isAvailable returns false) until iCloud capability is configured.
+/// To re-enable: uncomment `return documentsURL != nil` in isAvailable property.
 class CloudSyncStorage: SyncStorageProtocol, @unchecked Sendable {
     private let fileManager = FileManager.default
-    
+
     var isAvailable: Bool {
         // Temporarily disabled - iCloud capability not available in development environment
+        // To re-enable iCloud sync, uncomment the next line:
         return false
         // return documentsURL != nil
     }
@@ -114,6 +139,8 @@ class CloudSyncStorage: SyncStorageProtocol, @unchecked Sendable {
     }
 }
 
+/// Local file storage for testing. Uses temporary directory to simulate iCloud behavior.
+/// Automatically selected when running in test environment (XCTest detected).
 class LocalSyncStorage: SyncStorageProtocol, @unchecked Sendable {
     private let fileManager = FileManager.default
     private let testDirectoryName = "RideshareTrackerTestSync"
@@ -182,6 +209,25 @@ class LocalSyncStorage: SyncStorageProtocol, @unchecked Sendable {
     }
 }
 
+/// Main sync manager handling all iCloud operations.
+/// Uses @MainActor to ensure UI state updates happen on main thread.
+/// Singleton accessed via CloudSyncManager.shared.
+///
+/// Usage:
+/// ```swift
+/// // Check availability
+/// if CloudSyncManager.shared.isICloudAvailable {
+///     // Perform initial sync
+///     try await CloudSyncManager.shared.performInitialSync(shifts: shifts, expenses: expenses)
+///
+///     // Or incremental sync
+///     let result = try await CloudSyncManager.shared.performIncrementalSync(
+///         shifts: shifts,
+///         expenses: expenses,
+///         lastSyncDate: lastSync
+///     )
+/// }
+/// ```
 @MainActor
 class CloudSyncManager: ObservableObject {
     static let shared = CloudSyncManager()
@@ -379,7 +425,18 @@ class CloudSyncManager: ObservableObject {
     }
     
     // MARK: - Conflict Resolution
-    
+    //
+    // Merge Strategy: Last-Modified-Wins
+    // - Cloud records are loaded first (baseline)
+    // - Local records override cloud if local.modifiedDate > cloud.modifiedDate
+    // - New local records (not in cloud) are added
+    // - Soft-deleted records (isDeleted=true) are filtered out from final result
+    //
+    // This approach ensures:
+    // - Most recent edit wins regardless of which device made it
+    // - Deleted records don't reappear after sync
+    // - No data loss (newer changes always preserved)
+
     private func mergeShifts(local: [RideshareShift], cloud: [RideshareShift], lastSync: Date?) throws -> [RideshareShift] {
         var merged: [UUID: RideshareShift] = [:]
         

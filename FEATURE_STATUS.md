@@ -1,8 +1,8 @@
 # Rideshare Tracker - Comprehensive Feature Status
 
 **Document Purpose**: Definitive reference for current system capabilities and implementation status.
-**Last Updated**: November 8, 2025
-**Context**: Phase 3D image backup/restore COMPLETE - ZIP archives with selective image restoration fully implemented and tested.
+**Last Updated**: January 7, 2026
+**Context**: YTD Tax Summary redesign complete with responsive two-column layout. Uber import system with PDF parsing and transaction matching fully implemented.
 
 ## System Overview
 
@@ -87,33 +87,39 @@ Rideshare Tracker is a SwiftUI iOS Universal application (iPhone, iPad, Mac) wit
 
 ### ✅ TESTING INFRASTRUCTURE
 
-#### **Unit Tests**: 100 tests across 8 organized files
+#### **Unit Tests**: 286 tests across 15 organized files
+- **RideshareShiftModelTests**: 47 tests (business logic, profit calculations, YTD tax calculations)
+- **UberTransactionManagerTests**: 31 tests (transaction management, matching, import operations)
+- **ImageViewingTests**: 25 tests (photo viewer, metadata editing, UUID preservation)
+- **TollImportTests**: 24 tests (CSV parsing, Excel formulas, shift matching)
+- **UberTransactionTests**: 23 tests (transaction parsing, validation)
+- **UberPDFParserTests**: 21 tests (PDF parsing, data extraction)
 - **ExpenseManagementTests**: 20 tests (image management, CSV export, data operations)
 - **CloudSyncTests**: 19 tests (iCloud sync, conflict resolution, metadata)
-- **RideshareShiftModelTests**: 15 tests (business logic, profit calculations)
-- **TollImportTests**: 14 tests (CSV parsing, Excel formulas, shift matching)
-- **BackupRestoreTests**: 9 tests (restore actions, duplicate handling, preferences)
-- **BackupRestoreImageTests**: 5 tests (ZIP creation, image restoration, legacy support)
-- **MathCalculatorTests**: 8 tests (expression evaluation, rideshare scenarios)
+- **BackupRestoreTests**: 19 tests (restore actions, duplicate handling, preferences)
 - **DateRangeCalculationTests**: 15 tests (week/month filtering, boundaries)
-- **CSVImportExportTests**: 4 tests (CSV import/export, tank conversions)
+- **UberShiftMatcherTests**: 14 tests (transaction-to-shift matching)
+- **MissingShiftsCSVGeneratorTests**: 11 tests (CSV generation for unmatched transactions)
+- **CalculatorEngineTests**: 8 tests (expression evaluation, rideshare scenarios)
+- **BackupRestoreImageTests**: 5 tests (ZIP creation, image restoration, legacy support)
+- **ImportExportTests**: 4 tests (CSV import/export, tank conversions)
 
 **Execution Time**: ~30 seconds total
 
-#### **UI Tests**: 35 tests across 6 files
-- **RideshareShiftTrackingUITests**: Complete shift workflows with photo attachments
-- **RideshareExpenseTrackingUITests**: Expense management with photo workflows
-- **RideshareTrackerToolsUITests**: Settings, sync, backup/restore, utility features
-- **RideshareTrackerUILaunchTests**: App launch and initialization
+#### **UI Tests**: 35 tests across 4 files
+- **RideshareTrackerToolsUITests**: 17 tests (settings, sync, backup/restore, Uber import UI)
+- **RideshareExpenseTrackingUITests**: 11 tests (expense management with photo workflows)
+- **RideshareShiftTrackingUITests**: 6 tests (shift workflows with photo attachments, YTD Summary navigation)
+- **RideshareTrackerUILaunchTests**: 1 test (app launch and initialization)
 
-**Execution Time**: ~37 minutes serial (iPhone 14 Pro iOS 18.6 baseline)
-**Status**: All tests passing on iPhone 14 Pro iOS 18.6 (established stable baseline)
+**Execution Time**: ~37 minutes serial (iPhone 16 Pro iOS 18.6 baseline)
+**Status**: All tests passing on iPhone 16 Pro iOS 18.6
 
 ### 🔧 MINOR OPTIMIZATION OPPORTUNITIES
 
 #### **UI Test Consolidation**
-- **Current**: 32 UI tests across 6 files
-- **Potential**: Minor consolidation to ~31 tests for performance optimization
+- **Current**: 35 UI tests across 4 files
+- **Potential**: Minor consolidation for performance optimization if needed
 - **Impact**: Performance improvement, not functionality enhancement
 - **Priority**: Low (system is working well as-is)
 
@@ -137,20 +143,22 @@ Rideshare Tracker is a SwiftUI iOS Universal application (iPhone, iPad, Mac) wit
 ```
 Rideshare Tracker/
 ├── Models/ (5 files: core data models with sync metadata)
-├── Views/ (18 files: comprehensive UI including advanced features)
+├── Views/ (18 files: comprehensive UI including YTDSummaryView, Uber import)
 ├── Managers/ (7 files: data persistence, cloud sync, backup/restore)
 ├── Extensions/ (8 files: utilities, formatters, calculator, ZIP operations)
-├── Tests/ (15 files: 100 unit tests + 35 UI tests)
+├── Tests/ (19 files: 286 unit tests + 35 UI tests)
 ```
 
 ## Key Advanced Features Discovery
 
-**September 2025 Verification Session Findings**:
+**January 2026 Status**:
 
-1. **Toll Import System**: Discovered fully implemented CSV import with Excel formula parsing, automatic shift matching, and toll summary image generation
-2. **Scientific Calculator**: Discovered complete calculator integration with memory functions, calculation history, and expression evaluation
-3. **Photo Attachment System**: Verified complete photo management with camera integration, multi-photo support, and full-screen viewing
-4. **Test Infrastructure**: Resolved all photo picker UI test failures and optimized test execution with parallel processing
+1. **YTD Tax Summary**: Complete redesign with responsive two-column layout for iPad/Mac, year selector, dual tax calculation methods (mileage vs actual expenses)
+2. **Uber Import System**: PDF parsing for Uber statements, transaction-to-shift matching with 4AM boundary handling, missing shifts CSV generation
+3. **Toll Import System**: CSV import with Excel formula parsing, automatic shift matching, toll summary image generation
+4. **Scientific Calculator**: Complete calculator integration with memory functions, calculation history, and expression evaluation
+5. **Photo Attachment System**: Complete photo management with camera integration, multi-photo support, metadata editing, and full-screen viewing
+6. **Test Infrastructure**: 286 unit tests + 35 UI tests with comprehensive coverage for all features
 
 ## Data Management Capabilities
 
@@ -199,16 +207,17 @@ All documentation has been updated to reflect actual system capabilities rather 
 ## For Next Development Session
 
 ### **Quick Reference**
-- **100 unit tests + 35 UI tests**: All passing on iPhone 14 Pro iOS 18.6
-- **Phase 3D Complete**: ZIP backup/restore with images fully implemented
+- **286 unit tests + 35 UI tests**: All passing on iPhone 16 Pro iOS 18.6
+- **YTD Tax Summary**: Redesigned with responsive two-column layout
+- **Uber Import**: PDF parsing and transaction matching fully implemented
 - **Advanced features**: Toll import, calculator, photo attachments, backup/restore all fully implemented
-- **Test infrastructure**: Stable baseline on iPhone 14 Pro iOS 18.6
-- **Documentation**: Comprehensive and current as of November 8, 2025
+- **Test infrastructure**: Stable baseline on iPhone 16 Pro iOS 18.6
+- **Documentation**: Comprehensive and current as of January 7, 2026
 
 ### **System Ready For**
 - Feature enhancements based on user feedback
-- Platform-specific optimizations
-- Additional import/export format support
-- UI test consolidation (optional performance optimization)
+- Re-enable Cloud Sync (currently disabled for development)
+- Overlapping shifts warning feature
+- Search functionality for shifts/expenses
 
 The system represents a mature, feature-complete rideshare tracking application with professional-grade implementation quality and comprehensive test coverage.

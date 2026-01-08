@@ -38,9 +38,10 @@ open "Rideshare Tracker.xcodeproj"
 
 ### UI Architecture
 The app uses a tab-based navigation with iOS Universal design:
-- **MainTabView**: Tab-based interface with Shifts and Expenses sections
+- **MainTabView**: Tab-based interface with Shifts, Expenses, and YTD Summary sections
 - **Shifts Tab**: Track driving shifts with earnings and shift-specific expenses
 - **Expenses Tab**: Track general business expenses with monthly navigation
+- **YTD Summary Tab**: Year-to-date tax summary with responsive two-column layout for iPad/Mac
 
 ### Key Business Logic
 All financial calculations are in RideshareShift model:
@@ -89,17 +90,18 @@ Rideshare Tracker/
 │   ├── ExpenseItem.swift         # Business expense data model with sync metadata
 │   └── AppPreferences.swift      # User settings and sync preferences management
 ├── Managers/
-│   ├── ShiftDataManager.swift    # Shift data persistence layer (singleton)
+│   ├── ShiftDataManager.swift    # Shift data persistence layer (singleton) with O(1) lookup
 │   ├── ExpenseDataManager.swift  # Expense data persistence layer (singleton)
 │   ├── CloudSyncManager.swift    # iCloud sync operations and conflict resolution
 │   └── SyncLifecycleManager.swift # Automatic sync triggers on app lifecycle events
 ├── Views/
-│   ├── MainTabView.swift         # Tab navigation (Shifts/Expenses)
+│   ├── MainTabView.swift         # Tab navigation (Shifts/Expenses/YTD Summary)
 │   ├── ContentView.swift         # Shifts dashboard with weekly view
 │   ├── StartShiftView.swift      # Shift creation form
 │   ├── EndShiftView.swift        # Shift completion form
 │   ├── EditShiftView.swift       # Edit existing shifts
 │   ├── ShiftDetailView.swift     # View shift details
+│   ├── YTDSummaryView.swift      # YTD tax summary with responsive two-column layout
 │   ├── ExpenseListView.swift     # Expenses dashboard with monthly view
 │   ├── AddExpenseView.swift      # Add business expenses
 │   ├── EditExpenseView.swift     # Edit existing expenses
@@ -205,12 +207,13 @@ The project includes comprehensive test coverage:
 - **Image Management**: Automatic resizing, storage, cleanup with ImageManager
 
 ### **Testing Infrastructure**
-- **Unit Tests**: 95 tests across 7 files (ExpenseManagementTests, CloudSyncTests, RideshareShiftModelTests, TollImportTests, MathCalculatorTests, DateRangeCalculationTests, CSVImportExportTests)
-- **UI Tests**: 32 tests across 6 files covering complete user workflows including photo workflows
-- **Parallel Execution**: ~6.5 minutes total test time with parallel UI testing
+- **Unit Tests**: 286 tests across 15 files covering business logic, sync, Uber import, photo management, backup/restore
+- **UI Tests**: 35 tests across 4 files covering complete user workflows including photo workflows and YTD Summary
+- **Test Execution**: ~30 seconds for unit tests, ~37 minutes for UI tests (serial)
 
 ### **User Interface**
-- **MainTabView**: Tab navigation between Shifts and Expenses
+- **MainTabView**: Tab navigation between Shifts, Expenses, and YTD Summary
+- **YTDSummaryView**: Responsive two-column layout for iPad/Mac, year selector, dual tax calculation methods
 - **Calculator Integration**: `CalculatorTextField` and `CurrencyTextField` with popup calculator
 - **Photo Workflows**: `PhotosPicker` in shift and expense forms
 - **Import/Export Interface**: Accessible via MainMenuView with tabbed interface for different data types
@@ -220,9 +223,9 @@ The project includes comprehensive test coverage:
 These are the authoritative reference documents that should be consulted at the start of each new development session. These documents contain current, verified information about the system:
 
 ### **Primary Reference Documents**
-- **[FEATURE_STATUS.md](./FEATURE_STATUS.md)**: **START HERE** - Comprehensive implementation status and system capabilities (September 2025)
+- **[FEATURE_STATUS.md](./FEATURE_STATUS.md)**: **START HERE** - Comprehensive implementation status and system capabilities (January 2026)
 - **[README.md](./README.md)**: Complete feature overview, setup instructions, and user-facing documentation
-- **[TESTPLAN.md](./TESTPLAN.md)**: Manual testing procedures with current automated test status (95 unit + 32 UI tests)
+- **[TESTPLAN.md](./TESTPLAN.md)**: Manual testing procedures with current automated test status (286 unit + 35 UI tests)
 - **[UI_AUTOMATED_TESTING.md](./UI_AUTOMATED_TESTING.md)**: Testing infrastructure documentation with current test execution status
 
 ### **Session Startup Protocol**
