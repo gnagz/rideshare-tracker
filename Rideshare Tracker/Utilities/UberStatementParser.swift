@@ -40,8 +40,9 @@ func detectColumnLayout(from headerText: String) -> ColumnLayout {
 ///   - elements: Array of (text, x, y) tuples representing PDF elements
 ///   - layout: Column layout (5 or 6 column)
 ///   - rowIndex: Row index for debugging
+///   - statementPeriod: Optional statement period dates for correct year inference
 /// - Returns: Parsed transaction or nil
-internal func parseTransactionFromElements(_ elements: [(text: String, x: CGFloat, y: CGFloat)], layout: ColumnLayout, rowIndex: Int) -> UberTransaction? {
+internal func parseTransactionFromElements(_ elements: [(text: String, x: CGFloat, y: CGFloat)], layout: ColumnLayout, rowIndex: Int, statementPeriod: (startDate: Date, endDate: Date)? = nil) -> UberTransaction? {
     guard !elements.isEmpty else { return nil }
 
     // Convert to format used by parsing logic
@@ -112,9 +113,7 @@ internal func parseTransactionFromElements(_ elements: [(text: String, x: CGFloa
         }
         // Check for event date/time
         else if element.text.range(of: eventDatePattern, options: .regularExpression) != nil {
-            let calendar = Calendar.current
-            let currentYear = calendar.component(.year, from: Date())
-            eventDate = parseEventDateTime(text: element.text, year: currentYear)
+            eventDate = parseEventDateTime(text: element.text, statementPeriod: statementPeriod)
             foundEventDate = true
         }
         // Check for standalone amounts - Only if text is ONLY amounts (no other text)
@@ -194,9 +193,7 @@ internal func parseTransactionFromElements(_ elements: [(text: String, x: CGFloa
 
     // Parse processed date from collected parts
     if let datePart = datePart, let timePart = timePart {
-        let calendar = Calendar.current
-        let currentYear = calendar.component(.year, from: Date())
-        processedDate = parseCoordinateBasedDate(datePart: datePart, timePart: timePart, year: currentYear)
+        processedDate = parseCoordinateBasedDate(datePart: datePart, timePart: timePart, statementPeriod: statementPeriod)
     }
 
     guard let processedDate = processedDate else { return nil }
@@ -228,9 +225,9 @@ internal func parseTransactionFromElements(_ elements: [(text: String, x: CGFloa
 /// Parse event date/time from combined string (e.g., "Aug 24 4:45 PM")
 /// - Parameters:
 ///   - text: Event date/time string
-///   - year: Year to use
+///   - statementPeriod: Statement period for year inference (nil falls back to current year)
 /// - Returns: Parsed date or nil
-private func parseEventDateTime(text: String, year: Int) -> Date? {
+private func parseEventDateTime(text: String, statementPeriod: (startDate: Date, endDate: Date)?) -> Date? {
     // Parse format: "Aug 24 4:45 PM"
     let pattern = #"^([A-Za-z]+)\s+(\d+)\s+(\d+):(\d+)\s+(AM|PM)$"#
     guard let regex = try? NSRegularExpression(pattern: pattern),
@@ -264,8 +261,9 @@ private func parseEventDateTime(text: String, year: Int) -> Date? {
         }
     }
 
-    // Create date
+    // Create date - infer year from statement period
     let month = monthNumber(from: monthStr)
+    let year = inferYear(forMonth: month, statementPeriod: statementPeriod)
     var components = DateComponents()
     components.year = year
     components.month = month
@@ -280,9 +278,9 @@ private func parseEventDateTime(text: String, year: Int) -> Date? {
 /// - Parameters:
 ///   - datePart: Date string (e.g., "Sat, Aug 9" or "T ue, Aug 5")
 ///   - timePart: Time string (e.g., "12:24 AM")
-///   - year: Year to use
+///   - statementPeriod: Statement period for year inference (nil falls back to current year)
 /// - Returns: Parsed date or nil
-private func parseCoordinateBasedDate(datePart: String, timePart: String, year: Int) -> Date? {
+private func parseCoordinateBasedDate(datePart: String, timePart: String, statementPeriod: (startDate: Date, endDate: Date)?) -> Date? {
     // Parse date part: "Sat, Aug 9" or "T ue, Aug 5"
     let datePattern = #"^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun|T\s+ue),\s+([A-Za-z]+)\s+(\d+)$"#
     guard let dateRegex = try? NSRegularExpression(pattern: datePattern),
@@ -319,9 +317,10 @@ private func parseCoordinateBasedDate(datePart: String, timePart: String, year: 
         hour24 = 0
     }
 
-    // Create date
+    // Create date - infer year from statement period
     let calendar = Calendar.current
     let month = monthNumber(from: monthStr)
+    let year = inferYear(forMonth: month, statementPeriod: statementPeriod)
 
     var dateComponents = DateComponents()
     dateComponents.year = year
@@ -405,4 +404,42 @@ private func monthNumber(from monthName: String) -> Int {
     let months = ["Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
                   "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12]
     return months[monthName] ?? 1
+}
+
+/// Infer the correct year for a transaction date based on statement period
+/// Handles year boundary cases (e.g., statement Dec 29, 2025 - Jan 5, 2026)
+/// - Parameters:
+///   - month: Month number (1-12) of the transaction
+///   - statementPeriod: Optional statement period with start and end dates
+/// - Returns: Year to use for the transaction date
+private func inferYear(forMonth month: Int, statementPeriod: (startDate: Date, endDate: Date)?) -> Int {
+    let calendar = Calendar.current
+
+    guard let period = statementPeriod else {
+        // Fallback to current year if no statement period provided
+        return calendar.component(.year, from: Date())
+    }
+
+    let startYear = calendar.component(.year, from: period.startDate)
+    let endYear = calendar.component(.year, from: period.endDate)
+    let startMonth = calendar.component(.month, from: period.startDate)
+    let endMonth = calendar.component(.month, from: period.endDate)
+
+    // If statement period is within a single year, use that year
+    if startYear == endYear {
+        return startYear
+    }
+
+    // Statement crosses year boundary (e.g., Dec 2025 - Jan 2026)
+    // Determine which year based on the transaction's month
+    // - Months from startMonth to Dec belong to startYear
+    // - Months from Jan to endMonth belong to endYear
+    if month >= startMonth && month <= 12 {
+        return startYear
+    } else if month >= 1 && month <= endMonth {
+        return endYear
+    }
+
+    // Edge case: month doesn't fit expected range, use start year as fallback
+    return startYear
 }

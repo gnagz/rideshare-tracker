@@ -512,6 +512,100 @@ final class UberPDFParserTests: RideshareTrackerTestBase {
         }
     }
 
+    // MARK: - Year Boundary Tests
+
+    /// REGRESSION TEST: Verify that year is correctly inferred from statement period
+    /// BUG: When importing a Dec 2025 statement in Jan 2026, dates were parsed with 2026
+    /// instead of 2025 because the code used Date() to get the current year.
+    func testYearInference_SingleYearStatement() {
+        // Given: Statement period entirely within 2025
+        let startDate = createDate(year: 2025, month: 12, day: 8, hour: 4)!
+        let endDate = createDate(year: 2025, month: 12, day: 15, hour: 4)!
+        let statementPeriod = (startDate: startDate, endDate: endDate)
+
+        // Create a tip transaction for Dec 6 (within statement period)
+        let elements: [(text: String, x: CGFloat, y: CGFloat)] = [
+            ("Sun, Dec 13", 20.0, 500.0),
+            ("12:09 AM", 80.0, 500.0),
+            ("Dec 6 11:17 PM", 150.0, 500.0),  // Event date without year
+            ("Tip", 250.0, 500.0),
+            ("$8.00", 350.0, 500.0),
+            ("$8.00", 450.0, 500.0)
+        ]
+
+        // When: Parse with statement period
+        let transaction = parseTransactionFromElements(elements, layout: ColumnLayout.fiveColumn, rowIndex: 0, statementPeriod: statementPeriod)
+
+        // Then: Event date year should be 2025, not current system year
+        XCTAssertNotNil(transaction, "Transaction should be parsed")
+        XCTAssertNotNil(transaction?.eventDate, "Event date should be parsed")
+
+        let calendar = Calendar.current
+        let eventYear = calendar.component(.year, from: transaction!.eventDate!)
+        XCTAssertEqual(eventYear, 2025, "Event date year should be 2025 from statement period, not current year")
+
+        let processedYear = calendar.component(.year, from: transaction!.transactionDate)
+        XCTAssertEqual(processedYear, 2025, "Processed date year should also be 2025")
+    }
+
+    /// Test year inference for statements crossing year boundary (Dec 29, 2025 - Jan 5, 2026)
+    func testYearInference_YearCrossingStatement_DecemberTransaction() {
+        // Given: Statement period crossing year boundary
+        let startDate = createDate(year: 2025, month: 12, day: 29, hour: 4)!
+        let endDate = createDate(year: 2026, month: 1, day: 5, hour: 4)!
+        let statementPeriod = (startDate: startDate, endDate: endDate)
+
+        // Create a transaction for Dec 30 (should use 2025)
+        let elements: [(text: String, x: CGFloat, y: CGFloat)] = [
+            ("Tue, Dec 30", 20.0, 500.0),
+            ("3:45 PM", 80.0, 500.0),
+            ("Dec 30 2:30 PM", 150.0, 500.0),  // Event date without year
+            ("UberX", 250.0, 500.0),
+            ("$25.00", 350.0, 500.0),
+            ("$125.00", 450.0, 500.0)
+        ]
+
+        // When: Parse with statement period
+        let transaction = parseTransactionFromElements(elements, layout: ColumnLayout.fiveColumn, rowIndex: 0, statementPeriod: statementPeriod)
+
+        // Then: December dates should use 2025
+        XCTAssertNotNil(transaction, "Transaction should be parsed")
+        XCTAssertNotNil(transaction?.eventDate, "Event date should be parsed")
+
+        let calendar = Calendar.current
+        let eventYear = calendar.component(.year, from: transaction!.eventDate!)
+        XCTAssertEqual(eventYear, 2025, "December event date should use start year 2025")
+    }
+
+    /// Test year inference for statements crossing year boundary - January transaction
+    func testYearInference_YearCrossingStatement_JanuaryTransaction() {
+        // Given: Statement period crossing year boundary
+        let startDate = createDate(year: 2025, month: 12, day: 29, hour: 4)!
+        let endDate = createDate(year: 2026, month: 1, day: 5, hour: 4)!
+        let statementPeriod = (startDate: startDate, endDate: endDate)
+
+        // Create a transaction for Jan 2 (should use 2026)
+        let elements: [(text: String, x: CGFloat, y: CGFloat)] = [
+            ("Thu, Jan 2", 20.0, 500.0),
+            ("10:15 AM", 80.0, 500.0),
+            ("Jan 2 9:45 AM", 150.0, 500.0),  // Event date without year
+            ("Tip", 250.0, 500.0),
+            ("$5.00", 350.0, 500.0),
+            ("$130.00", 450.0, 500.0)
+        ]
+
+        // When: Parse with statement period
+        let transaction = parseTransactionFromElements(elements, layout: ColumnLayout.fiveColumn, rowIndex: 0, statementPeriod: statementPeriod)
+
+        // Then: January dates should use 2026
+        XCTAssertNotNil(transaction, "Transaction should be parsed")
+        XCTAssertNotNil(transaction?.eventDate, "Event date should be parsed")
+
+        let calendar = Calendar.current
+        let eventYear = calendar.component(.year, from: transaction!.eventDate!)
+        XCTAssertEqual(eventYear, 2026, "January event date should use end year 2026")
+    }
+
     // MARK: - Helper Methods
 
     private func createDate(year: Int, month: Int, day: Int, hour: Int, minute: Int = 0) -> Date? {

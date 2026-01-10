@@ -132,17 +132,17 @@ final class MissingShiftsCSVGeneratorTests: RideshareTrackerTestBase {
         // When: Generate CSV
         let csv = try generator.generateMissingShiftsCSV(unmatchedTransactions: transactions, statementPeriod: "Oct 13, 2025 - Oct 20, 2025")
 
-        // Then: Should contain header row
-        XCTAssertTrue(csv.contains("Start Date"), "Should include Start Date column")
-        XCTAssertTrue(csv.contains("End Date"), "Should include End Date column")
-        XCTAssertTrue(csv.contains("Uber Net Fare"), "Should include Uber Net Fare column")
-        XCTAssertTrue(csv.contains("Uber Tips"), "Should include Uber Tips column")
-        XCTAssertTrue(csv.contains("Uber Tolls"), "Should include Uber Tolls column")
+        // Then: Should contain header row (no spaces in column names)
+        XCTAssertTrue(csv.contains("StartDate"), "Should include StartDate column")
+        XCTAssertTrue(csv.contains("EndDate"), "Should include EndDate column")
+        XCTAssertTrue(csv.contains("NetFare"), "Should include NetFare column")
+        XCTAssertTrue(csv.contains("Tips"), "Should include Tips column")
+        XCTAssertTrue(csv.contains("TollsReimbursed"), "Should include TollsReimbursed column")
 
-        // Should have Uber data prefilled
-        XCTAssertTrue(csv.contains("20.0"), "Should include net fare amount")
-        XCTAssertTrue(csv.contains("5.0"), "Should include tip amount")
-        XCTAssertTrue(csv.contains("2.5"), "Should include toll amount")
+        // Should have Uber data prefilled (formatted with 2 decimal places)
+        XCTAssertTrue(csv.contains("20.00"), "Should include net fare amount")
+        XCTAssertTrue(csv.contains("5.00"), "Should include tip amount")
+        XCTAssertTrue(csv.contains("2.50"), "Should include toll reimbursement amount")
     }
 
     func testGenerateCSVWithBlankVehicleFields() throws {
@@ -231,7 +231,24 @@ final class MissingShiftsCSVGeneratorTests: RideshareTrackerTestBase {
         let header = lines[0]
 
         // Verify critical columns exist in correct order (matching import structure)
-        XCTAssertTrue(header.starts(with: "Start Date,End Date,Start Mileage,End Mileage"), "Should match import column structure")
+        XCTAssertTrue(header.starts(with: "StartDate,StartTime,EndDate,EndTime,StartMileage,EndMileage"), "Should match import column structure")
+
+        // Verify all required columns are present (no spaces in column names)
+        XCTAssertTrue(header.contains("StartTankReading"), "Should include StartTankReading column")
+        XCTAssertTrue(header.contains("EndTankReading"), "Should include EndTankReading column")
+        XCTAssertTrue(header.contains("RefuelGallons"), "Should include RefuelGallons column")
+        XCTAssertTrue(header.contains("RefuelCost"), "Should include RefuelCost column")
+        XCTAssertTrue(header.contains("GasPrice"), "Should include GasPrice column")
+        XCTAssertTrue(header.contains("StandardMileageRate"), "Should include StandardMileageRate column")
+        XCTAssertTrue(header.contains("Trips"), "Should include Trips column")
+        XCTAssertTrue(header.contains("NetFare"), "Should include NetFare column")
+        XCTAssertTrue(header.contains("Tips"), "Should include Tips column")
+        XCTAssertTrue(header.contains("CashTips"), "Should include CashTips column")
+        XCTAssertTrue(header.contains("Promotions"), "Should include Promotions column")
+        XCTAssertTrue(header.contains("Tolls"), "Should include Tolls column")
+        XCTAssertTrue(header.contains("TollsReimbursed"), "Should include TollsReimbursed column")
+        XCTAssertTrue(header.contains("ParkingFees"), "Should include ParkingFees column")
+        XCTAssertTrue(header.contains("MiscFees"), "Should include MiscFees column")
     }
 
     // MARK: - Helper Methods

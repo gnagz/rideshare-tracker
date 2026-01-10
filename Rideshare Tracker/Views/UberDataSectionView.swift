@@ -64,20 +64,28 @@ struct UberDataSectionView: View {
                         Divider()
                             .padding(.vertical, 4)
 
-                        Text("Tips from Statement")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
+                        HStack {
+                            Text("Tips from Statement")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            // Show original only if manual entry was HIGHER than imported
+                            if let original = currentShift.originalTips,
+                               let imported = currentShift.tips,
+                               original > imported + 0.01 {
+                                Text("was \(String(format: "$%.2f", original))")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                        }
 
                         ForEach(tipTransactions, id: \UberTransaction.id) { (txn: UberTransaction) in
                             HStack {
-                                Text(formatTransactionDate(txn.transactionDate))
+                                // Compact format: event date / post date
+                                Text(formatCompactDates(event: txn.eventDate, post: txn.transactionDate))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                    .frame(width: 100, alignment: .leading)
-
-                                Text("Tip")
-                                    .font(.caption)
 
                                 Spacer()
 
@@ -95,20 +103,32 @@ struct UberDataSectionView: View {
                         Divider()
                             .padding(.vertical, 4)
 
-                        Text("Toll Reimbursements")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
+                        HStack {
+                            Text("Toll Reimbursements")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            // Show original only if manual entry was HIGHER than imported
+                            if let original = currentShift.originalTollsReimbursed,
+                               let imported = currentShift.tollsReimbursed,
+                               original > imported + 0.01 {
+                                Text("was \(String(format: "$%.2f", original))")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                        }
 
                         ForEach(tollTransactions, id: \UberTransaction.id) { (txn: UberTransaction) in
                             HStack {
-                                Text(formatTransactionDate(txn.transactionDate))
+                                // Compact format: event date / post date + ride type
+                                Text(formatCompactDates(event: txn.eventDate, post: txn.transactionDate))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                    .frame(width: 100, alignment: .leading)
 
                                 Text(txn.eventType)
                                     .font(.caption)
+                                    .lineLimit(1)
 
                                 Spacer()
 
@@ -191,6 +211,21 @@ struct UberDataSectionView: View {
         return formatter.string(from: date)
     }
 
+    /// Format event and post dates in compact form: "12/6 11:17 PM / 12/13 12:09 AM"
+    private func formatCompactDates(event: Date?, post: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M/d h:mm a"
+
+        let postStr = formatter.string(from: post)
+
+        if let eventDate = event {
+            let eventStr = formatter.string(from: eventDate)
+            return "\(eventStr) / \(postStr)"
+        } else {
+            return postStr
+        }
+    }
+
     private func verificationRow(label: String, manualValue: Double, importedValue: Double) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -223,25 +258,25 @@ struct UberDataSectionView: View {
     }
 
     private func keepManualEntry() {
-        guard let index = dataManager.shifts.firstIndex(where: { $0.id == shift.id }) else { return }
-        var updatedShift = dataManager.shifts[index]
+        guard var updatedShift = dataManager.shift(byId: shift.id) else { return }
 
         // Revert to manual values
-        updatedShift.tips = currentShift.originalTips
-        updatedShift.tollsReimbursed = currentShift.originalTollsReimbursed
+        updatedShift.tips = updatedShift.originalTips
+        updatedShift.tollsReimbursed = updatedShift.originalTollsReimbursed
         updatedShift.uberDataUserVerified = true
 
-        dataManager.shifts[index] = updatedShift
+        // Use updateShift to sync array, dictionary, and persist
+        dataManager.updateShift(updatedShift)
     }
 
     private func useImportedData() {
-        guard let index = dataManager.shifts.firstIndex(where: { $0.id == shift.id }) else { return }
-        var updatedShift = dataManager.shifts[index]
+        guard var updatedShift = dataManager.shift(byId: shift.id) else { return }
 
         // Keep imported values (already set), just mark as verified
         updatedShift.uberDataUserVerified = true
 
-        dataManager.shifts[index] = updatedShift
+        // Use updateShift to sync array, dictionary, and persist
+        dataManager.updateShift(updatedShift)
     }
 }
 

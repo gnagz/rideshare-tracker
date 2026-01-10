@@ -100,40 +100,30 @@ class MissingShiftsCSVGenerator {
     /// Build CSV header row
     /// - Returns: CSV header string
     private func buildCSVHeader() -> String {
-        // Match existing import structure (32 columns from ImportExportManager)
+        // Simplified columns matching import format (no spaces in headers)
+        // Note: HasFullTankAtStart and DidRefuelAtEnd removed - inferred from tank readings
         return [
-            "Start Date",
-            "End Date",
-            "Start Mileage",
-            "End Mileage",
-            "Start Tank Reading",
-            "End Tank Reading",
-            "Has Full Tank at Start",
-            "Gas Price",
-            "Standard Mileage Rate",
-            "Uber Net Fare",
-            "Uber Tips",
-            "Uber Promotions",
-            "Uber Tolls",
-            "Lyft Net Fare",
-            "Lyft Tips",
-            "Lyft Bonuses",
-            "Other Income",
-            "Cash Tips",
-            "Refuel Amount",
-            "Refuel Gallons",
-            "Other Expense 1 Amount",
-            "Other Expense 1 Description",
-            "Other Expense 2 Amount",
-            "Other Expense 2 Description",
-            "Other Expense 3 Amount",
-            "Other Expense 3 Description",
-            "Notes",
-            "Uber Statement Period",
-            "Miles Driven",
-            "Gas Used (gallons)",
-            "MPG",
-            "Total Earnings"
+            "StartDate",
+            "StartTime",
+            "EndDate",
+            "EndTime",
+            "StartMileage",
+            "EndMileage",
+            "StartTankReading",
+            "EndTankReading",
+            "RefuelGallons",
+            "RefuelCost",
+            "GasPrice",
+            "StandardMileageRate",
+            "Trips",
+            "NetFare",
+            "Tips",
+            "CashTips",
+            "Promotions",
+            "Tolls",
+            "TollsReimbursed",
+            "ParkingFees",
+            "MiscFees"
         ].joined(separator: ",") + "\n"
     }
 
@@ -147,68 +137,63 @@ class MissingShiftsCSVGenerator {
         let (startTime, endTime) = calculateShiftTimes(for: transactions)
 
         // Aggregate transaction amounts by category
-        var uberNetFare = 0.0
-        var uberTips = 0.0
-        var uberPromotions = 0.0
-        var uberTolls = 0.0
+        var netFare = 0.0
+        var tips = 0.0
+        var promotions = 0.0
+        var tollsReimbursed = 0.0
 
         for transaction in transactions {
             let category = categorize(transaction)
 
             switch category {
             case .netFare:
-                uberNetFare += transaction.amount
+                netFare += transaction.amount
             case .tip:
-                uberTips += transaction.amount
+                tips += transaction.amount
             case .promotion:
-                uberPromotions += transaction.amount
+                promotions += transaction.amount
             case .ignore:
                 continue
             }
 
             // Add toll reimbursement if present
             if let toll = transaction.tollsReimbursed {
-                uberTolls += toll
+                tollsReimbursed += toll
             }
         }
 
+        // Date formatter for date column (MM/dd/yyyy)
         let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm"
+        dateFormatter.dateFormat = "MM/dd/yyyy"
+
+        // Time formatter for time column (h:mm:ss a -> "4:01:00 PM")
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "h:mm:ss a"
 
         // Build row with Uber data prefilled, vehicle fields blank
+        // Tank readings use string format: "E", "1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8", "F"
         return [
-            dateFormatter.string(from: startTime),           // Start Date
-            dateFormatter.string(from: endTime),             // End Date
-            "",                                              // Start Mileage (blank - user fills)
-            "",                                              // End Mileage (blank - user fills)
-            "",                                              // Start Tank Reading (blank - user fills)
-            "",                                              // End Tank Reading (blank - user fills)
-            "",                                              // Has Full Tank at Start (blank - user fills)
-            "",                                              // Gas Price (blank - user fills)
-            "",                                              // Standard Mileage Rate (blank - user fills)
-            formatAmount(uberNetFare),                       // Uber Net Fare (prefilled)
-            formatAmount(uberTips),                          // Uber Tips (prefilled)
-            formatAmount(uberPromotions),                    // Uber Promotions (prefilled)
-            formatAmount(uberTolls),                         // Uber Tolls (prefilled)
-            "",                                              // Lyft Net Fare
-            "",                                              // Lyft Tips
-            "",                                              // Lyft Bonuses
-            "",                                              // Other Income
-            "",                                              // Cash Tips
-            "",                                              // Refuel Amount
-            "",                                              // Refuel Gallons
-            "",                                              // Other Expense 1 Amount
-            "",                                              // Other Expense 1 Description
-            "",                                              // Other Expense 2 Amount
-            "",                                              // Other Expense 2 Description
-            "",                                              // Other Expense 3 Amount
-            "",                                              // Other Expense 3 Description
-            "",                                              // Notes
-            "",                                              // Uber Statement Period (could add but leaving blank)
-            "",                                              // Miles Driven (calculated on import)
-            "",                                              // Gas Used (calculated on import)
-            "",                                              // MPG (calculated on import)
-            ""                                               // Total Earnings (calculated on import)
+            dateFormatter.string(from: startTime),           // StartDate
+            timeFormatter.string(from: startTime),           // StartTime
+            dateFormatter.string(from: endTime),             // EndDate
+            timeFormatter.string(from: endTime),             // EndTime
+            "",                                              // StartMileage (blank - user fills)
+            "",                                              // EndMileage (blank - user fills)
+            "",                                              // StartTankReading (blank - user fills, e.g. "1/2", "F")
+            "",                                              // EndTankReading (blank - user fills, e.g. "1/4", "E")
+            "",                                              // RefuelGallons (blank - user fills)
+            "",                                              // RefuelCost (blank - user fills)
+            "",                                              // GasPrice (blank - user fills)
+            "",                                              // StandardMileageRate (blank - user fills)
+            "",                                              // Trips (blank - user fills)
+            formatAmount(netFare),                           // NetFare (prefilled)
+            formatAmount(tips),                              // Tips (prefilled)
+            "",                                              // CashTips (blank - user fills)
+            formatAmount(promotions),                        // Promotions (prefilled)
+            "",                                              // Tolls (blank - user fills)
+            formatAmount(tollsReimbursed),                   // TollsReimbursed (prefilled)
+            "",                                              // ParkingFees (blank - user fills)
+            ""                                               // MiscFees (blank - user fills)
         ].joined(separator: ",")
     }
 

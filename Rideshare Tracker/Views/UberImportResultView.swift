@@ -47,43 +47,79 @@ struct UberImportResultView: View {
 
                     // Statistics Cards
                     VStack(spacing: 8) {
+                        // Show importable transactions (tips, tolls), not total
                         StatCard(
-                            title: "Total Transactions",
-                            value: "\(result.totalTransactions)",
+                            title: "Tips & Tolls Found",
+                            value: "\(result.importableCount)",
                             icon: "doc.text.fill",
-                            color: .blue
+                            color: result.importableCount > 0 ? .blue : .gray
                         )
 
-                        StatCard(
-                            title: "Matched to Shifts",
-                            value: "\(result.matchedCount)",
-                            icon: "checkmark.circle.fill",
-                            color: .green
-                        )
-
-                        StatCard(
-                            title: "Shifts Updated",
-                            value: "\(result.updatedShifts.count)",
-                            icon: "arrow.triangle.2.circlepath",
-                            color: .orange
-                        )
-
-                        if result.unmatchedCount > 0 {
-                            StatCard(
-                                title: "Missing Shifts",
-                                value: "\(result.unmatchedCount)",
-                                icon: "exclamationmark.triangle.fill",
-                                color: .red
-                            )
+                        // Show skipped transactions note if any were ignored
+                        if result.ignoredCount > 0 {
+                            HStack {
+                                Image(systemName: "info.circle")
+                                    .foregroundColor(.secondary)
+                                Text("\(result.ignoredCount) transaction\(result.ignoredCount == 1 ? "" : "s") skipped (bank transfers, etc.)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                            .padding(.horizontal)
                         }
 
-                        if result.transactionsNeedingVerification > 0 {
+                        if result.importableCount > 0 {
                             StatCard(
-                                title: "Need Verification",
-                                value: "\(result.transactionsNeedingVerification)",
-                                icon: "exclamationmark.circle.fill",
+                                title: "Matched to Shifts",
+                                value: "\(result.matchedCount)",
+                                icon: "checkmark.circle.fill",
+                                color: .green
+                            )
+
+                            StatCard(
+                                title: "Shifts Updated",
+                                value: "\(result.updatedShifts.count)",
+                                icon: "arrow.triangle.2.circlepath",
                                 color: .orange
                             )
+
+                            if result.unmatchedCount > 0 {
+                                StatCard(
+                                    title: "Missing Shifts",
+                                    value: "\(result.unmatchedCount)",
+                                    icon: "exclamationmark.triangle.fill",
+                                    color: .red
+                                )
+                            }
+
+                            if result.transactionsNeedingVerification > 0 {
+                                StatCard(
+                                    title: "Need Verification",
+                                    value: "\(result.transactionsNeedingVerification)",
+                                    icon: "exclamationmark.circle.fill",
+                                    color: .orange
+                                )
+                            }
+                        }
+
+                        // Special message when no importable transactions
+                        if result.hasNoImportableTransactions {
+                            VStack(spacing: 8) {
+                                Image(systemName: "tray")
+                                    .font(.title)
+                                    .foregroundColor(.secondary)
+                                Text("No Tips or Toll Reimbursements")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                Text("This statement contained only bank transfers or other non-importable transactions.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color(.systemGroupedBackground))
+                            .cornerRadius(12)
                         }
                     }
                     .padding(.horizontal)
@@ -376,15 +412,15 @@ struct ShiftUpdateCard: View {
 
             HStack(spacing: 16) {
                 if tipCount > 0 {
-                    Label("\(tipCount) tips - total $\(String(format: "%.2f", totalTips))", systemImage: "dollarsign.circle.fill")
+                    Text("\(tipCount) tips: $\(String(format: "%.2f", totalTips))")
                         .font(.subheadline)
                         .foregroundColor(.green)
                 }
 
                 if tollCount > 0 {
-                    Label("\(tollCount) tolls - total $\(String(format: "%.2f", totalTolls))", systemImage: "road.lanes.curved.left")
+                    Text("\(tollCount) toll reimb: $\(String(format: "%.2f", totalTolls))")
                         .font(.subheadline)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.green)
                 }
             }
         }
@@ -424,7 +460,8 @@ struct CSVDocument: FileDocument {
 #Preview {
     let sampleResult = UberImportResult(
         statementPeriod: "Oct 13, 2025 - Oct 20, 2025",
-        totalTransactions: 25,
+        totalTransactions: 27,        // 25 importable + 2 bank transfers
+        importableCount: 25,          // Tips + tolls
         matchedCount: 20,
         unmatchedCount: 5,
         transactionsNeedingVerification: 3,

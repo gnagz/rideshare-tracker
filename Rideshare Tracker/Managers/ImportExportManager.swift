@@ -395,15 +395,15 @@ class ImportExportManager: ObservableObject {
             // Input fields for editing/import
             "StartDate", "StartTime", "EndDate", "EndTime",
             "StartMileage", "EndMileage", "StartTankReading", "EndTankReading",
-            "RefuelGallons", "RefuelCost",
-            "Trips", "NetFare", "Tips", "Promotions", "RiderFees",
+            "RefuelGallons", "RefuelCost", "GasPrice", "StandardMileageRate",
+            "Trips", "NetFare", "Tips", "CashTips", "Promotions",
             "Tolls", "TollsReimbursed", "ParkingFees", "MiscFees",
             // Calculated fields for reporting/analysis
             "C_Duration", "C_ShiftMileage", "C_Revenue", "C_GasCost", "C_GasUsage", "C_MPG",
             "C_TotalTips", "C_TaxableIncome", "C_DeductibleExpenses",
             "C_ExpectedPayout", "C_OutOfPocketCosts", "C_CashFlowProfit", "C_ProfitPerHour",
-            // Preference fields for context
-            "P_TankCapacity", "P_GasPrice", "P_StandardMileageRate"
+            // Preference field for context (GasPrice and StandardMileageRate now in input fields)
+            "P_TankCapacity"
         ]
 
         var csvContent = headers.joined(separator: ",") + "\n"
@@ -417,13 +417,16 @@ class ImportExportManager: ObservableObject {
                 shift.endDate != nil ? preferencesManager.formatTime(shift.endDate!) : "",
                 String(shift.startMileage),
                 shift.endMileage != nil ? String(shift.endMileage!) : "",
-                String(format: "%.3f", TankLevelUtilities.tankLevelToDecimal(shift.startTankReading)),
-                shift.endTankReading != nil ? String(format: "%.3f", TankLevelUtilities.tankLevelToDecimal(shift.endTankReading!)) : "",
+                TankLevelUtilities.tankLevelToString(shift.startTankReading),
+                shift.endTankReading != nil ? TankLevelUtilities.tankLevelToString(shift.endTankReading!) : "",
                 shift.refuelGallons != nil ? String(shift.refuelGallons!) : "",
                 shift.refuelCost != nil ? String(format: "%.2f", shift.refuelCost!) : "",
+                String(format: "%.3f", shift.gasPrice),
+                String(format: "%.3f", shift.standardMileageRate),
                 shift.trips != nil ? String(shift.trips!) : "",
                 shift.netFare != nil ? String(format: "%.2f", shift.netFare!) : "",
                 shift.tips != nil ? String(format: "%.2f", shift.tips!) : "",
+                shift.cashTips != nil ? String(format: "%.2f", shift.cashTips!) : "",
                 shift.promotions != nil ? String(format: "%.2f", shift.promotions!) : "",
                 shift.tolls != nil ? String(format: "%.2f", shift.tolls!) : "",
                 shift.tollsReimbursed != nil ? String(format: "%.2f", shift.tollsReimbursed!) : "",
@@ -443,10 +446,8 @@ class ImportExportManager: ObservableObject {
                 String(format: "%.2f", shift.outOfPocketCosts(tankCapacity: preferences.tankCapacity)),
                 String(format: "%.2f", shift.cashFlowProfit(tankCapacity: preferences.tankCapacity)),
                 String(format: "%.2f", shift.profitPerHour(tankCapacity: preferences.tankCapacity)),
-                // Preference fields for context
-                String(preferences.tankCapacity),
-                String(format: "%.3f", shift.gasPrice),
-                String(format: "%.3f", shift.standardMileageRate)
+                // Preference field for context
+                String(preferences.tankCapacity)
             ]
 
             let escapedRow = row.map { field in
@@ -691,7 +692,7 @@ class ImportExportManager: ObservableObject {
             "StartMileage", "EndMileage",
             "StartTankReading", "EndTankReading", "HasFullTankAtStart", "DidRefuelAtEnd",
             "RefuelGallons", "RefuelCost",
-            "TotalTrips", "Trips", "NetFare", "Tips", "Promotions", "RiderFees",
+            "TotalTrips", "Trips", "NetFare", "Tips", "CashTips", "Promotions",
             "TotalTolls", "Tolls", "TollsReimbursed", "ParkingFees", "MiscFees",
             "GasPrice", "StandardMileageRate"
         ]
@@ -813,6 +814,10 @@ class ImportExportManager: ObservableObject {
         case "Tips":
             if !value.isEmpty {
                 shift.tips = Double(value)
+            }
+        case "CashTips":
+            if !value.isEmpty {
+                shift.cashTips = Double(value)
             }
         case "Promotions":
             if !value.isEmpty {

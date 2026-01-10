@@ -264,20 +264,27 @@ struct UberImportView: View {
                         transactions: transactions,
                         shift: shift
                     ) {
-                        if let attachment = try? ImageManager.shared.saveImage(
-                            image,
-                            for: shift.id,
-                            parentType: .shift,
-                            type: .importedUberTxns,
-                            description: "Uber Import - \(transactions.count) transactions"
-                        ) {
+                        do {
+                            let attachment = try ImageManager.shared.saveImage(
+                                image,
+                                for: shift.id,
+                                parentType: .shift,
+                                type: .importedUberTxns,
+                                description: "Uber Import - \(transactions.count) transactions"
+                            )
                             shift.imageAttachments.append(attachment)
+                            print("[UberImportView] Successfully saved Uber import image: \(attachment.filename)")
+                        } catch {
+                            print("[UberImportView] ERROR: Failed to save Uber import image: \(error.localizedDescription)")
                         }
+                    } else {
+                        print("[UberImportView] ERROR: Failed to generate Uber transaction image")
                     }
                 }
 
-                // Save updated shift
-                dataManager.shifts[index] = shift
+                // Save updated shift - CRITICAL: use updateShift() to sync both
+                // the shifts array AND shiftsById dictionary, and persist to UserDefaults
+                dataManager.updateShift(shift)
                 updatedShifts.append(shift)
             }
         }
@@ -312,6 +319,12 @@ struct UberImportView: View {
             // Recalculate all affected shifts
             let updatedShifts = try await updateAffectedShifts(affectedShiftIDs)
 
+            // Force UI refresh after all updates complete
+            // This ensures ShiftDetailView sees the new transactions immediately
+            await MainActor.run {
+                dataManager.objectWillChange.send()
+            }
+
             // Generate missing shifts CSV
             let csvGenerator = MissingShiftsCSVGenerator()
             let missingShiftsCSV = try csvGenerator.generateMissingShiftsCSV(
@@ -320,14 +333,19 @@ struct UberImportView: View {
             )
 
             // Create result
+            // importableCount = matched + unmatched (excludes ignored transactions like bank transfers)
+            // Only include CSV if there are actually unmatched transactions
+            // (the CSV always has a header row, so checking isEmpty won't work)
+            let importableCount = matched.count + unmatched.count
             let result = UberImportResult(
                 statementPeriod: statementPeriod,
                 totalTransactions: transactions.count,
+                importableCount: importableCount,
                 matchedCount: matched.count,
                 unmatchedCount: unmatched.count,
                 transactionsNeedingVerification: transactionsNeedingVerification,
                 updatedShifts: updatedShifts,
-                missingShiftsCSV: missingShiftsCSV.isEmpty ? nil : missingShiftsCSV
+                missingShiftsCSV: unmatched.isEmpty ? nil : missingShiftsCSV
             )
 
             await MainActor.run {
@@ -403,12 +421,23 @@ enum UberImportError: LocalizedError {
 
 struct UberImportResult {
     let statementPeriod: String
-    let totalTransactions: Int
+    let totalTransactions: Int      // All parsed transactions (including ignored)
+    let importableCount: Int        // Tips + tolls (excluding ignored like bank transfers)
     let matchedCount: Int
     let unmatchedCount: Int
     let transactionsNeedingVerification: Int
     let updatedShifts: [RideshareShift]
     let missingShiftsCSV: String?
+
+    /// Number of ignored transactions (bank transfers, etc.)
+    var ignoredCount: Int {
+        totalTransactions - importableCount
+    }
+
+    /// True if statement had no importable data (only bank transfers, etc.)
+    var hasNoImportableTransactions: Bool {
+        importableCount == 0
+    }
 }
 
 // MARK: - Preview

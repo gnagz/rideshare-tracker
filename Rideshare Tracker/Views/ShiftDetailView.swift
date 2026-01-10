@@ -390,10 +390,14 @@ struct ShiftDetailView: View {
 
     @MainActor
     private func loadShiftImages() -> [UIImage] {
+        print("[ShiftDetailView] loadShiftImages: shift.imageAttachments.count = \(shift.imageAttachments.count)")
 
         var images: [UIImage] = []
 
-        for (_, attachment) in shift.imageAttachments.enumerated() {
+        for (index, attachment) in shift.imageAttachments.enumerated() {
+            let imageURL = ImageManager.shared.imageURL(for: shift.id, parentType: .shift, filename: attachment.filename)
+            let fileExists = FileManager.default.fileExists(atPath: imageURL.path)
+            print("[ShiftDetailView] loadShiftImages: index=\(index), filename=\(attachment.filename), fileExists=\(fileExists)")
 
             if let image = ImageManager.shared.loadImage(
                 for: shift.id,
@@ -401,10 +405,13 @@ struct ShiftDetailView: View {
                 filename: attachment.filename
             ) {
                 images.append(image)
+                print("[ShiftDetailView] loadShiftImages: Successfully loaded image at index \(index)")
             } else {
+                print("[ShiftDetailView] loadShiftImages: FAILED to load image at index \(index) - file exists: \(fileExists)")
             }
         }
 
+        print("[ShiftDetailView] loadShiftImages: Returning \(images.count) images")
         return images
     }
 

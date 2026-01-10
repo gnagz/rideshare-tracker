@@ -31,6 +31,18 @@ final class UberStatementManager {
                          userInfo: [NSLocalizedDescriptionKey: "Could not load PDF from: \(url.path)"])
         }
 
+        // Extract statement period from page 1 header
+        // CRITICAL: Use this to determine correct year for transaction dates
+        // This handles year boundary cases (e.g., importing Dec 2025 statement in Jan 2026)
+        // and statements crossing year boundaries (e.g., Dec 29, 2025 - Jan 5, 2026)
+        var statementPeriod: (startDate: Date, endDate: Date)?
+        if let firstPage = pdfDocument.page(at: 0),
+           let firstPageText = firstPage.string {
+            if let statementInfo = try? parseStatementPeriod(from: firstPageText) {
+                statementPeriod = (statementInfo.startDate, statementInfo.endDate)
+            }
+        }
+
         var allTransactions: [UberTransaction] = []
 
         // Process each page
@@ -49,7 +61,7 @@ final class UberStatementManager {
             let rows = groupByRows(selections, page: page)
 
             // Parse transactions from rows
-            let pageTransactions = parseTransactionsFromRows(rows, pageNum: pageNum)
+            let pageTransactions = parseTransactionsFromRows(rows, pageNum: pageNum, statementPeriod: statementPeriod)
             allTransactions.append(contentsOf: pageTransactions)
         }
 
@@ -64,10 +76,15 @@ final class UberStatementManager {
     func parseStatementPeriod(from text: String) throws -> (startDate: Date, endDate: Date, period: String)? {
         // Real PDFs have format: "Weekly Statement\nAug 4, 2025 4 AM - Aug 11, 2025 4 AM"
         // Pattern allows for optional newlines and "Weekly Statement" prefix
-        let pattern = #"([A-Za-z]+)\s+(\d+),\s+(\d{4})\s+4\s+AM\s+-\s+([A-Za-z]+)\s+(\d+),\s+(\d{4})\s+4\s+AM"#
+        // Note: PDFs may use hyphen (-), en-dash (–), or em-dash (—) as separator
+        // Note: PDF extraction may add spaces before commas (e.g., "Nov 17 , 2025")
+        let pattern = #"([A-Za-z]+)\s+(\d+)\s*,\s*(\d{4})\s+4\s+AM\s+[-–—]\s+([A-Za-z]+)\s+(\d+)\s*,\s*(\d{4})\s+4\s+AM"#
 
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) else {
+            // Debug: log text for troubleshooting if parsing fails
+            print("[UberStatementManager] parseStatementPeriod failed. First 500 chars of text:")
+            print(String(text.prefix(500)))
             return nil
         }
 
@@ -177,8 +194,9 @@ final class UberStatementManager {
     /// - Parameters:
     ///   - rows: Rows of PDFSelection objects grouped by Y-coordinate
     ///   - pageNum: Page number for debugging
+    ///   - statementPeriod: Statement period dates for correct year inference
     /// - Returns: Array of parsed transactions
-    private func parseTransactionsFromRows(_ rows: [[PDFSelection]], pageNum: Int) -> [UberTransaction] {
+    private func parseTransactionsFromRows(_ rows: [[PDFSelection]], pageNum: Int, statementPeriod: (startDate: Date, endDate: Date)? = nil) -> [UberTransaction] {
         guard !rows.isEmpty else { return [] }
 
         var transactions: [UberTransaction] = []
@@ -222,7 +240,7 @@ final class UberStatementManager {
                 inTransactionTable = false
                 // Process any pending transaction
                 if !currentTransactionRows.isEmpty {
-                    if let transaction = parseCoordinateBasedTransaction(currentTransactionRows, layout: columnLayout) {
+                    if let transaction = parseCoordinateBasedTransaction(currentTransactionRows, layout: columnLayout, statementPeriod: statementPeriod) {
                         transactions.append(transaction)
                     }
                     currentTransactionRows.removeAll()
@@ -241,7 +259,7 @@ final class UberStatementManager {
             if transactionRegex.firstMatch(in: firstText, range: range) != nil {
                 // This is a new transaction - process previous one
                 if !currentTransactionRows.isEmpty {
-                    if let transaction = parseCoordinateBasedTransaction(currentTransactionRows, layout: columnLayout) {
+                    if let transaction = parseCoordinateBasedTransaction(currentTransactionRows, layout: columnLayout, statementPeriod: statementPeriod) {
                         transactions.append(transaction)
                     }
                     currentTransactionRows.removeAll()
@@ -256,7 +274,7 @@ final class UberStatementManager {
 
         // Process final transaction
         if !currentTransactionRows.isEmpty {
-            if let transaction = parseCoordinateBasedTransaction(currentTransactionRows, layout: columnLayout) {
+            if let transaction = parseCoordinateBasedTransaction(currentTransactionRows, layout: columnLayout, statementPeriod: statementPeriod) {
                 transactions.append(transaction)
             }
         }
@@ -268,8 +286,9 @@ final class UberStatementManager {
     /// - Parameters:
     ///   - rows: Rows belonging to this transaction
     ///   - layout: Column layout
+    ///   - statementPeriod: Statement period dates for correct year inference
     /// - Returns: Parsed transaction or nil
-    private func parseCoordinateBasedTransaction(_ rows: [[PDFSelection]], layout: ColumnLayout) -> UberTransaction? {
+    private func parseCoordinateBasedTransaction(_ rows: [[PDFSelection]], layout: ColumnLayout, statementPeriod: (startDate: Date, endDate: Date)? = nil) -> UberTransaction? {
         guard !rows.isEmpty else { return nil }
 
         // Convert PDFSelection elements to tuples for the parser
@@ -289,7 +308,7 @@ final class UberStatementManager {
         guard !elements.isEmpty else { return nil }
 
         // Delegate to the parser utility
-        return parseTransactionFromElements(elements, layout: layout, rowIndex: 0)
+        return parseTransactionFromElements(elements, layout: layout, rowIndex: 0, statementPeriod: statementPeriod)
     }
 
     // MARK: - Private Helper Methods

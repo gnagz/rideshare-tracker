@@ -231,8 +231,13 @@ class UberTransactionManager: @unchecked Sendable {
     }
 
     private func persist(_ transactions: [UberTransaction]) {
-        if let data = try? JSONEncoder().encode(transactions) {
+        do {
+            let data = try JSONEncoder().encode(transactions)
             UserDefaults.standard.set(data, forKey: userDefaultsKey)
+            UserDefaults.standard.synchronize()  // Force immediate write
+            print("[UberTransactionManager] Persisted \(transactions.count) transactions")
+        } catch {
+            print("[UberTransactionManager] ERROR persisting transactions: \(error)")
         }
     }
 }
