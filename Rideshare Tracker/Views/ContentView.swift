@@ -46,10 +46,11 @@ struct ContentView: View {
                                 .font(.headline)
                         }
                         .popover(isPresented: $showingDatePicker) {
-                            DatePicker("Select Date", 
-                                     selection: $selectedDate, 
+                            DatePicker("Select Date",
+                                     selection: $selectedDate,
                                      displayedComponents: .date)
                                 .datePickerStyle(GraphicalDatePickerStyle())
+                                .frame(minWidth: 320, minHeight: 360)
                                 .padding()
                                 .onChange(of: selectedDate) {
                                     showingDatePicker = false
