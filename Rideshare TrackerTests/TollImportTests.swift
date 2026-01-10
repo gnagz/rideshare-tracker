@@ -885,6 +885,88 @@ final class TollImportTests: RideshareTrackerTestBase {
         try? FileManager.default.removeItem(at: testURL)
     }
 
+    // MARK: - ShiftDataManager Dictionary Sync Test
+
+    /// REGRESSION TEST: Verify that toll import properly syncs the shiftsById dictionary
+    /// BUG: After toll import, shift(byId:) returned stale data because only the shifts array
+    /// was updated, not the shiftsById dictionary. This caused ShiftDetailView to show
+    /// no tolls in the Expenses section until the user edited and saved the shift.
+    func testTollImportSyncsShiftsByIdDictionary() async throws {
+        // Given: Create a shift with NO existing tolls
+        let shiftStart = createTestDate(year: 2025, month: 9, day: 16, hour: 9, minute: 0)
+        var testShift = createBasicTestShift(startDate: shiftStart)
+        testShift.endDate = shiftStart.addingTimeInterval(8 * 3600)
+        testShift.endMileage = testShift.startMileage + 150.0
+        testShift.tolls = nil  // Explicitly no tolls before import
+        let shiftId = testShift.id
+
+        let manager = await MainActor.run {
+            let mgr = ShiftDataManager(forEnvironment: true)
+            mgr.shifts.removeAll()
+            mgr.addShift(testShift)
+            return mgr
+        }
+
+        // Verify initial state - shift has no tolls
+        let initialShiftById = await MainActor.run { manager.shift(byId: shiftId) }
+        XCTAssertNotNil(initialShiftById, "Shift should be found by ID before import")
+        XCTAssertNil(initialShiftById?.tolls, "Shift should have no tolls before import")
+
+        // Create CSV with toll transactions for this shift
+        let csvContent = """
+        Transaction Entry Date,Location,Plate,Transaction Amount
+        "09/16/2025 10:30:00","183S - Thompson Lane Mainline NB","TX - MKG0738",1.30
+        "09/16/2025 12:45:00","Mopac Express - Cesar Chavez SB","TX - MKG0738",0.75
+        """
+        let expectedTolls = 1.30 + 0.75 // = 2.05
+
+        let tempDir = FileManager.default.temporaryDirectory
+        let testURL = tempDir.appendingPathComponent("test_dictionary_sync.csv")
+        try csvContent.write(to: testURL, atomically: true, encoding: .utf8)
+
+        // When: Import the tolls
+        _ = try await MainActor.run {
+            return try ImportExportManager.shared.importTolls(from: testURL, dataManager: manager)
+        }
+
+        // Then: CRITICAL TEST - shift(byId:) must return the UPDATED shift with tolls
+        // BUG: Before fix, shiftsById dictionary was not updated, so this returned stale data
+        let shiftByIdAfterImport = await MainActor.run { manager.shift(byId: shiftId) }
+        XCTAssertNotNil(shiftByIdAfterImport, "Shift should still be found by ID after import")
+
+        // This is the critical assertion that catches the bug
+        XCTAssertNotNil(shiftByIdAfterImport?.tolls, "shift(byId:) should return shift with tolls after import")
+        if let tolls = shiftByIdAfterImport?.tolls {
+            assertCurrency(tolls, equals: expectedTolls, "shift(byId:) should return correct toll amount")
+        }
+
+        // Also verify the shifts array has the correct data (this always worked)
+        let shiftFromArray = await MainActor.run {
+            manager.shifts.first(where: { $0.id == shiftId })
+        }
+        XCTAssertNotNil(shiftFromArray?.tolls, "Shift in array should have tolls")
+        if let tolls = shiftFromArray?.tolls {
+            assertCurrency(tolls, equals: expectedTolls, "Shift in array should have correct toll amount")
+        }
+
+        // Verify both return the same data (this is the core of the consistency check)
+        XCTAssertEqual(shiftByIdAfterImport?.tolls, shiftFromArray?.tolls,
+                       "shift(byId:) and array should return consistent toll values")
+
+        // Also verify image attachments are synced
+        let imageCountById = shiftByIdAfterImport?.imageAttachments.filter { $0.type == .importedToll }.count ?? 0
+        let imageCountArray = shiftFromArray?.imageAttachments.filter { $0.type == .importedToll }.count ?? 0
+        XCTAssertEqual(imageCountById, imageCountArray,
+                       "shift(byId:) and array should have consistent image attachments")
+        XCTAssertEqual(imageCountById, 1, "Should have one toll summary image attached")
+
+        debugMessage("shift(byId:) tolls: \(shiftByIdAfterImport?.tolls ?? -1)")
+        debugMessage("shifts array tolls: \(shiftFromArray?.tolls ?? -1)")
+
+        // Cleanup
+        try? FileManager.default.removeItem(at: testURL)
+    }
+
     // MARK: - Real Data Diagnostic Test
 
     func testTollImportWithRealUserData() async throws {

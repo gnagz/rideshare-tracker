@@ -286,11 +286,14 @@ class ImportExportManager: ObservableObject {
 
                 // Add the updated shift to results AFTER all modifications are complete
                 let shift = dataManager.shifts[shiftIndex]
+
+                // CRITICAL: Update both the shifts array AND the shiftsById dictionary,
+                // and persist to UserDefaults. Without this, the dictionary has stale data
+                // and ShiftDetailView.currentShift shows old values until Edit+Save.
+                dataManager.updateShift(shift)
+
                 updatedShifts.append(shift)
             }
-
-            // Trigger data manager update
-            dataManager.objectWillChange.send()
 
                 debugMessage("Toll import completed: Updated \(updatedShifts.count) shifts, generated \(imagesGenerated) images")
                 return TollImportResult(
