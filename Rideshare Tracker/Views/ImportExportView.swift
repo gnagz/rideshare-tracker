@@ -125,6 +125,17 @@ struct ImportView: View {
         let url: URL
         let type: ImportType
         let shiftSubtype: ShiftImportSubtype?
+        var parsedShifts: [RideshareShift]?
+        var parsedExpenses: [ExpenseItem]?
+        var duplicateCount: Int = 0
+    }
+
+    private var duplicateAlertMessage: String {
+        let count = pendingImportData?.duplicateCount ?? 0
+        let recordType = pendingImportData?.type == .shifts ? "shift" : "expense"
+        let plural = count == 1 ? "" : "s"
+
+        return "Found \(count) \(recordType)\(plural) with matching start date and odometer reading.\n\nHow would you like to handle these duplicates?\n\n• Add New: Import all records alongside existing data\n• Replace: Replace existing records with imported data\n• Skip: Only import records that don't already exist"
     }
 
     private func getImportDescription(for type: ImportType) -> String {
@@ -190,7 +201,7 @@ struct ImportView: View {
                     .padding(.horizontal)
                 }
 
-                Button(importType == .shifts && shiftSubtype == .uberPDF ? "Select PDF File" : "Select CSV File") {
+                Button(importType == .shifts && shiftSubtype == .uberPDF ? "Select PDF Files" : "Select CSV File") {
                     debugMessage("File picker button pressed for import type: \(importType.rawValue)")
                     if importType == .shifts && shiftSubtype == .uberPDF {
                         showingUberImport = true
@@ -275,7 +286,7 @@ struct ImportView: View {
                 performImport()
             }
         } message: {
-            Text("Records with matching start date and odometer reading were found.\n\nHow would you like to handle these duplicates?\n\n• Add New: Import all records alongside existing data\n• Replace: Replace existing records with imported data\n• Skip: Only import records that don't already exist")
+            Text(duplicateAlertMessage)
         }
         .alert(importAlertTitle, isPresented: $showingImportAlert) {
             Button("OK") { }
@@ -295,22 +306,63 @@ struct ImportView: View {
             debugMessage("Selected file: \(url.lastPathComponent)")
             debugMessage("File URL: \(url)")
 
-            pendingImportData = PendingImportData(url: url, type: importType, shiftSubtype: importType == .shifts ? shiftSubtype : nil)
-
-            // Check if we have existing data that might cause duplicates
             // Tolls and Uber imports update existing shifts, no duplicate handling needed
             if (importType == .shifts && (shiftSubtype == .tollCSV || shiftSubtype == .uberPDF)) {
-                // These update existing shifts, no duplicate handling needed
+                pendingImportData = PendingImportData(url: url, type: importType, shiftSubtype: shiftSubtype)
                 performImport()
-            } else {
-                let hasExistingData = importType == .shifts ? !dataManager.shifts.isEmpty : !expenseManager.expenses.isEmpty
+                return
+            }
 
-                if hasExistingData {
+            // For shift and expense CSV imports, parse first to check for actual duplicates
+            if importType == .shifts && shiftSubtype == .shiftCSV {
+                // Parse the CSV to get shifts
+                let csvResult: CSVImportResult
+                do {
+                    csvResult = try importExportManager.importShifts(from: url)
+                } catch {
+                    debugMessage("Shift import failed during pre-parse: \(error)")
+                    importAlertTitle = "Import Failed"
+                    importMessage = importExportManager.lastError?.localizedDescription ?? "Unknown error"
+                    showingImportAlert = true
+                    return
+                }
+
+                // Check for actual duplicates (matching start date and odometer)
+                let duplicateCount = csvResult.shifts.filter { shift in
+                    dataManager.shifts.contains { existing in
+                        Calendar.current.isDate(existing.startDate, equalTo: shift.startDate, toGranularity: .minute) &&
+                        existing.startMileage == shift.startMileage
+                    }
+                }.count
+
+                pendingImportData = PendingImportData(
+                    url: url,
+                    type: importType,
+                    shiftSubtype: shiftSubtype,
+                    parsedShifts: csvResult.shifts,
+                    duplicateCount: duplicateCount
+                )
+
+                if duplicateCount > 0 {
                     showingDuplicateOptions = true
                 } else {
                     duplicateAction = .merge
                     performImport()
                 }
+            } else if importType == .expenses {
+                // For expenses, check if any would be duplicates
+                // For now, just check if there's existing data (simpler case)
+                pendingImportData = PendingImportData(url: url, type: importType, shiftSubtype: nil)
+                if !expenseManager.expenses.isEmpty {
+                    showingDuplicateOptions = true
+                } else {
+                    duplicateAction = .merge
+                    performImport()
+                }
+            } else {
+                pendingImportData = PendingImportData(url: url, type: importType, shiftSubtype: shiftSubtype)
+                duplicateAction = .merge
+                performImport()
             }
             
         case .failure(let error):
@@ -354,24 +406,33 @@ struct ImportView: View {
     private func importShifts(from url: URL) {
         debugMessage("Starting shift import from UI: \(url.lastPathComponent)")
 
-        let csvResult: CSVImportResult
-        do {
-            csvResult = try importExportManager.importShifts(from: url)
-        } catch {
-            debugMessage("Shift import failed: \(error)")
-            importAlertTitle = "Import Failed"
-            importMessage = importExportManager.lastError?.localizedDescription ?? "Unknown error"
-            showingImportAlert = true
-            return
+        // Use pre-parsed shifts if available (from duplicate check), otherwise parse now
+        let shifts: [RideshareShift]
+        if let parsedShifts = pendingImportData?.parsedShifts {
+            shifts = parsedShifts
+            debugMessage("Using pre-parsed shifts: \(shifts.count) shifts")
+        } else {
+            let csvResult: CSVImportResult
+            do {
+                csvResult = try importExportManager.importShifts(from: url)
+            } catch {
+                debugMessage("Shift import failed: \(error)")
+                importAlertTitle = "Import Failed"
+                importMessage = importExportManager.lastError?.localizedDescription ?? "Unknown error"
+                showingImportAlert = true
+                return
+            }
+            shifts = csvResult.shifts
         }
 
         // Import successful, process shifts
-        debugMessage("CSV import successful, processing \(csvResult.shifts.count) shifts with duplicate action: \(duplicateAction)")
+        debugMessage("Processing \(shifts.count) shifts with duplicate action: \(duplicateAction)")
         var addedCount = 0
         var updatedCount = 0
         var skippedCount = 0
+        var addedOrUpdatedShifts: [RideshareShift] = []
 
-        for shift in csvResult.shifts {
+        for shift in shifts {
             let existingShiftIndex = dataManager.shifts.firstIndex { existingShift in
                 Calendar.current.isDate(existingShift.startDate, inSameDayAs: shift.startDate) &&
                 existingShift.startMileage == shift.startMileage
@@ -383,21 +444,25 @@ struct ImportView: View {
             switch duplicateAction {
             case .merge:
                 dataManager.addShift(shift)
+                addedOrUpdatedShifts.append(shift)
                 addedCount += 1
                 debugMessage("MERGE: Added shift (total shifts: \(dataManager.shifts.count))")
             case .replace:
                 if let index = existingShiftIndex {
                     dataManager.shifts[index] = shift
+                    addedOrUpdatedShifts.append(shift)
                     updatedCount += 1
                     debugMessage("REPLACE: Updated existing shift at index \(index)")
                 } else {
                     dataManager.addShift(shift)
+                    addedOrUpdatedShifts.append(shift)
                     addedCount += 1
                     debugMessage("REPLACE: Added new shift (total shifts: \(dataManager.shifts.count))")
                 }
             case .skip:
                 if existingShiftIndex == nil {
                     dataManager.addShift(shift)
+                    addedOrUpdatedShifts.append(shift)
                     addedCount += 1
                     debugMessage("SKIP: Added non-duplicate shift (total shifts: \(dataManager.shifts.count))")
                 } else {
@@ -407,12 +472,19 @@ struct ImportView: View {
             }
         }
 
+        // Try to match orphaned Uber transactions to newly added/updated shifts
+        var matchedTransactionCount = 0
+        if !addedOrUpdatedShifts.isEmpty {
+            matchedTransactionCount = dataManager.matchOrphanedTransactionsToShifts(addedOrUpdatedShifts)
+        }
+
         var message = "Import completed:\n"
         if addedCount > 0 { message += "\n• Added: \(addedCount) shifts" }
         if updatedCount > 0 { message += "\n• Updated: \(updatedCount) shifts" }
         if skippedCount > 0 { message += "\n• Skipped: \(skippedCount) duplicates" }
+        if matchedTransactionCount > 0 { message += "\n• Matched: \(matchedTransactionCount) Uber transactions" }
 
-        debugMessage("Import completed: added=\(addedCount), updated=\(updatedCount), skipped=\(skippedCount)")
+        debugMessage("Import completed: added=\(addedCount), updated=\(updatedCount), skipped=\(skippedCount), matched=\(matchedTransactionCount)")
 
         importAlertTitle = "Import Successful"
         importMessage = message

@@ -276,9 +276,30 @@ struct ShiftDetailView: View {
                 // Show gas price used for this shift
                 DetailRow("Gas Price Used", String(format: "$%.3f/gal", currentShift.gasPrice))
 
-                if let tolls = currentShift.tolls, tolls > 0 {
-                    DetailRow("Tolls", String(format: "$%.2f", tolls))
-                    DetailRow("Tolls Reimbursed", String(format: "$%.2f", currentShift.tollsReimbursed ?? 0))
+                // Show tolls if entered, or if there's an Uber reimbursement
+                let tollsEntered = currentShift.tolls ?? 0
+                let tollsReimbursed = currentShift.tollsReimbursed ?? 0
+
+                if tollsEntered > 0 || tollsReimbursed > 0 {
+                    if tollsEntered > 0 {
+                        DetailRow("Tolls", String(format: "$%.2f", tollsEntered))
+                    }
+                    if tollsReimbursed > 0 {
+                        DetailRow("Tolls Reimbursed", String(format: "$%.2f", tollsReimbursed))
+                    }
+
+                    // Warning if Uber reimbursed more than entered tolls
+                    if tollsReimbursed > tollsEntered {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                                .font(.caption)
+                            Text("Tolls should be ≥ reimbursement (\(String(format: "$%.2f", tollsReimbursed)))")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                            Spacer()
+                        }
+                    }
                 }
                 if let parking = currentShift.parkingFees, parking > 0 {
                     DetailRow("Parking Fees", String(format: "$%.2f", parking))

@@ -198,6 +198,92 @@ class ShiftDataManager: ObservableObject {
         saveShifts()
     }
 
+    // MARK: - Uber Transaction Matching
+
+    /// Match orphaned Uber transactions to the given shifts
+    /// Updates matched transactions, aggregates tips/tolls on shifts, and generates transaction images
+    /// Returns the number of transactions matched
+    func matchOrphanedTransactionsToShifts(_ newShifts: [RideshareShift]) -> Int {
+        let transactionManager = UberTransactionManager.shared
+        let orphanedTransactions = transactionManager.getOrphanedTransactions()
+
+        guard !orphanedTransactions.isEmpty else {
+            debugMessage("No orphaned transactions to match")
+            return 0
+        }
+
+        debugMessage("Attempting to match \(orphanedTransactions.count) orphaned transactions to \(newShifts.count) new shifts")
+
+        let matcher = UberShiftMatcher()
+        let (matched, _, _) = matcher.matchTransactionsToShifts(transactions: orphanedTransactions, existingShifts: newShifts)
+
+        guard !matched.isEmpty else {
+            debugMessage("No orphaned transactions matched to new shifts")
+            return 0
+        }
+
+        // Update transactions with their matched shift IDs
+        var affectedShiftIDs: Set<UUID> = []
+        for match in matched {
+            var transaction = match.transaction
+            transaction.shiftID = match.shift.id
+            transactionManager.saveTransaction(transaction)
+            affectedShiftIDs.insert(match.shift.id)
+        }
+
+        debugMessage("Matched \(matched.count) orphaned transactions to \(affectedShiftIDs.count) shifts")
+
+        // Update affected shifts with aggregated Uber data and regenerate images
+        for shiftID in affectedShiftIDs {
+            guard let shiftIndex = shifts.firstIndex(where: { $0.id == shiftID }) else { continue }
+            var shift = shifts[shiftIndex]
+
+            let shiftTransactions = transactionManager.getTransactions(forShift: shiftID)
+            let totals = shiftTransactions.totals()
+
+            // Save original values if this is first time getting Uber data
+            if shift.originalTips == nil {
+                shift.originalTips = shift.tips
+            }
+            if shift.originalTollsReimbursed == nil {
+                shift.originalTollsReimbursed = shift.tollsReimbursed
+            }
+
+            // Update shift with aggregated data
+            shift.tips = totals.tips
+            shift.tollsReimbursed = totals.tollsReimbursed
+            shift.uberImportDate = Date()
+            shift.uberDataUserVerified = false
+
+            // Remove existing Uber transaction images
+            let existingUberAttachments = shift.imageAttachments.filter { $0.type == .importedUberTxns }
+            for attachment in existingUberAttachments {
+                ImageManager.shared.deleteImage(attachment, for: shift.id, parentType: .shift)
+            }
+            shift.imageAttachments.removeAll { $0.type == .importedUberTxns }
+
+            // Generate new transaction summary image
+            if let image = UberTransactionImageGenerator.generate(transactions: shiftTransactions, shift: shift) {
+                do {
+                    let attachment = try ImageManager.shared.saveImage(
+                        image,
+                        for: shift.id,
+                        parentType: .shift,
+                        type: .importedUberTxns,
+                        description: "Uber Import - \(shiftTransactions.count) transactions"
+                    )
+                    shift.imageAttachments.append(attachment)
+                } catch {
+                    debugMessage("Failed to save transaction image: \(error)")
+                }
+            }
+
+            updateShift(shift)
+        }
+
+        return matched.count
+    }
+
     // MARK: - Data Migration
 
     /// One-time migration: Convert old toll summary images from .receipt to .importedToll type

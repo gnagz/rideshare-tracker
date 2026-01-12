@@ -290,8 +290,13 @@ struct StartShiftView: View {
     private func startShift() {
         guard let mileage = startMileage else { return }
 
+        // Truncate to minute (user can only pick hour/minute, drop seconds/nanoseconds)
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: startDate)
+        let normalizedStartDate = calendar.date(from: components) ?? startDate
+
         var shift = RideshareShift(
-            startDate: startDate,
+            startDate: normalizedStartDate,
             startMileage: mileage,
             startTankReading: tankReading,
             hasFullTankAtStart: tankReading == 8.0,

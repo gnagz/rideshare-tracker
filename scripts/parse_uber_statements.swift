@@ -6,8 +6,9 @@ import PDFKit
 /// Comprehensive validation script for all Uber PDF statements
 /// Validates parsing quality across all your local Uber earnings PDFs
 ///
-/// ⚠️ ENTIRE SYNC POINT SECTION ⚠️
-/// Lines 87-576 duplicate parsing logic from Rideshare Tracker/Utilities/UberStatementParser.swift
+/// ⚠️ DUPLICATE CODE IN SYNC POINT SECTION ⚠️
+/// The lines between ⚠️ SYNC POINT START ⚠️ and ⚠️ SYNC POINT END ⚠️
+/// duplicate parsing logic from Rideshare Tracker/Utilities/UberStatementParser.swift
 /// Keep this section byte-for-byte identical with UberStatementParser.swift
 /// All parsing logic should be duplicated between the app and this validation script
 
@@ -74,7 +75,11 @@ struct UberTransaction {
     let eventType: String
     let amount: Double?
     let tollsReimbursed: Double?
-    let sourceRow: Int  // For debugging (not in production UberTransaction)
+    let needsManualVerification: Bool  // Added to match app's UberTransaction
+    let statementPeriod: String        // Added to match app's UberTransaction
+    let shiftID: UUID?                 // Added to match app's UberTransaction
+    let importDate: Date               // Added to match app's UberTransaction
+    let sourceRow: Int                 // For debugging (not in production UberTransaction)
 }
 
 struct ValidationResult {
@@ -203,6 +208,8 @@ class SimplifiedUberParser {
         case sixColumn   // With "Refunds & Expenses" (has tolls)
     }
 
+    // MARK: - Column Layout Detection
+
     /// Detect column layout from table header
     /// - Parameter headerText: Transaction table header text
     /// - Returns: Column layout (.fiveColumn or .sixColumn)
@@ -215,13 +222,16 @@ class SimplifiedUberParser {
         }
     }
 
+    // MARK: - Transaction Parsing
+
     /// Parse transaction from coordinate elements (test-friendly version)
     /// - Parameters:
     ///   - elements: Array of (text, x, y) tuples representing PDF elements
     ///   - layout: Column layout (5 or 6 column)
     ///   - rowIndex: Row index for debugging
+    ///   - statementPeriod: Optional statement period dates for correct year inference
     /// - Returns: Parsed transaction or nil
-    internal func parseTransactionFromElements(_ elements: [(text: String, x: CGFloat, y: CGFloat)], layout: ColumnLayout, rowIndex: Int) -> UberTransaction? {
+    internal func parseTransactionFromElements(_ elements: [(text: String, x: CGFloat, y: CGFloat)], layout: ColumnLayout, rowIndex: Int, statementPeriod: (startDate: Date, endDate: Date)? = nil) -> UberTransaction? {
         guard !elements.isEmpty else { return nil }
 
         // Convert to format used by parsing logic
@@ -292,9 +302,7 @@ class SimplifiedUberParser {
             }
             // Check for event date/time
             else if element.text.range(of: eventDatePattern, options: .regularExpression) != nil {
-                let calendar = Calendar.current
-                let currentYear = calendar.component(.year, from: Date())
-                eventDate = parseEventDateTime(text: element.text, year: currentYear)
+                eventDate = parseEventDateTime(text: element.text, statementPeriod: statementPeriod)
                 foundEventDate = true
             }
             // Check for standalone amounts - Only if text is ONLY amounts (no other text)
@@ -374,9 +382,7 @@ class SimplifiedUberParser {
 
         // Parse processed date from collected parts
         if let datePart = datePart, let timePart = timePart {
-            let calendar = Calendar.current
-            let currentYear = calendar.component(.year, from: Date())
-            processedDate = parseCoordinateBasedDate(datePart: datePart, timePart: timePart, year: currentYear)
+            processedDate = parseCoordinateBasedDate(datePart: datePart, timePart: timePart, statementPeriod: statementPeriod)
         }
 
         guard let processedDate = processedDate else { return nil }
@@ -384,22 +390,33 @@ class SimplifiedUberParser {
         // Parse amounts based on event type and column layout
         let (amount, tollsReimbursed) = parseAmountsByEventType(amounts, eventType: eventType, layout: layout)
 
+        // Mark for manual verification if eventDate is missing
+        // This is critical for accurate shift matching - without eventDate, we fall back to
+        // transactionDate which can be hours later (especially for tips)
+        let needsVerification = (eventDate == nil)
+
         return UberTransaction(
             transactionDate: processedDate,
             eventDate: eventDate,
             eventType: eventType.trimmingCharacters(in: .whitespaces),
             amount: amount,
             tollsReimbursed: tollsReimbursed,
+            needsManualVerification: needsVerification,
+            statementPeriod: "",  // Will be filled in by caller
+            shiftID: nil,
+            importDate: Date(),
             sourceRow: rowIndex
         )
     }
 
+    // MARK: - Date Parsing
+
     /// Parse event date/time from combined string (e.g., "Aug 24 4:45 PM")
     /// - Parameters:
     ///   - text: Event date/time string
-    ///   - year: Year to use
+    ///   - statementPeriod: Statement period for year inference (nil falls back to current year)
     /// - Returns: Parsed date or nil
-    private func parseEventDateTime(text: String, year: Int) -> Date? {
+    private func parseEventDateTime(text: String, statementPeriod: (startDate: Date, endDate: Date)?) -> Date? {
         // Parse format: "Aug 24 4:45 PM"
         let pattern = #"^([A-Za-z]+)\s+(\d+)\s+(\d+):(\d+)\s+(AM|PM)$"#
         guard let regex = try? NSRegularExpression(pattern: pattern),
@@ -433,8 +450,9 @@ class SimplifiedUberParser {
             }
         }
 
-        // Create date
+        // Create date - infer year from statement period
         let month = monthNumber(from: monthStr)
+        let year = inferYear(forMonth: month, statementPeriod: statementPeriod)
         var components = DateComponents()
         components.year = year
         components.month = month
@@ -449,9 +467,9 @@ class SimplifiedUberParser {
     /// - Parameters:
     ///   - datePart: Date string (e.g., "Sat, Aug 9" or "T ue, Aug 5")
     ///   - timePart: Time string (e.g., "12:24 AM")
-    ///   - year: Year to use
+    ///   - statementPeriod: Statement period for year inference (nil falls back to current year)
     /// - Returns: Parsed date or nil
-    private func parseCoordinateBasedDate(datePart: String, timePart: String, year: Int) -> Date? {
+    private func parseCoordinateBasedDate(datePart: String, timePart: String, statementPeriod: (startDate: Date, endDate: Date)?) -> Date? {
         // Parse date part: "Sat, Aug 9" or "T ue, Aug 5"
         let datePattern = #"^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun|T\s+ue),\s+([A-Za-z]+)\s+(\d+)$"#
         guard let dateRegex = try? NSRegularExpression(pattern: datePattern),
@@ -488,9 +506,10 @@ class SimplifiedUberParser {
             hour24 = 0
         }
 
-        // Create date
+        // Create date - infer year from statement period
         let calendar = Calendar.current
         let month = monthNumber(from: monthStr)
+        let year = inferYear(forMonth: month, statementPeriod: statementPeriod)
 
         var dateComponents = DateComponents()
         dateComponents.year = year
@@ -502,6 +521,8 @@ class SimplifiedUberParser {
 
         return calendar.date(from: dateComponents)
     }
+
+    // MARK: - Amount Parsing
 
     /// Parse amounts based on event type and column layout
     /// - Parameters:
@@ -563,6 +584,8 @@ class SimplifiedUberParser {
         return (amounts.first ?? 0, nil)
     }
 
+    // MARK: - Helper Functions
+
     /// Convert month name to number
     /// - Parameter monthName: Month name ("Jan", "Feb", etc.)
     /// - Returns: Month number (1-12)
@@ -571,6 +594,45 @@ class SimplifiedUberParser {
                       "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12]
         return months[monthName] ?? 1
     }
+
+    /// Infer the correct year for a transaction date based on statement period
+    /// Handles year boundary cases (e.g., statement Dec 29, 2025 - Jan 5, 2026)
+    /// - Parameters:
+    ///   - month: Month number (1-12) of the transaction
+    ///   - statementPeriod: Optional statement period with start and end dates
+    /// - Returns: Year to use for the transaction date
+    private func inferYear(forMonth month: Int, statementPeriod: (startDate: Date, endDate: Date)?) -> Int {
+        let calendar = Calendar.current
+
+        guard let period = statementPeriod else {
+            // Fallback to current year if no statement period provided
+            return calendar.component(.year, from: Date())
+        }
+
+        let startYear = calendar.component(.year, from: period.startDate)
+        let endYear = calendar.component(.year, from: period.endDate)
+        let startMonth = calendar.component(.month, from: period.startDate)
+        let endMonth = calendar.component(.month, from: period.endDate)
+
+        // If statement period is within a single year, use that year
+        if startYear == endYear {
+            return startYear
+        }
+
+        // Statement crosses year boundary (e.g., Dec 2025 - Jan 2026)
+        // Determine which year based on the transaction's month
+        // - Months from startMonth to Dec belong to startYear
+        // - Months from Jan to endMonth belong to endYear
+        if month >= startMonth && month <= 12 {
+            return startYear
+        } else if month >= 1 && month <= endMonth {
+            return endYear
+        }
+
+        // Edge case: month doesn't fit expected range, use start year as fallback
+        return startYear
+    }
+
     // MARK: ⚠️ SYNC POINT END ⚠️
 
     private func extractAllAmounts(from text: String) -> [Double] {

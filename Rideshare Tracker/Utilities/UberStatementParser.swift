@@ -5,13 +5,13 @@
 //  Created by George Knaggs in collaboration with Claude AI on 11/18/25.
 //  Extracted from UberStatementManager.swift
 //
-//  ⚠️ ENTIRE FILE IS SYNC POINT ⚠️
-//  Keep this file byte-for-byte identical with scripts/parse_uber_statements.swift
+//  ⚠️ DUPLICATE CODE BELOW SYNC POINT ⚠️
+//  Keep the code below the SYNC POINT byte-for-byte identical with scripts/parse_uber_statements.swift
 //  All parsing logic should be duplicated between this file and the validation script.
 
 import Foundation
 
-// MARK: - Column Layout
+// MARK: ⚠️ SYNC POINT BELOW THIS POINT ⚠️
 
 /// Column layout for Uber statement transaction table
 enum ColumnLayout {

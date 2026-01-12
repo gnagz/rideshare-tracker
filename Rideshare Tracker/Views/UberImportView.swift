@@ -15,95 +15,119 @@ struct UberImportView: View {
     @EnvironmentObject var dataManager: ShiftDataManager
     @Environment(\.presentationMode) var presentationMode
 
-    @State private var showingFilePicker = false
+    @State private var showingFilePicker = true  // Auto-show on appear
+    @State private var hasSelectedFiles = false  // Track if user selected files
     @State private var isProcessing = false
     @State private var showingResults = false
     @State private var importResult: UberImportResult?
     @State private var errorMessage: String?
     @State private var showingError = false
 
-    // State for re-import confirmation dialog
+    // State for processing and duplicate confirmation
+    @State private var processingProgress: (current: Int, total: Int, filename: String)?
+    @State private var pendingURLs: [URL] = []
+    @State private var duplicatesWithCounts: [(period: String, matched: Int, orphan: Int)] = []
     @State private var showingReplaceConfirmation = false
-    @State private var pendingStatementPeriod: String = ""
-    @State private var pendingTransactions: [UberTransaction] = []
-    @State private var existingTransactionCount: Int = 0
+
+    /// Dialog title adapts to single vs multiple duplicates
+    private var replaceDialogTitle: String {
+        duplicatesWithCounts.count == 1
+            ? "Previously Imported Statement"
+            : "Previously Imported Statements"
+    }
+
+    /// Dialog button text adapts to single vs multiple
+    private var replaceButtonText: String {
+        duplicatesWithCounts.count == 1 ? "Replace" : "Replace All"
+    }
+
+    /// Format the duplicate warning message with matched/orphan counts
+    private var duplicateWarningMessage: String {
+        if duplicatesWithCounts.count == 1 {
+            let dup = duplicatesWithCounts[0]
+            return "\(dup.period) has \(dup.matched) matched and \(dup.orphan) unmatched transactions.\n\nReplace will remove existing transactions and re-import from the PDF."
+        } else {
+            let lines = duplicatesWithCounts.map { dup in
+                "\(dup.period): \(dup.matched) matched, \(dup.orphan) unmatched"
+            }
+            return "The following statements have previously matched transactions:\n\n\(lines.joined(separator: "\n"))\n\nReplace All will remove existing transactions and re-import from the PDFs."
+        }
+    }
 
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-
-                // Header Section
-                VStack(spacing: 16) {
-                    Image(systemName: "doc.text.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(.blue)
-
-                    Text("Import Uber Weekly Statement")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-
-                    Text("Upload your Uber weekly statement PDF to automatically match tips and toll reimbursements to your shifts.")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-
-                    Button {
-                        showingFilePicker = true
-                    } label: {
-                        Label("Select PDF File", systemImage: "doc.badge.plus")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(isProcessing)
-                    .padding(.horizontal)
-                }
-                .padding(.top)
-
                 Spacer()
 
-                // Information Section
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("What Happens", systemImage: "info.circle")
-                        .font(.headline)
-
-                    Text("• Extracts tips and toll reimbursements from PDF")
-                    Text("• Matches transactions to existing shifts using 4 AM boundaries")
-                    Text("• Updates shifts with Uber tip and toll data")
-                    Text("• Generates summary images for matched data")
-                    Text("• Creates CSV for unmatched transactions (missing shifts)")
-                }
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                .background(Color(.systemGroupedBackground))
-                .cornerRadius(8)
-                .padding(.horizontal)
-
+                // Processing indicator
                 if isProcessing {
-                    ProgressView("Processing PDF...")
-                        .padding()
+                    VStack(spacing: 16) {
+                        Image(systemName: "doc.text.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.blue)
+
+                        if let progress = processingProgress, progress.total > 1 {
+                            ProgressView(value: Double(progress.current), total: Double(progress.total))
+                                .padding(.horizontal, 40)
+                            Text("Processing \(progress.current) of \(progress.total)")
+                                .font(.headline)
+                            Text(progress.filename)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else if let progress = processingProgress {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            Text("Processing")
+                                .font(.headline)
+                            Text(progress.filename)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            Text("Processing...")
+                                .font(.headline)
+                        }
+                    }
+                } else if !showingFilePicker && hasSelectedFiles {
+                    // Waiting for results to show
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Preparing results...")
+                            .font(.headline)
+                    }
                 }
+
+                Spacer()
             }
             .navigationTitle("Uber Import")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
+                    Button("Cancel") {
                         presentationMode.wrappedValue.dismiss()
                     }
+                    .disabled(isProcessing)
                 }
             }
             .fileImporter(
                 isPresented: $showingFilePicker,
                 allowedContentTypes: [.pdf],
-                allowsMultipleSelection: false
+                allowsMultipleSelection: true
             ) { result in
                 handleFileSelection(result)
             }
-            .sheet(isPresented: $showingResults) {
+            .onChange(of: showingFilePicker) { _, isShowing in
+                // If file picker closed without selecting files, dismiss this view
+                if !isShowing && !hasSelectedFiles && !isProcessing && !showingResults {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
+            .sheet(isPresented: $showingResults, onDismiss: {
+                // When result sheet closes, dismiss this view too
+                presentationMode.wrappedValue.dismiss()
+            }) {
                 if let result = importResult {
                     UberImportResultView(result: result)
                         .environmentObject(dataManager)
@@ -114,17 +138,16 @@ struct UberImportView: View {
             } message: {
                 Text(errorMessage ?? "An unknown error occurred")
             }
-            .alert("Statement Period Already Imported", isPresented: $showingReplaceConfirmation) {
-                Button("Replace", role: .destructive) {
-                    performStatementPeriodReplacement()
+            .alert(replaceDialogTitle, isPresented: $showingReplaceConfirmation) {
+                Button(replaceButtonText, role: .destructive) {
+                    processWithReplacement()
                 }
                 Button("Cancel", role: .cancel) {
-                    pendingTransactions = []
-                    pendingStatementPeriod = ""
-                    existingTransactionCount = 0
+                    pendingURLs = []
+                    duplicatesWithCounts = []
                 }
             } message: {
-                Text("This statement period (\(pendingStatementPeriod)) has already been imported with \(existingTransactionCount) transactions.\n\nReplacing will remove all existing transactions for this period and import the new ones.")
+                Text(duplicateWarningMessage)
             }
         }
     }
@@ -134,75 +157,356 @@ struct UberImportView: View {
     private func handleFileSelection(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
-            guard let url = urls.first else { return }
-            processPDF(at: url)
+            guard !urls.isEmpty else { return }
+            hasSelectedFiles = true
+            processBatch(urls: urls)
         case .failure(let error):
             errorMessage = "Failed to select file: \(error.localizedDescription)"
             showingError = true
         }
     }
 
-    private func processPDF(at url: URL) {
+    /// Process one or more PDF files (single file = batch of 1)
+    private func processBatch(urls: [URL]) {
+        // Pre-scan all files for duplicates with matched transactions
+        isProcessing = true
+        Task {
+            await MainActor.run {
+                processingProgress = (current: 0, total: urls.count, filename: "Checking for duplicates...")
+            }
+
+            let duplicates = await preScanForDuplicates(urls: urls)
+
+            await MainActor.run {
+                processingProgress = nil
+                isProcessing = false
+
+                if !duplicates.isEmpty {
+                    // Show confirmation dialog - there are matched transactions that would be replaced
+                    pendingURLs = urls
+                    duplicatesWithCounts = duplicates
+                    showingReplaceConfirmation = true
+                } else {
+                    // No matched duplicates - proceed directly
+                    // (orphan-only periods will be silently replaced)
+                    pendingURLs = urls
+                    processWithReplacement()
+                }
+            }
+        }
+    }
+
+    /// Pre-scan PDFs to find which statement periods have matched transactions that would be replaced
+    /// Returns array of (period, matchedCount, orphanCount) for periods with matched transactions
+    private func preScanForDuplicates(urls: [URL]) async -> [(period: String, matched: Int, orphan: Int)] {
+        var duplicates: [(period: String, matched: Int, orphan: Int)] = []
+        let transactionManager = UberTransactionManager.shared
+        let parser = UberStatementManager.shared
+
+        for url in urls {
+            guard url.startAccessingSecurityScopedResource() else { continue }
+            defer { url.stopAccessingSecurityScopedResource() }
+
+            guard let pdfDocument = PDFDocument(url: url) else { continue }
+            let pdfText = extractText(from: pdfDocument)
+
+            if let statementInfo = try? parser.parseStatementPeriod(from: pdfText) {
+                // Only flag as duplicate if there are MATCHED transactions
+                // Orphan-only periods can be silently re-imported to try matching again
+                if transactionManager.hasMatchedTransactions(forStatementPeriod: statementInfo.period) {
+                    let counts = transactionManager.getTransactionCounts(forStatementPeriod: statementInfo.period)
+                    duplicates.append((period: statementInfo.period, matched: counts.matched, orphan: counts.orphan))
+                }
+            }
+        }
+
+        return duplicates
+    }
+
+    /// Process files with replacement (called after user confirms or if no duplicates)
+    private func processWithReplacement() {
+        let urls = pendingURLs
+        guard !urls.isEmpty else { return }
+
         isProcessing = true
 
         Task {
-            do {
-                // Load PDF
-                guard url.startAccessingSecurityScopedResource() else {
-                    throw UberImportError.fileAccessDenied
-                }
-                defer { url.stopAccessingSecurityScopedResource() }
+            var statementResults: [SingleStatementResult] = []
+            var allUnmatchedTransactions: [UberTransaction] = []
+            var affectedShiftIDs: Set<UUID> = []
+            var allMatchedCount = 0
+            var allUnmatchedCount = 0
+            var allImportableCount = 0
+            var allTransactionCount = 0
+            var allVerificationCount = 0
 
-                guard let pdfDocument = PDFDocument(url: url) else {
-                    throw UberImportError.invalidPDF
-                }
-
-                // Extract text from PDF
-                let pdfText = extractText(from: pdfDocument)
-
-                // Parse statement period
-                let parser = UberStatementManager.shared
-                guard let statementInfo = try parser.parseStatementPeriod(from: pdfText) else {
-                    throw UberImportError.statementPeriodNotFound
-                }
-
-                // Parse transactions from PDF (using coordinate-based parsing)
-                var transactions = try parser.parseStatement(from: url)
-
-                // Add metadata to all transactions
-                let importDate = Date()
-                for i in 0..<transactions.count {
-                    transactions[i].statementPeriod = statementInfo.period
-                    transactions[i].importDate = importDate
-                    transactions[i].shiftID = nil  // Start as orphaned
-                }
-
-                // Check if statement period already exists
-                let transactionManager = UberTransactionManager.shared
-                if transactionManager.hasStatementPeriod(statementInfo.period) {
-                    // Statement period exists - ask user for confirmation
-                    let existingCount = transactionManager.getTransactions(forStatementPeriod: statementInfo.period).count
-
-                    await MainActor.run {
-                        pendingStatementPeriod = statementInfo.period
-                        pendingTransactions = transactions
-                        existingTransactionCount = existingCount
-                        isProcessing = false
-                        showingReplaceConfirmation = true
-                    }
-                    return
-                }
-
-                // New statement period - proceed with import
-                await performImport(transactions: transactions, statementPeriod: statementInfo.period)
-
-            } catch {
+            // Process each PDF sequentially
+            for (index, url) in urls.enumerated() {
+                // Update progress
                 await MainActor.run {
-                    isProcessing = false
-                    errorMessage = error.localizedDescription
-                    showingError = true
+                    processingProgress = (current: index + 1, total: urls.count, filename: url.lastPathComponent)
+                }
+
+                // Process this PDF
+                let result = await processSinglePDF(
+                    url: url,
+                    affectedShiftIDs: &affectedShiftIDs,
+                    allUnmatchedTransactions: &allUnmatchedTransactions,
+                    allMatchedCount: &allMatchedCount,
+                    allUnmatchedCount: &allUnmatchedCount,
+                    allImportableCount: &allImportableCount,
+                    allTransactionCount: &allTransactionCount,
+                    allVerificationCount: &allVerificationCount
+                )
+
+                statementResults.append(result)
+            }
+
+            // Clear pending state
+            await MainActor.run {
+                pendingURLs = []
+                duplicatesWithCounts = []
+            }
+
+            // All PDFs processed - update affected shifts once at the end
+            let updatedShifts: [RideshareShift]
+            do {
+                updatedShifts = try await updateAffectedShifts(affectedShiftIDs)
+            } catch {
+                updatedShifts = []
+            }
+
+            // Force UI refresh
+            await MainActor.run {
+                dataManager.objectWillChange.send()
+            }
+
+            // Sort results by statement period date
+            let sortedResults = statementResults.sorted { parseStartDate($0.statementPeriod) < parseStartDate($1.statementPeriod) }
+
+            // Generate combined missing shifts CSV
+            var missingShiftsCSV: String? = nil
+            if !allUnmatchedTransactions.isEmpty {
+                let csvGenerator = MissingShiftsCSVGenerator()
+                let dateRange = calculateDateRange(from: sortedResults)
+
+                missingShiftsCSV = try? csvGenerator.generateMissingShiftsCSV(
+                    unmatchedTransactions: allUnmatchedTransactions,
+                    statementPeriod: dateRange
+                )
+            }
+
+            // Create combined result
+            let combinedPeriod = calculateCombinedPeriod(from: sortedResults)
+            let result = UberImportResult(
+                statementPeriod: combinedPeriod,
+                totalTransactions: allTransactionCount,
+                importableCount: allImportableCount,
+                matchedCount: allMatchedCount,
+                unmatchedCount: allUnmatchedCount,
+                transactionsNeedingVerification: allVerificationCount,
+                updatedShifts: updatedShifts,
+                missingShiftsCSV: missingShiftsCSV,
+                statementResults: sortedResults
+            )
+
+            await MainActor.run {
+                importResult = result
+                processingProgress = nil
+                isProcessing = false
+                showingResults = true
+            }
+        }
+    }
+
+    /// Calculate combined period description from statement results
+    private func calculateCombinedPeriod(from results: [SingleStatementResult]) -> String {
+        let successful = results.filter { $0.success }
+        guard !successful.isEmpty else { return "No statements processed" }
+
+        if successful.count == 1 {
+            return successful[0].statementPeriod
+        }
+
+        // Results are already sorted, show range from first start to last end
+        return calculateDateRange(from: successful)
+    }
+
+    /// Calculate date range string from earliest start to latest end date
+    /// Input: "Oct 13, 2025 - Oct 20, 2025", "Oct 20, 2025 - Oct 27, 2025"
+    /// Output: "Oct 13, 2025 - Oct 27, 2025"
+    private func calculateDateRange(from results: [SingleStatementResult]) -> String {
+        let successful = results.filter { $0.success }
+        guard !successful.isEmpty else { return "" }
+
+        if successful.count == 1 {
+            return successful[0].statementPeriod
+        }
+
+        // Extract earliest start date and latest end date
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+
+        var earliestStart: Date?
+        var latestEnd: Date?
+
+        for result in successful {
+            let parts = result.statementPeriod.components(separatedBy: " - ")
+            if parts.count == 2 {
+                if let startDate = formatter.date(from: parts[0].trimmingCharacters(in: .whitespaces)) {
+                    if earliestStart == nil || startDate < earliestStart! {
+                        earliestStart = startDate
+                    }
+                }
+                if let endDate = formatter.date(from: parts[1].trimmingCharacters(in: .whitespaces)) {
+                    if latestEnd == nil || endDate > latestEnd! {
+                        latestEnd = endDate
+                    }
                 }
             }
+        }
+
+        if let start = earliestStart, let end = latestEnd {
+            return "\(formatter.string(from: start)) - \(formatter.string(from: end))"
+        }
+
+        // Fallback to first and last period strings
+        return "\(successful.first!.statementPeriod) through \(successful.last!.statementPeriod)"
+    }
+
+    /// Parse start date from statement period string (e.g., "Oct 13, 2025 - Oct 20, 2025")
+    private func parseStartDate(_ period: String) -> Date {
+        let parts = period.components(separatedBy: " - ")
+        guard !parts.isEmpty else { return Date.distantFuture }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.date(from: parts[0].trimmingCharacters(in: .whitespaces)) ?? Date.distantFuture
+    }
+
+    /// Process a single PDF file
+    private func processSinglePDF(
+        url: URL,
+        affectedShiftIDs: inout Set<UUID>,
+        allUnmatchedTransactions: inout [UberTransaction],
+        allMatchedCount: inout Int,
+        allUnmatchedCount: inout Int,
+        allImportableCount: inout Int,
+        allTransactionCount: inout Int,
+        allVerificationCount: inout Int
+    ) async -> SingleStatementResult {
+
+        // Start security-scoped resource access
+        guard url.startAccessingSecurityScopedResource() else {
+            return SingleStatementResult(
+                filename: url.lastPathComponent,
+                statementPeriod: "Unknown",
+                success: false,
+                errorMessage: "Cannot access file. Please try again.",
+                matchedCount: 0,
+                unmatchedCount: 0,
+                importableCount: 0,
+                ignoredCount: 0,
+                wasSkippedAsDuplicate: false
+            )
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
+
+        do {
+            // Load PDF
+            guard let pdfDocument = PDFDocument(url: url) else {
+                throw UberImportError.invalidPDF
+            }
+
+            // Extract text and parse statement period
+            let pdfText = extractText(from: pdfDocument)
+            let parser = UberStatementManager.shared
+
+            guard let statementInfo = try parser.parseStatementPeriod(from: pdfText) else {
+                throw UberImportError.statementPeriodNotFound
+            }
+
+            // Check for existing statement period and replace if needed
+            // (user already confirmed replacement via pre-scan, or it's orphan-only)
+            let transactionManager = UberTransactionManager.shared
+            if transactionManager.hasStatementPeriod(statementInfo.period) {
+                // Remove old transactions first
+                let affectedShiftIDsBefore = transactionManager.getAffectedShiftIDs(forStatementPeriod: statementInfo.period)
+                transactionManager.deleteTransactions(forStatementPeriod: statementInfo.period)
+
+                // Track affected shifts so they get updated at the end
+                for shiftID in affectedShiftIDsBefore {
+                    affectedShiftIDs.insert(shiftID)
+                }
+            }
+
+            // Parse transactions
+            var transactions = try parser.parseStatement(from: url)
+
+            // Add metadata
+            let importDate = Date()
+            for i in 0..<transactions.count {
+                transactions[i].statementPeriod = statementInfo.period
+                transactions[i].importDate = importDate
+                transactions[i].shiftID = nil
+            }
+
+            // Match to shifts
+            let matcher = UberShiftMatcher()
+            let (matched, unmatched, verificationCount) = matcher.matchTransactionsToShifts(
+                transactions: transactions,
+                existingShifts: await MainActor.run { dataManager.shifts }
+            )
+
+            // Save matched transactions
+            for match in matched {
+                var transaction = match.transaction
+                transaction.shiftID = match.shift.id
+                transactionManager.saveTransaction(transaction)
+                affectedShiftIDs.insert(match.shift.id)
+            }
+
+            // Save unmatched as orphans
+            for transaction in unmatched {
+                transactionManager.saveTransaction(transaction)
+            }
+
+            // Accumulate for combined result
+            allUnmatchedTransactions.append(contentsOf: unmatched)
+            allMatchedCount += matched.count
+            allUnmatchedCount += unmatched.count
+
+            let importableCount = matched.count + unmatched.count
+            let ignoredCount = transactions.count - importableCount
+
+            allImportableCount += importableCount
+            allTransactionCount += transactions.count
+            allVerificationCount += verificationCount
+
+            return SingleStatementResult(
+                filename: url.lastPathComponent,
+                statementPeriod: statementInfo.period,
+                success: true,
+                errorMessage: nil,
+                matchedCount: matched.count,
+                unmatchedCount: unmatched.count,
+                importableCount: importableCount,
+                ignoredCount: ignoredCount,
+                wasSkippedAsDuplicate: false
+            )
+
+        } catch {
+            return SingleStatementResult(
+                filename: url.lastPathComponent,
+                statementPeriod: "Unknown",
+                success: false,
+                errorMessage: error.localizedDescription,
+                matchedCount: 0,
+                unmatchedCount: 0,
+                importableCount: 0,
+                ignoredCount: 0,
+                wasSkippedAsDuplicate: false
+            )
         }
     }
 
@@ -291,110 +595,6 @@ struct UberImportView: View {
 
         return updatedShifts
     }
-
-    /// Performs the actual import of transactions (used for both new imports and replacements)
-    private func performImport(transactions: [UberTransaction], statementPeriod: String) async {
-        do {
-            // Match transactions to shifts
-            let matcher = UberShiftMatcher()
-            let (matched, unmatched, transactionsNeedingVerification) = matcher.matchTransactionsToShifts(
-                transactions: transactions,
-                existingShifts: dataManager.shifts
-            )
-
-            // Process matched - assign shiftID and save to manager
-            var affectedShiftIDs: Set<UUID> = []
-            for match in matched {
-                var transaction = match.transaction
-                transaction.shiftID = match.shift.id
-                UberTransactionManager.shared.saveTransaction(transaction)
-                affectedShiftIDs.insert(match.shift.id)
-            }
-
-            // Save unmatched transactions as orphans (shiftID = nil)
-            for transaction in unmatched {
-                UberTransactionManager.shared.saveTransaction(transaction)
-            }
-
-            // Recalculate all affected shifts
-            let updatedShifts = try await updateAffectedShifts(affectedShiftIDs)
-
-            // Force UI refresh after all updates complete
-            // This ensures ShiftDetailView sees the new transactions immediately
-            await MainActor.run {
-                dataManager.objectWillChange.send()
-            }
-
-            // Generate missing shifts CSV
-            let csvGenerator = MissingShiftsCSVGenerator()
-            let missingShiftsCSV = try csvGenerator.generateMissingShiftsCSV(
-                unmatchedTransactions: unmatched,
-                statementPeriod: statementPeriod
-            )
-
-            // Create result
-            // importableCount = matched + unmatched (excludes ignored transactions like bank transfers)
-            // Only include CSV if there are actually unmatched transactions
-            // (the CSV always has a header row, so checking isEmpty won't work)
-            let importableCount = matched.count + unmatched.count
-            let result = UberImportResult(
-                statementPeriod: statementPeriod,
-                totalTransactions: transactions.count,
-                importableCount: importableCount,
-                matchedCount: matched.count,
-                unmatchedCount: unmatched.count,
-                transactionsNeedingVerification: transactionsNeedingVerification,
-                updatedShifts: updatedShifts,
-                missingShiftsCSV: unmatched.isEmpty ? nil : missingShiftsCSV
-            )
-
-            await MainActor.run {
-                importResult = result
-                isProcessing = false
-                showingResults = true
-            }
-
-        } catch {
-            await MainActor.run {
-                isProcessing = false
-                errorMessage = error.localizedDescription
-                showingError = true
-            }
-        }
-    }
-
-    /// Performs statement period replacement when user confirms
-    private func performStatementPeriodReplacement() {
-        isProcessing = true
-
-        Task {
-            // Get affected shifts BEFORE replacement (shifts that have transactions from this period)
-            let transactionManager = UberTransactionManager.shared
-            let affectedShiftIDsBefore = transactionManager.getAffectedShiftIDs(forStatementPeriod: pendingStatementPeriod)
-
-            // Perform atomic replacement
-            transactionManager.replaceStatementPeriod(pendingStatementPeriod, with: pendingTransactions)
-
-            // Now perform the import to match and update
-            await performImport(transactions: pendingTransactions, statementPeriod: pendingStatementPeriod)
-
-            // Also update shifts that lost ALL their transactions from this period
-            // (they may not be in the new matched set but need their data cleared)
-            let newAffectedShiftIDs = transactionManager.getAffectedShiftIDs(forStatementPeriod: pendingStatementPeriod)
-            let shiftsToCleanup = affectedShiftIDsBefore.subtracting(newAffectedShiftIDs)
-
-            if !shiftsToCleanup.isEmpty {
-                _ = try? await updateAffectedShifts(shiftsToCleanup)
-            }
-
-            // Clear pending state
-            await MainActor.run {
-                pendingTransactions = []
-                pendingStatementPeriod = ""
-                existingTransactionCount = 0
-            }
-        }
-    }
 }
 
 // MARK: - Supporting Types
@@ -416,27 +616,6 @@ enum UberImportError: LocalizedError {
         case .parsingFailed:
             return "Failed to parse PDF content. The file may be corrupted or in an unexpected format."
         }
-    }
-}
-
-struct UberImportResult {
-    let statementPeriod: String
-    let totalTransactions: Int      // All parsed transactions (including ignored)
-    let importableCount: Int        // Tips + tolls (excluding ignored like bank transfers)
-    let matchedCount: Int
-    let unmatchedCount: Int
-    let transactionsNeedingVerification: Int
-    let updatedShifts: [RideshareShift]
-    let missingShiftsCSV: String?
-
-    /// Number of ignored transactions (bank transfers, etc.)
-    var ignoredCount: Int {
-        totalTransactions - importableCount
-    }
-
-    /// True if statement had no importable data (only bank transfers, etc.)
-    var hasNoImportableTransactions: Bool {
-        importableCount == 0
     }
 }
 

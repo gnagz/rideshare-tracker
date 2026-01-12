@@ -15,38 +15,77 @@ struct UberImportResultView: View {
 
     let result: UberImportResult
 
-    // File exporter state
-    @State private var showingCSVExporter = false
-    @State private var csvDocument: CSVDocument?
-    @State private var csvFilename = "missing_shifts.csv"
+    // File exporter state - unified for both CSV and PDF
+    @State private var showingFileExporter = false
+    @State private var exportDocument: ExportDocument?
+    @State private var exportFilename = ""
+    @State private var exportContentType: UTType = .data
     @State private var showingExportAlert = false
     @State private var exportMessage = ""
     @State private var csvWasExported = false
     @State private var showingDismissWarning = false
+
+    // Header display properties
+    private var headerIcon: String {
+        if result.failedStatementCount == 0 && result.skippedStatementCount == 0 {
+            return "checkmark.circle.fill"
+        } else if result.successfulStatementCount == 0 {
+            return "xmark.circle.fill"
+        } else {
+            return "exclamationmark.circle.fill"
+        }
+    }
+
+    private var headerColor: Color {
+        if result.failedStatementCount == 0 && result.skippedStatementCount == 0 {
+            return .green
+        } else if result.successfulStatementCount == 0 {
+            return .red
+        } else {
+            return .orange
+        }
+    }
+
+    private var headerTitle: String {
+        if result.failedStatementCount == 0 && result.skippedStatementCount == 0 {
+            return "Import Complete"
+        } else if result.successfulStatementCount == 0 {
+            return "Import Failed"
+        } else {
+            return "Import Partially Complete"
+        }
+    }
 
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 24) {
 
-                    // Success Header
+                    // Dynamic Header based on success/partial/failed
                     VStack(spacing: 12) {
-                        Image(systemName: "checkmark.circle.fill")
+                        Image(systemName: headerIcon)
                             .font(.system(size: 60))
-                            .foregroundColor(.green)
+                            .foregroundColor(headerColor)
 
-                        Text("Import Complete")
+                        Text(headerTitle)
                             .font(.title)
                             .fontWeight(.bold)
 
                         Text(result.statementPeriod)
                             .font(.headline)
                             .foregroundColor(.secondary)
+
+                        // Show file count for multi-file imports
+                        if result.hasMultipleStatements {
+                            Text("\(result.statementResults.count) files processed")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     .padding(.top)
 
                     // Statistics Cards
-                    VStack(spacing: 8) {
+                    VStack(spacing: 4) {
                         // Show importable transactions (tips, tolls), not total
                         StatCard(
                             title: "Tips & Tolls Found",
@@ -124,6 +163,22 @@ struct UberImportResultView: View {
                     }
                     .padding(.horizontal)
 
+                    // Warnings for failed files
+                    if result.failedStatementCount > 0 {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text("\(result.failedStatementCount) file\(result.failedStatementCount == 1 ? "" : "s") failed to process")
+                                    .font(.subheadline)
+                            }
+                        }
+                        .padding()
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
+                    }
+
                     // Data Quality Warning
                     if result.transactionsNeedingVerification > 0 {
                         VStack(alignment: .leading, spacing: 12) {
@@ -152,27 +207,33 @@ struct UberImportResultView: View {
                         .padding(.horizontal)
                     }
 
-                    // Transaction Summary Image (combines tips, tolls, and all transactions)
-                    if let summaryImage = generateTransactionSummaryImage() {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Transaction Summary")
-                                .font(.headline)
-                                .padding(.horizontal)
+                    // Uber Import Summary PDF Export
+                    if hasTransactionsToSummarize {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Image(systemName: "doc.text.fill")
+                                    .foregroundColor(.blue)
+                                Text("Uber Import Summary")
+                                    .font(.headline)
+                            }
+                            .padding(.horizontal)
 
-                            Image(uiImage: summaryImage)
-                                .resizable()
-                                .scaledToFit()
-                                .cornerRadius(8)
+                            Text("Export a detailed PDF report of all imported transactions grouped by shift.")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                                 .padding(.horizontal)
 
                             Button {
-                                presentShareSheet(for: summaryImage)
+                                exportTransactionSummaryPDF()
                             } label: {
-                                Label("Share Transaction Summary", systemImage: "square.and.arrow.up")
+                                Label("Export Uber Import Summary", systemImage: "arrow.down.doc.fill")
+                                    .frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.borderedProminent)
+                            .tint(.blue)
                             .padding(.horizontal)
                         }
+                        .padding(.vertical)
                     }
 
                     // Missing Shifts CSV Export
@@ -220,20 +281,6 @@ struct UberImportResultView: View {
                         }
                         .padding(.vertical)
                     }
-
-                    // Updated Shifts List
-                    if !result.updatedShifts.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Updated Shifts")
-                                .font(.headline)
-                                .padding(.horizontal)
-
-                            ForEach(result.updatedShifts) { shift in
-                                ShiftUpdateCard(shift: shift)
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
                 }
                 .padding(.bottom, 24)
             }
@@ -247,15 +294,17 @@ struct UberImportResultView: View {
                 }
             }
             .fileExporter(
-                isPresented: $showingCSVExporter,
-                document: csvDocument,
-                contentType: .commaSeparatedText,
-                defaultFilename: csvFilename
+                isPresented: $showingFileExporter,
+                document: exportDocument,
+                contentType: exportContentType,
+                defaultFilename: exportFilename
             ) { result in
                 switch result {
                 case .success(let url):
-                    csvWasExported = true
-                    exportMessage = "CSV saved to: \(url.lastPathComponent)"
+                    if exportContentType == .commaSeparatedText {
+                        csvWasExported = true
+                    }
+                    exportMessage = "File saved to: \(url.lastPathComponent)"
                     showingExportAlert = true
                 case .failure(let error):
                     exportMessage = "Export failed: \(error.localizedDescription)"
@@ -285,6 +334,11 @@ struct UberImportResultView: View {
 
     // MARK: - Helper Methods
 
+    /// Check if there are transactions to include in summary
+    private var hasTransactionsToSummarize: Bool {
+        result.statementResults.contains { $0.success && ($0.matchedCount > 0 || $0.unmatchedCount > 0) }
+    }
+
     private func handleDoneButtonTap() {
         // Check if there's a missing shifts CSV that hasn't been downloaded
         if result.missingShiftsCSV != nil && !csvWasExported {
@@ -295,52 +349,31 @@ struct UberImportResultView: View {
     }
 
     private func prepareCSVExport(csv: String, filename: String) {
-        csvDocument = CSVDocument(content: csv)
-        csvFilename = filename
-        showingCSVExporter = true
-    }
-
-    private func presentShareSheet(for image: UIImage) {
-        let controller = UIActivityViewController(
-            activityItems: [image],
-            applicationActivities: nil
-        )
-
-        // Present directly via UIKit - find the topmost presented view controller
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            // Find the topmost presented view controller
-            var topController = rootViewController
-            while let presented = topController.presentedViewController {
-                topController = presented
-            }
-
-            // Handle iPad popover presentation
-            if let popover = controller.popoverPresentationController {
-                popover.sourceView = topController.view
-                popover.sourceRect = CGRect(x: topController.view.bounds.midX, y: topController.view.bounds.midY, width: 0, height: 0)
-                popover.permittedArrowDirections = []
-            }
-
-            topController.present(controller, animated: true)
+        exportDocument = ExportDocument(data: csv.data(using: .utf8) ?? Data())
+        exportFilename = filename
+        exportContentType = .commaSeparatedText
+        // Delay to ensure document state is processed before showing exporter
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            showingFileExporter = true
         }
     }
 
-    private func generateTransactionSummaryImage() -> UIImage? {
-        // Get all transactions for updated shifts
-        let allTransactions = result.updatedShifts.flatMap { shift in
-            UberTransactionManager.shared.getTransactions(forShift: shift.id)
+    private func exportTransactionSummaryPDF() {
+        // Generate comprehensive import report PDF
+        guard let pdfData = UberTransactionImageGenerator.generateImportReport(
+            statementResults: result.statementResults,
+            updatedShifts: result.updatedShifts,
+            title: "Uber Import Summary - \(result.statementPeriod)"
+        ) else { return }
+
+        // Prepare for export
+        exportDocument = ExportDocument(data: pdfData)
+        exportFilename = "Uber Import Summary - \(result.statementPeriod).pdf"
+        exportContentType = .pdf
+        // Delay to ensure document state is processed before showing exporter
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            showingFileExporter = true
         }
-        guard !allTransactions.isEmpty else { return nil }
-
-        // Create a dummy shift for the summary (uses statement period dates)
-        // This is just for display purposes in the results view
-        guard let firstShift = result.updatedShifts.first else { return nil }
-
-        return UberTransactionImageGenerator.generate(
-            transactions: allTransactions,
-            shift: firstShift
-        )
     }
 }
 
@@ -376,81 +409,27 @@ struct StatCard: View {
     }
 }
 
-struct ShiftUpdateCard: View {
-    let shift: RideshareShift
+// MARK: - Unified Export Document
 
-    private var shiftTransactions: [UberTransaction] {
-        UberTransactionManager.shared.getTransactions(forShift: shift.id)
-    }
+/// A unified document type that can export any data as any content type
+struct ExportDocument: FileDocument {
+    // Support multiple content types for reading (not used, but required)
+    static var readableContentTypes: [UTType] { [.data] }
 
-    private var tipCount: Int {
-        shiftTransactions.filter { categorize($0) == .tip }.count
-    }
+    let data: Data
 
-    private var tollCount: Int {
-        shiftTransactions.filter { $0.tollsReimbursed != nil && $0.tollsReimbursed! > 0 }.count
-    }
-
-    private var totalTips: Double {
-        shift.totalUberTips
-    }
-
-    private var totalTolls: Double {
-        shift.totalUberTollReimbursements
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(shift.startDate, style: .date)
-                    .font(.headline)
-                Spacer()
-                Text(shift.startDate, style: .time)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-
-            HStack(spacing: 16) {
-                if tipCount > 0 {
-                    Text("\(tipCount) tips: $\(String(format: "%.2f", totalTips))")
-                        .font(.subheadline)
-                        .foregroundColor(.green)
-                }
-
-                if tollCount > 0 {
-                    Text("\(tollCount) toll reimb: $\(String(format: "%.2f", totalTolls))")
-                        .font(.subheadline)
-                        .foregroundColor(.green)
-                }
-            }
-        }
-        .padding()
-        .background(Color(.systemGroupedBackground))
-        .cornerRadius(8)
-    }
-}
-
-// MARK: - CSV Document for File Export
-
-struct CSVDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
-
-    let content: String
-
-    init(content: String) {
-        self.content = content
+    init(data: Data) {
+        self.data = data
     }
 
     init(configuration: ReadConfiguration) throws {
-        guard let data = configuration.file.regularFileContents,
-              let string = String(data: data, encoding: .utf8) else {
+        guard let data = configuration.file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        content = string
+        self.data = data
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let data = content.data(using: .utf8) ?? Data()
         return FileWrapper(regularFileWithContents: data)
     }
 }
@@ -466,7 +445,20 @@ struct CSVDocument: FileDocument {
         unmatchedCount: 5,
         transactionsNeedingVerification: 3,
         updatedShifts: [],
-        missingShiftsCSV: "Sample CSV content"
+        missingShiftsCSV: "Sample CSV content",
+        statementResults: [
+            SingleStatementResult(
+                filename: "uber_statement.pdf",
+                statementPeriod: "Oct 13, 2025 - Oct 20, 2025",
+                success: true,
+                errorMessage: nil,
+                matchedCount: 20,
+                unmatchedCount: 5,
+                importableCount: 25,
+                ignoredCount: 2,
+                wasSkippedAsDuplicate: false
+            )
+        ]
     )
 
     return UberImportResultView(result: sampleResult)

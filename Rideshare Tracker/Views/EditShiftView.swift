@@ -778,15 +778,20 @@ struct EditShiftView: View {
     }
     
     private func saveShift() {
+        // Truncate to minute (user can only pick hour/minute, drop seconds/nanoseconds)
+        let calendar = Calendar.current
+
         // Update start shift data
-        shift.startDate = startDate
+        let startComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: startDate)
+        shift.startDate = calendar.date(from: startComponents) ?? startDate
         shift.startMileage = Double(startMileage) ?? shift.startMileage
         shift.hasFullTankAtStart = startTankReading == 8.0
         shift.startTankReading = startTankReading
-        
+
         // Update end shift data if shift is completed
         if shift.endDate != nil {
-            shift.endDate = endDate
+            let endComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: endDate)
+            shift.endDate = calendar.date(from: endComponents) ?? endDate
             shift.endMileage = Double(endMileage)
             shift.didRefuelAtEnd = didRefuel
             

@@ -494,7 +494,10 @@ struct EndShiftView: View {
     }
     
     private func endShift() {
-        shift.endDate = endDate
+        // Truncate to minute (user can only pick hour/minute, drop seconds/nanoseconds)
+        let calendar = Calendar.current
+        let endComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: endDate)
+        shift.endDate = calendar.date(from: endComponents) ?? endDate
         shift.endMileage = Double(endMileage)
         shift.didRefuelAtEnd = didRefuel
         

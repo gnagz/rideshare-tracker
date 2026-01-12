@@ -130,6 +130,19 @@ class UberTransactionManager: @unchecked Sendable {
         getAllTransactionsInternal().contains(where: { $0.statementPeriod == period })
     }
 
+    /// Get counts of matched (has shiftID) vs orphan transactions for a statement period
+    func getTransactionCounts(forStatementPeriod period: String) -> (matched: Int, orphan: Int) {
+        let transactions = getTransactions(forStatementPeriod: period)
+        let matched = transactions.filter { $0.shiftID != nil }.count
+        let orphan = transactions.filter { $0.shiftID == nil }.count
+        return (matched, orphan)
+    }
+
+    /// Check if statement period has any matched (non-orphan) transactions
+    func hasMatchedTransactions(forStatementPeriod period: String) -> Bool {
+        getTransactions(forStatementPeriod: period).contains { $0.shiftID != nil }
+    }
+
     /// Get all unique statement periods from stored transactions
     func getAllStatementPeriods() -> [String] {
         let all = getAllTransactionsInternal()
@@ -165,18 +178,21 @@ class UberTransactionManager: @unchecked Sendable {
 
     // MARK: - Deletion
 
-    /// Delete transactions matching a predicate (async)
-    func deleteTransactions(where predicate: @escaping @Sendable (UberTransaction) -> Bool) {
-        queue.async {
-            var all = self.getAllTransactionsInternal()
-            all.removeAll(where: predicate)
-            self.persist(all)
-        }
+    /// Delete transactions matching a predicate (synchronous)
+    func deleteTransactions(where predicate: (UberTransaction) -> Bool) {
+        var all = getAllTransactionsInternal()
+        all.removeAll(where: predicate)
+        persist(all)
     }
 
-    /// Delete specific transactions by ID (async)
+    /// Delete specific transactions by ID (synchronous)
     func deleteTransactions(_ ids: [UUID]) {
         deleteTransactions(where: { ids.contains($0.id) })
+    }
+
+    /// Delete all transactions for a specific statement period (synchronous)
+    func deleteTransactions(forStatementPeriod period: String) {
+        deleteTransactions(where: { $0.statementPeriod == period })
     }
 
     /// Clear all transactions (for testing)

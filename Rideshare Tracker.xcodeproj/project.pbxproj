@@ -93,6 +93,8 @@
 		35BACCB02EC43DE3006F5545 /* UberStatementManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35BACCAF2EC43DE3006F5545 /* UberStatementManager.swift */; };
 		35BACCB12EC43DE3006F5545 /* UberStatementManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35BACCAF2EC43DE3006F5545 /* UberStatementManager.swift */; };
 		35E48DE42EBD20930069D57C /* FileManager+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35E48DE32EBD20930069D57C /* FileManager+Extensions.swift */; };
+		35EEE74A2F134ED200713E77 /* UberImportResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35EEE7492F134ED200713E77 /* UberImportResult.swift */; };
+		35EEE74B2F134ED200713E77 /* UberImportResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35EEE7492F134ED200713E77 /* UberImportResult.swift */; };
 		35F153AA2E66A6EA00927F88 /* CloudSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F153A92E66A6EA00927F88 /* CloudSyncManager.swift */; };
 		35F840692E56D56B00AA3EBD /* Media.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 35F840682E56D56B00AA3EBD /* Media.xcassets */; };
 /* End PBXBuildFile section */
@@ -200,6 +202,7 @@
 		35A841872E711EFF0050192C /* ImageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageManager.swift; sourceTree = "<group>"; };
 		35BACCAF2EC43DE3006F5545 /* UberStatementManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberStatementManager.swift; sourceTree = "<group>"; };
 		35E48DE32EBD20930069D57C /* FileManager+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileManager+Extensions.swift"; sourceTree = "<group>"; };
+		35EEE7492F134ED200713E77 /* UberImportResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UberImportResult.swift; sourceTree = "<group>"; };
 		35F153A92E66A6EA00927F88 /* CloudSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncManager.swift; sourceTree = "<group>"; };
 		35F840682E56D56B00AA3EBD /* Media.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Media.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -289,6 +292,7 @@
 		3531FC562E49872D000F2CD7 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				35EEE7492F134ED200713E77 /* UberImportResult.swift */,
 				3598F6142EC80BC3000B983F /* UberTransaction.swift */,
 				357F178D2E8A1CC800262CFA /* TollTransaction.swift */,
 				35A841832E711EE60050192C /* ImageAttachment.swift */,
@@ -619,6 +623,7 @@
 				3531FC612E49887F000F2CD7 /* ShiftRowView.swift in Sources */,
 				3544237C2EC06417005CDC52 /* UberShiftMatcher.swift in Sources */,
 				3531FC632E498890000F2CD7 /* StartShiftView.swift in Sources */,
+				35EEE74A2F134ED200713E77 /* UberImportResult.swift in Sources */,
 				35E48DE42EBD20930069D57C /* FileManager+Extensions.swift in Sources */,
 				3538E63A2E9021CC00D18302 /* DebugUtilities.swift in Sources */,
 				3538E63B2E9021CC00D18302 /* ImageViewingUtilities.swift in Sources */,
@@ -635,6 +640,7 @@
 				357F17992E8A258B00262CFA /* TollSummaryImageGenerator.swift in Sources */,
 				357F179A2E8A258B00262CFA /* DocumentFile.swift in Sources */,
 				3598F6162EC80BC3000B983F /* UberTransaction.swift in Sources */,
+				35EEE74B2F134ED200713E77 /* UberImportResult.swift in Sources */,
 				357F179E2E8A269900262CFA /* CloudSyncManager.swift in Sources */,
 				3538E63C2E9021D600D18302 /* DebugUtilities.swift in Sources */,
 				357F179D2E8A269300262CFA /* ImageManager.swift in Sources */,

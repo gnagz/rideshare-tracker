@@ -64,11 +64,12 @@ class UberShiftMatcher {
         // Use eventDate (actual trip time) when available
         // Fall back to transactionDate (processed time) only when eventDate is nil
         // This is critical for tips, which are processed hours after the actual trip
-        let transactionDate = transaction.eventDate ?? transaction.transactionDate
+        let transactionDate = normalizeToMinute(transaction.eventDate ?? transaction.transactionDate)
 
         for shift in shifts {
-            let shiftStart = shift.startDate
-            guard let shiftEnd = shift.endDate else { continue }
+            // Truncate to minute for fair comparison (user can only pick hour/minute)
+            let shiftStart = normalizeToMinute(shift.startDate)
+            guard let shiftEnd = normalizeToMinute(shift.endDate) else { continue }
 
             // Calculate 4 AM boundary for the shift's date
             // The shift's 4 AM window is based on the day the shift started
@@ -86,6 +87,19 @@ class UberShiftMatcher {
         }
 
         return nil
+    }
+
+    /// Normalize a date by truncating to the minute (drops seconds and nanoseconds)
+    private func normalizeToMinute(_ date: Date) -> Date {
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        return calendar.date(from: components) ?? date
+    }
+
+    /// Normalize an optional date by truncating to the minute
+    private func normalizeToMinute(_ date: Date?) -> Date? {
+        guard let date = date else { return nil }
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        return calendar.date(from: components)
     }
 
     // MARK: - Private Helper Methods
